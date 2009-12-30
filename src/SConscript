@@ -1,0 +1,21 @@
+Import('root_env SOURCE_FILES')
+
+SOURCE_FILES.append(File('SConscript'))
+
+env = root_env.Clone()
+
+env.Append(CPPPATH = ["#/include"])
+
+libpush_files = map(File, \
+    [
+     "callback.c",
+     "parser.c",
+    ])
+
+SOURCE_FILES.extend(libpush_files)
+
+libpush = env.SharedLibrary("push", libpush_files)
+env.Alias("install", env.Install("$LIBDIR", libpush))
+Default(libpush)
+
+Export('libpush')

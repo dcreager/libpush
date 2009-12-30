@@ -1,0 +1,23 @@
+import os
+
+Import('root_env SOURCE_FILES')
+
+SOURCE_FILES.append(File('SConscript'))
+
+env = root_env.Clone(ENV={'PATH': os.environ['PATH']})
+
+cfg_file = File("libpush.cfg")
+SOURCE_FILES.append(cfg_file)
+
+doc = env.Command("html", cfg_file,
+                  "doxygen %s" % cfg_file.abspath)
+env.Alias("doc", doc)
+env.AlwaysBuild(doc)
+
+env.Alias("install-doc", env.Install("$DOCDIR", "html"))
+
+# Don't build the documentation by default; but clean it by default.
+
+if GetOption('clean'):
+    env.Clean("doc", "html")
+    env.Default("doc")

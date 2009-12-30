@@ -1,0 +1,12 @@
+.sconf_temp/
+.sconsign.dblite
+.scons.vars*
+config.log
+
+libpush*/
+libpush*.tar.gz
+
+*.[oa]
+*.os
+*.so
+*.dylib
