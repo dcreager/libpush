@@ -182,4 +182,14 @@ void
 push_parser_free(push_parser_t *parser);
 
 
+/**
+ * Submit some data to the push parser for processing.
+ */
+
+void
+push_parser_submit_data(push_parser_t *parser,
+                        const void *buf,
+                        size_t bytes_available);
+
+
 #endif  /* PUSH_H */

@@ -82,6 +82,7 @@ SConscript([
             'doc/SConscript',
             'include/SConscript',
             'src/SConscript',
+            'tests/SConscript',
            ])
 
 # Install documentation files

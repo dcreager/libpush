@@ -1,0 +1,39 @@
+import os
+import os.path
+
+Import('root_env SOURCE_FILES')
+
+SOURCE_FILES.append(File('SConscript'))
+
+env = root_env.Clone()
+
+env.Prepend(CPPPATH=["#/include", "$check_CPPPATH"],
+            LIBPATH=["#/src", "$check_LIBPATH"])
+
+# Give each test program an RPATH, so that it can find the libpush
+# library while they're still in the source tree.
+
+rpath = [env.Literal(os.path.join('\\$$ORIGIN', os.pardir, 'src'))]
+
+
+def add_test(test_program):
+    c_file = "%s.c" % test_program
+    SOURCE_FILES.append(File(c_file))
+
+    target = env.Program(test_program, [c_file],
+                         LIBS=['push', '$check_LIB'],
+                         RPATH=rpath)
+    env.Alias("build-tests", target)
+
+    run_test_target = env.Alias("test", [target],
+                                ["@%s" % target[0].abspath])
+    env.AlwaysBuild(run_test_target)
+
+
+add_test("test-sum-callback")
+
+
+# Don't build the tests by default; but clean them by default.
+
+if GetOption('clean'):
+    env.Default("build-tests")
