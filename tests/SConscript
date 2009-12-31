@@ -31,6 +31,7 @@ def add_test(test_program):
 
 
 add_test("test-double-sum-callback")
+add_test("test-indexed-sum-callback")
 add_test("test-sum-callback")
 
 

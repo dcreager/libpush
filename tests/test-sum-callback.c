@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <check.h>
 
@@ -29,7 +30,7 @@ typedef struct _sum_callback
 } sum_callback_t;
 
 
-static size_t
+static ssize_t
 sum_callback_process_bytes(push_parser_t *parser,
                            push_callback_t *pcallback,
                            const void *buf,
@@ -43,12 +44,12 @@ sum_callback_process_bytes(push_parser_t *parser,
     while (bytes_available >= sizeof(uint32_t))
     {
         const uint32_t  *next_int = (const uint32_t *) buf;
+        buf += sizeof(uint32_t);
+        bytes_available -= sizeof(uint32_t);
 
         PUSH_DEBUG_MSG("Adding %"PRIu32".\n", *next_int);
 
         callback->sum += *next_int;
-        buf += sizeof(uint32_t);
-        bytes_available -= sizeof(uint32_t);
     }
 
     return bytes_available;
@@ -102,7 +103,9 @@ START_TEST(test_sum_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    push_parser_submit_data(parser, &DATA_01, LENGTH_01);
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
+                "Could not parse data");
 
     fail_unless(callback->sum == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -131,8 +134,13 @@ START_TEST(test_sum_02)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    push_parser_submit_data(parser, &DATA_01, LENGTH_01);
-    push_parser_submit_data(parser, &DATA_01, LENGTH_01);
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
+                "Could not parse data");
 
     fail_unless(callback->sum == 30,
                 "Sum doesn't match (got %"PRIu32
@@ -165,7 +173,9 @@ START_TEST(test_sum_03)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    push_parser_submit_data(parser, &DATA_01, LENGTH_01);
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
+                "Could not parse data");
 
     fail_unless(callback->sum == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -197,10 +207,15 @@ START_TEST(test_misaligned_data)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    push_parser_submit_data(parser, &DATA_01, FIRST_CHUNK_SIZE);
-    push_parser_submit_data(parser,
-                            ((void *) DATA_01) + FIRST_CHUNK_SIZE,
-                            LENGTH_01 - FIRST_CHUNK_SIZE);
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_submit_data
+                (parser,
+                 ((void *) DATA_01) + FIRST_CHUNK_SIZE,
+                 LENGTH_01 - FIRST_CHUNK_SIZE) == PUSH_SUCCESS,
+                "Could not parse data");
 
     fail_unless(callback->sum == 15,
                 "Sum doesn't match (got %"PRIu32

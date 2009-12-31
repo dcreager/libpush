@@ -10,6 +10,7 @@
 
 #include <stdbool.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <push.h>
 
@@ -69,7 +70,7 @@ push_parser_set_callback(push_parser_t *parser,
  * the callback, in case it doesn't process all of the data.
  */
 
-static bool
+static push_error_code_t
 process_bytes(push_parser_t *parser,
               const void **buf,
               size_t *bytes_available)
@@ -77,7 +78,7 @@ process_bytes(push_parser_t *parser,
     push_callback_t  *callback = parser->current_callback;
 
     size_t  bytes_to_send;
-    size_t  bytes_left;
+    ssize_t  bytes_left;
     size_t  bytes_processed;
 
     /*
@@ -95,6 +96,14 @@ process_bytes(push_parser_t *parser,
         (parser, callback, *buf, bytes_to_send);
 
     /*
+     * If process_bytes returns an error code, pass that on up the
+     * call chain.
+     */
+
+    if (bytes_left < 0)
+        return bytes_left;
+
+    /*
      * The callback might not have processed all the data — either
      * because we didn't tell it about all of the data, or because it
      * returned a status code indicating that there's some data left
@@ -106,7 +115,7 @@ process_bytes(push_parser_t *parser,
     *bytes_available -= bytes_processed;
     *buf += bytes_processed;
 
-    return true;
+    return PUSH_SUCCESS;
 }
 
 
@@ -118,7 +127,7 @@ process_bytes(push_parser_t *parser,
  * by the callback will be kept in the leftovers buffer.
  */
 
-static bool
+static push_error_code_t
 process_leftovers(push_parser_t *parser,
                   const void **buf,
                   size_t *bytes_available)
@@ -127,6 +136,7 @@ process_leftovers(push_parser_t *parser,
     const void  *leftover_buf;
     size_t  original_size;
     size_t  leftover_size;
+    push_error_code_t  result;
 
     /*
      * If needed, append some data from the submitted buffer to meet
@@ -152,12 +162,8 @@ process_leftovers(push_parser_t *parser,
         if (!hwm_buffer_append_mem(&parser->leftover, *buf,
                                    bytes_to_add))
         {
-            /*
-             * Uh-oh!  TODO: Better error handling.
-             */
-
             PUSH_DEBUG_MSG("Cannot copy bytes into leftover buffer.\n");
-            return false;
+            return PUSH_MEMORY_ERROR;
         }
 
         *buf += bytes_to_add;
@@ -171,14 +177,12 @@ process_leftovers(push_parser_t *parser,
     leftover_buf = hwm_buffer_mem(&parser->leftover, void);
     original_size = leftover_size = parser->leftover.current_size;
 
-    if (!process_bytes(parser, &leftover_buf, &leftover_size))
-    {
-        /*
-         * Uh-oh!  TODO: Better error handling.
-         */
+    result = process_bytes(parser, &leftover_buf, &leftover_size);
 
+    if (result < 0)
+    {
         PUSH_DEBUG_MSG("Could not process bytes in leftover buffer.\n");
-        return false;
+        return result;
     }
 
     /*
@@ -202,11 +206,11 @@ process_leftovers(push_parser_t *parser,
         parser->leftover.current_size = leftover_size;
     }
 
-    return true;
+    return PUSH_SUCCESS;
 }
 
 
-bool
+push_error_code_t
 push_parser_submit_data(push_parser_t *parser,
                         const void *buf,
                         size_t bytes_available)
@@ -221,6 +225,8 @@ push_parser_submit_data(push_parser_t *parser,
     {
         if (hwm_buffer_is_empty(&parser->leftover))
         {
+            push_error_code_t  result;
+
             /*
              * If there's no data in the leftover buffer, then we just
              * pass the submitted buffer into the callback.  (We know
@@ -228,20 +234,26 @@ push_parser_submit_data(push_parser_t *parser,
              * while-loop test would've failed.)
              */
 
-            if (!process_bytes(parser, &buf, &bytes_available))
+            result = process_bytes(parser, &buf, &bytes_available);
+
+            if (result < 0)
             {
-                return false;
+                return result;
             }
 
         } else {
+            push_error_code_t  result;
+
             /*
              * If there's data in the leftover buffer, then we pass
              * that into the callback first.
              */
 
-            if (!process_leftovers(parser, &buf, &bytes_available))
+            result = process_leftovers(parser, &buf, &bytes_available);
+
+            if (result < 0)
             {
-                return false;
+                return result;
             }
         }
     }
@@ -255,9 +267,10 @@ push_parser_submit_data(push_parser_t *parser,
     {
         if (!hwm_buffer_append_mem(&parser->leftover, buf, bytes_available))
         {
-            return false;
+            PUSH_DEBUG_MSG("Cannot store leftover data in leftover buffer.\n");
+            return PUSH_MEMORY_ERROR;
         }
     }
 
-    return true;
+    return PUSH_SUCCESS;
 }

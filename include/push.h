@@ -21,10 +21,13 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <hwm-buffer.h>
 
+#ifndef PUSH_DEBUG
 #define PUSH_DEBUG 0
+#endif
 
 #if PUSH_DEBUG
 #include <stdio.h>
@@ -38,6 +41,34 @@
 
 typedef struct _push_parser push_parser_t;
 typedef struct _push_callback push_callback_t;
+
+
+/**
+ * Error codes that can be returned by a callback's process_bytes
+ * function and the push_parser_submit_data() function.
+ */
+
+typedef enum
+{
+    /**
+     * Indicates that all of the bytes were processed successfully.
+     */
+
+    PUSH_SUCCESS = 0,
+
+    /**
+     * Indicates that the data was invalid in some way.
+     */
+
+    PUSH_PARSE_ERROR = -1,
+
+    /**
+     * Indicates that there was a problem allocating memory during
+     * parsing.
+     */
+
+    PUSH_MEMORY_ERROR = -2,
+} push_error_code_t;
 
 
 /**
@@ -60,6 +91,11 @@ typedef struct _push_callback push_callback_t;
  * passed back into the same callback function.  This will most likely
  * result in an infinite loop.
  *
+ * If there is a parse error while processing these bytes, the
+ * function should return PUSH_PARSE_ERROR.  If the callback needs to
+ * allocate some memory, but cannot, it should return
+ * PUSH_MEMORY_ERROR.
+ *
  * @param parser The push parser that initiated the call.
  *
  * @param callback The parser's callback object.
@@ -70,10 +106,12 @@ typedef struct _push_callback push_callback_t;
  * @param bytes_available The number of bytes that are available to be
  * processed.  The function should only read this many bytes from buf.
  *
- * @return The number of bytes successfully processed.
+ * @return The number of bytes left over after successfully processing
+ * the data, or a push_error_code_t value if there is an error while
+ * processing the data.
  */
 
-typedef size_t
+typedef ssize_t
 push_process_bytes_func_t(push_parser_t *parser,
                           push_callback_t *callback,
                           const void *buf,
@@ -254,10 +292,12 @@ push_parser_set_callback(push_parser_t *parser,
 
 
 /**
- * Submit some data to the push parser for processing.
+ * Submit some data to the push parser for processing.  If there is an
+ * error during processing, a negative error code (of type
+ * push_error_code_t) will be returned.
  */
 
-bool
+push_error_code_t
 push_parser_submit_data(push_parser_t *parser,
                         const void *buf,
                         size_t bytes_available);
