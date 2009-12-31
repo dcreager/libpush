@@ -12,7 +12,8 @@
 
 push_callback_t *
 push_callback_new(push_process_bytes_func_t *process_bytes,
-                  size_t bytes_requested)
+                  size_t min_bytes_requested,
+                  size_t max_bytes_requested)
 {
     push_callback_t  *result;
 
@@ -31,7 +32,8 @@ push_callback_new(push_process_bytes_func_t *process_bytes,
      * If it works, initialize and return the new instance.
      */
 
-    result->bytes_requested = bytes_requested;
+    result->min_bytes_requested = min_bytes_requested;
+    result->max_bytes_requested = max_bytes_requested;
     result->process_bytes = process_bytes;
     result->free = NULL;
     return result;

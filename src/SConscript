@@ -4,7 +4,8 @@ SOURCE_FILES.append(File('SConscript'))
 
 env = root_env.Clone()
 
-env.Append(CPPPATH = ["#/include"])
+env.Append(CPPPATH = ["#/include", "$libhwm_CPPPATH"],
+           LIBPATH = [".", "$libhwm_LIBPATH"])
 
 libpush_files = map(File, \
     [
@@ -14,7 +15,8 @@ libpush_files = map(File, \
 
 SOURCE_FILES.extend(libpush_files)
 
-libpush = env.SharedLibrary("push", libpush_files)
+libpush = env.SharedLibrary("push", libpush_files,
+                            LIBS=["$libhwm_LIB"])
 env.Alias("install", env.Install("$LIBDIR", libpush))
 Default(libpush)
 

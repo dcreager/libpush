@@ -21,6 +21,17 @@
 
 #include <stdlib.h>
 
+#include <hwm-buffer.h>
+
+#define PUSH_DEBUG 0
+
+#if PUSH_DEBUG
+#include <stdio.h>
+#define PUSH_DEBUG_MSG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define PUSH_DEBUG_MSG(...) /* skipping debug message */
+#endif
+
 
 /* forward declarations */
 
@@ -94,11 +105,20 @@ push_callback_free_func_t(push_callback_t *callback);
 struct _push_callback
 {
     /**
+     * The minimum number of bytes that will be passed into the next
+     * call to process_bytes.  If there aren't that many bytes
+     * available, the push parser will buffer the bytes until they are
+     * available.
+     */
+
+    size_t  min_bytes_requested;
+
+    /**
      * The maximum number of bytes that will be passed into the next
      * call to process_bytes.
      */
 
-    size_t  bytes_requested;
+    size_t  max_bytes_requested;
 
     /**
      * Called by the push parser when bytes are available for
@@ -134,7 +154,8 @@ struct _push_callback
 
 push_callback_t *
 push_callback_new(push_process_bytes_func_t *process_bytes,
-                  size_t bytes_requested);
+                  size_t min_bytes_requested,
+                  size_t max_bytes_requested);
 
 
 /**
@@ -159,6 +180,13 @@ struct _push_parser
      */
 
     push_callback_t  *current_callback;
+
+    /**
+     * A buffer that stores data that has not yet been processed by
+     * the callback.
+     */
+
+    hwm_buffer_t  leftover;
 };
 
 
@@ -186,7 +214,7 @@ push_parser_free(push_parser_t *parser);
  * Submit some data to the push parser for processing.
  */
 
-void
+bool
 push_parser_submit_data(push_parser_t *parser,
                         const void *buf,
                         size_t bytes_available);

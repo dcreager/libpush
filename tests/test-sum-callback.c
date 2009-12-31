@@ -37,14 +37,14 @@ sum_callback_process_bytes(push_parser_t *parser,
 {
     sum_callback_t  *callback = (sum_callback_t *) pcallback;
 
-    /*
-    fprintf(stderr, "Processing %zu bytes at %p.\n",
-            bytes_available, buf);
-    */
+    PUSH_DEBUG_MSG("Processing %zu bytes at %p.\n",
+                   bytes_available, buf);
 
     while (bytes_available >= sizeof(uint32_t))
     {
         const uint32_t  *next_int = (const uint32_t *) buf;
+
+        PUSH_DEBUG_MSG("Adding %"PRIu32".\n", *next_int);
 
         callback->sum += *next_int;
         buf += sizeof(uint32_t);
@@ -64,7 +64,8 @@ sum_callback_new()
     if (result == NULL)
         return NULL;
 
-    result->base.bytes_requested = sizeof(uint32_t);
+    result->base.min_bytes_requested = sizeof(uint32_t);
+    result->base.max_bytes_requested = sizeof(uint32_t);
     result->base.process_bytes = sum_callback_process_bytes;
     result->base.free = NULL;
     result->sum = 0;
@@ -141,6 +142,41 @@ START_TEST(test_sum_02)
 END_TEST
 
 
+START_TEST(test_misaligned_data)
+{
+    push_parser_t  *parser;
+    sum_callback_t  *callback;
+    size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
+
+    /*
+     * Our callback processes ints on nice 32-bit boundaries.  If we
+     * send the parser data that doesn't align with these boundaries,
+     * we should still get the right answer.
+     */
+
+    callback = sum_callback_new();
+    fail_if(callback == NULL,
+            "Could not allocate a new sum callback");
+
+    parser = push_parser_new((push_callback_t *) callback);
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    push_parser_submit_data(parser, &DATA_01, FIRST_CHUNK_SIZE);
+    push_parser_submit_data(parser,
+                            ((void *) DATA_01) + FIRST_CHUNK_SIZE,
+                            LENGTH_01 - FIRST_CHUNK_SIZE);
+
+    fail_unless(callback->sum == 15,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                callback->sum, 15);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
 /*-----------------------------------------------------------------------
  * Testing harness
  */
@@ -153,6 +189,7 @@ test_suite()
     TCase  *tc = tcase_create("sum-callback");
     tcase_add_test(tc, test_sum_01);
     tcase_add_test(tc, test_sum_02);
+    tcase_add_test(tc, test_misaligned_data);
     suite_add_tcase(s, tc);
 
     return s;

@@ -57,6 +57,14 @@ if not GetOption('clean') and not GetOption('help'):
         Exit(0)
 
 
+    if not conf.CheckLibInPath("libhwm",
+                               library="hwm",
+                               call="hwm_buffer_new()",
+                               header="#include <hwm-buffer.h>"):
+        print "!! Cannot find the libhwm library."
+        Exit(0)
+
+
     root_env = conf.Finish()
 
 # Set up a list of source files for the packaging target later on.
