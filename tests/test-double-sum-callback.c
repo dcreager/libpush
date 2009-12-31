@@ -104,6 +104,7 @@ sum_callback_new()
                        sizeof(uint32_t),
                        sizeof(uint32_t),
                        sum_callback_process_bytes,
+                       push_eof_allowed,
                        sum_callback_free);
 
     result->sum = 0;
@@ -150,6 +151,9 @@ START_TEST(test_double_sum_01)
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
 
     fail_unless(callback_even->sum == 9,
                 "Even sum doesn't match (got %"PRIu32
@@ -199,6 +203,9 @@ START_TEST(test_double_sum_02)
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
 
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
     fail_unless(callback_even->sum == 15,
                 "Even sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
@@ -247,6 +254,9 @@ START_TEST(test_double_sum_03)
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
 
     fail_unless(callback_even->sum == 9,
                 "Even sum doesn't match (got %"PRIu32
@@ -300,6 +310,9 @@ START_TEST(test_misaligned_data)
                  ((void *) DATA_01) + FIRST_CHUNK_SIZE,
                  LENGTH_01 - FIRST_CHUNK_SIZE) == PUSH_SUCCESS,
                 "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
 
     fail_unless(callback_even->sum == 9,
                 "Even sum doesn't match (got %"PRIu32

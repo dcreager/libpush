@@ -163,10 +163,16 @@ sum_callback_new(push_callback_t *next_callback)
     if (result == NULL)
         return NULL;
 
+    /*
+     * There cannot be an EOF in between the index and the integer
+     * that should be added to the sum.
+     */
+
     push_callback_init(&result->base,
                        sizeof(uint32_t),
                        sizeof(uint32_t),
                        sum_callback_process_bytes,
+                       push_eof_not_allowed,
                        sum_callback_free);
 
     result->sum = 0;
@@ -186,10 +192,16 @@ index_callback_new()
     if (result == NULL)
         return NULL;
 
+    /*
+     * It's okay for there to be an EOF before an index — that's just
+     * the end of the list.
+     */
+
     push_callback_init(&result->base,
                        sizeof(uint32_t),
                        sizeof(uint32_t),
                        index_callback_process_bytes,
+                       push_eof_allowed,
                        index_callback_free);
 
     for (i = 0; i < NUM_SUM_CALLBACKS; i++)
@@ -233,6 +245,14 @@ const uint32_t  DATA_02[] =
 const size_t  LENGTH_02 = 10 * sizeof(uint32_t);
 
 
+const uint32_t  DATA_03[] =
+{
+    0, 1,
+    1      /* parse error here */
+};
+const size_t  LENGTH_03 = 3 * sizeof(uint32_t);
+
+
 /*-----------------------------------------------------------------------
  * Test cases
  */
@@ -254,6 +274,9 @@ START_TEST(test_indexed_sum_01)
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
 
     fail_unless(callback->sum_callbacks[0]->sum == 9,
                 "Sum 0 doesn't match (got %"PRIu32
@@ -294,6 +317,9 @@ START_TEST(test_indexed_sum_02)
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
 
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
     fail_unless(callback->sum_callbacks[0]->sum == 18,
                 "Sum 0 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
@@ -331,6 +357,9 @@ START_TEST(test_indexed_sum_03)
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
 
     fail_unless(callback->sum_callbacks[0]->sum == 9,
                 "Sum 0 doesn't match (got %"PRIu32
@@ -377,6 +406,9 @@ START_TEST(test_misaligned_data)
                  LENGTH_01 - FIRST_CHUNK_SIZE) == PUSH_SUCCESS,
                 "Could not parse data");
 
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
     fail_unless(callback->sum_callbacks[0]->sum == 9,
                 "Sum 0 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
@@ -392,7 +424,7 @@ START_TEST(test_misaligned_data)
 END_TEST
 
 
-START_TEST(test_parse_error)
+START_TEST(test_parse_error_01)
 {
     push_parser_t  *parser;
     index_callback_t  *callback;
@@ -414,6 +446,31 @@ START_TEST(test_parse_error)
 END_TEST
 
 
+START_TEST(test_parse_error_02)
+{
+    push_parser_t  *parser;
+    index_callback_t  *callback;
+
+    callback = index_callback_new();
+    fail_if(callback == NULL,
+            "Could not allocate index callback");
+
+    parser = push_parser_new(&callback->base);
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_03, LENGTH_03) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_PARSE_ERROR,
+                "Should get a parse error at EOF");
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
 /*-----------------------------------------------------------------------
  * Testing harness
  */
@@ -428,7 +485,8 @@ test_suite()
     tcase_add_test(tc, test_indexed_sum_02);
     tcase_add_test(tc, test_indexed_sum_03);
     tcase_add_test(tc, test_misaligned_data);
-    tcase_add_test(tc, test_parse_error);
+    tcase_add_test(tc, test_parse_error_01);
+    tcase_add_test(tc, test_parse_error_02);
     suite_add_tcase(s, tc);
 
     return s;

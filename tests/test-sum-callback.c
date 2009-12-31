@@ -69,6 +69,7 @@ sum_callback_new()
                        sizeof(uint32_t),
                        sizeof(uint32_t),
                        sum_callback_process_bytes,
+                       push_eof_allowed,
                        NULL);
 
     result->sum = 0;
@@ -107,6 +108,9 @@ START_TEST(test_sum_01)
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
 
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
     fail_unless(callback->sum == 15,
                 "Sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
@@ -142,6 +146,9 @@ START_TEST(test_sum_02)
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
 
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
     fail_unless(callback->sum == 30,
                 "Sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
@@ -176,6 +183,9 @@ START_TEST(test_sum_03)
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
                 "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
 
     fail_unless(callback->sum == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -217,10 +227,45 @@ START_TEST(test_misaligned_data)
                  LENGTH_01 - FIRST_CHUNK_SIZE) == PUSH_SUCCESS,
                 "Could not parse data");
 
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
     fail_unless(callback->sum == 15,
                 "Sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
                 callback->sum, 15);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
+START_TEST(test_parse_error_01)
+{
+    push_parser_t  *parser;
+    sum_callback_t  *callback;
+    size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
+
+    /*
+     * Our callback processes ints on nice 32-bit boundaries.  If we
+     * send the parser data that doesn't align with these boundaries,
+     * and then reach EOF, we should get a parse error.
+     */
+
+    callback = sum_callback_new();
+    fail_if(callback == NULL,
+            "Could not allocate a new sum callback");
+
+    parser = push_parser_new(&callback->base);
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_PARSE_ERROR,
+                "Should get parse error at EOF");
 
     push_parser_free(parser);
 }
@@ -241,6 +286,7 @@ test_suite()
     tcase_add_test(tc, test_sum_02);
     tcase_add_test(tc, test_sum_03);
     tcase_add_test(tc, test_misaligned_data);
+    tcase_add_test(tc, test_parse_error_01);
     suite_add_tcase(s, tc);
 
     return s;

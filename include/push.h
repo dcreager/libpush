@@ -119,6 +119,17 @@ push_process_bytes_func_t(push_parser_t *parser,
 
 
 /**
+ * Called when there are no more bytes left to process.  This gives
+ * the current callback an opportunity to raise a parse error in case
+ * of truncated input.
+ */
+
+typedef push_error_code_t
+push_eof_func_t(push_parser_t *parser,
+                push_callback_t *callback);
+
+
+/**
  * Called when a push_callback_t instance needs to be freed.  If there
  * are any additional fields in the callback object, they can be freed
  * as needed.  This function should <b>not</b> free the callback itself.
@@ -168,6 +179,13 @@ struct _push_callback
     push_process_bytes_func_t  *process_bytes;
 
     /**
+     * Called by the push parser when there are no more bytes left to
+     * process.
+     */
+
+    push_eof_func_t  *eof;
+
+    /**
      * Called by the push_callback_free() function to free any
      * additional data used by this callback.
      */
@@ -206,6 +224,7 @@ struct _push_callback
 
 push_callback_t *
 push_callback_new(push_process_bytes_func_t *process_bytes,
+                  push_eof_func_t *eof,
                   size_t min_bytes_requested,
                   size_t max_bytes_requested);
 
@@ -225,6 +244,7 @@ push_callback_init(push_callback_t *callback,
                    size_t min_bytes_requested,
                    size_t max_bytes_requested,
                    push_process_bytes_func_t *process_bytes,
+                   push_eof_func_t *eof,
                    push_callback_free_func_t *free);
 
 
@@ -234,6 +254,24 @@ push_callback_init(push_callback_t *callback,
 
 void
 push_callback_free(push_callback_t *callback);
+
+
+/**
+ * A default push_eof_func_t implementation that always allows EOF.
+ */
+
+push_error_code_t
+push_eof_allowed(push_parser_t *parser,
+                 push_callback_t *callback);
+
+
+/**
+ * A default push_eof_func_t implementation that never allows EOF.
+ */
+
+push_error_code_t
+push_eof_not_allowed(push_parser_t *parser,
+                     push_callback_t *callback);
 
 
 /**
@@ -301,6 +339,22 @@ push_error_code_t
 push_parser_submit_data(push_parser_t *parser,
                         const void *buf,
                         size_t bytes_available);
+
+
+/**
+ * Notify the push parser that there are no more bytes left to
+ * process.  If there are bytes leftover from previous calls to
+ * push_parser_submit_data(), then we'll automatically raise a parse
+ * error.  (There will only be leftover data if it's smaller than the
+ * current callback's minimum size, so we assume that it's a parse
+ * error if there's not enough data at the end of the stream to meet
+ * this minimum.)  If there's no data leftover, the callback's eof
+ * function will be used to determine of the EOF is a parse error or
+ * not.
+ */
+
+push_error_code_t
+push_parser_eof(push_parser_t *parser);
 
 
 #endif  /* PUSH_H */

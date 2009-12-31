@@ -274,3 +274,31 @@ push_parser_submit_data(push_parser_t *parser,
 
     return PUSH_SUCCESS;
 }
+
+
+push_error_code_t
+push_parser_eof(push_parser_t *parser)
+{
+    /*
+     * If we have data in the leftover buffer, we automatically assume
+     * there's a parse error.
+     */
+
+    if (parser->leftover.current_size > 0)
+    {
+        PUSH_DEBUG_MSG("Reached EOF with %zu bytes unprocessed.  "
+                       "Callback wants %zu.  Parse error!\n",
+                       parser->leftover.current_size,
+                       parser->current_callback->min_bytes_requested);
+        return PUSH_PARSE_ERROR;
+    }
+
+    /*
+     * Otherwise, let the callback decide.
+     */
+
+    PUSH_DEBUG_MSG("Reached EOF with no bytes unprocessed.  "
+                   "Callback determines whether parse succeeded.\n");
+
+    return parser->current_callback->eof(parser, parser->current_callback);
+}

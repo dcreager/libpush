@@ -15,11 +15,13 @@ push_callback_init(push_callback_t *callback,
                    size_t min_bytes_requested,
                    size_t max_bytes_requested,
                    push_process_bytes_func_t *process_bytes,
+                   push_eof_func_t *eof,
                    push_callback_free_func_t *free)
 {
     callback->min_bytes_requested = min_bytes_requested;
     callback->max_bytes_requested = max_bytes_requested;
     callback->process_bytes = process_bytes;
+    callback->eof = eof;
     callback->free = free;
     callback->freeing = false;
 }
@@ -27,6 +29,7 @@ push_callback_init(push_callback_t *callback,
 
 push_callback_t *
 push_callback_new(push_process_bytes_func_t *process_bytes,
+                  push_eof_func_t *eof,
                   size_t min_bytes_requested,
                   size_t max_bytes_requested)
 {
@@ -51,6 +54,7 @@ push_callback_new(push_process_bytes_func_t *process_bytes,
                        min_bytes_requested,
                        max_bytes_requested,
                        process_bytes,
+                       eof,
                        NULL);
     return result;
 }
@@ -86,4 +90,22 @@ push_callback_free(push_callback_t *callback)
         callback->free(callback);
 
     free(callback);
+}
+
+
+push_error_code_t
+push_eof_allowed(push_parser_t *parser,
+                 push_callback_t *callback)
+{
+    PUSH_DEBUG_MSG("Reached EOF, parse succeeded.\n");
+    return PUSH_SUCCESS;
+}
+
+
+push_error_code_t
+push_eof_not_allowed(push_parser_t *parser,
+                     push_callback_t *callback)
+{
+    PUSH_DEBUG_MSG("Reached EOF, parse failed.\n");
+    return PUSH_PARSE_ERROR;
 }
