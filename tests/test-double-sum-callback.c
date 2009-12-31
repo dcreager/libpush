@@ -81,6 +81,15 @@ sum_callback_process_bytes(push_parser_t *parser,
 }
 
 
+static void
+sum_callback_free(push_callback_t *pcallback)
+{
+    sum_callback_t  *callback = (sum_callback_t *) pcallback;
+    PUSH_DEBUG_MSG("Freeing callback %p...\n", pcallback);
+    push_callback_free(&callback->next_callback->base);
+}
+
+
 static sum_callback_t *
 sum_callback_new()
 {
@@ -94,7 +103,7 @@ sum_callback_new()
                        sizeof(uint32_t),
                        sizeof(uint32_t),
                        sum_callback_process_bytes,
-                       NULL);
+                       sum_callback_free);
 
     result->sum = 0;
     result->next_callback = NULL; /* must be set by the user */
