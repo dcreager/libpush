@@ -19,6 +19,7 @@
  * defined by the push_callback_t type.
  */
 
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include <hwm-buffer.h>
@@ -134,6 +135,18 @@ struct _push_callback
      */
 
     push_callback_free_func_t  *free;
+
+    /**
+     * A flag indicating that we've started freeing this callback.
+     * Often there will be cycles of pointers amongst a group of
+     * callback objects.  This flag allows each callback's free
+     * function to blindly call push_callback_free() on any other
+     * callbacks that its linked to — we will take care of ensuring
+     * that any particular callback is only freed once, even in the
+     * prescence of circular references.
+     */
+
+    bool  freeing;
 };
 
 
