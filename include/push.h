@@ -160,6 +160,24 @@ push_callback_new(push_process_bytes_func_t *process_bytes,
 
 
 /**
+ * @brief Initialize the push_callback_t portion of a specialized
+ * callback type.
+ *
+ * This function shouldn't be called directly by users; it's used by
+ * specialized callback initializers to make sure that the
+ * push_callback_t “superclass” portion of the <code>struct</code> is
+ * initialized consistently.
+ */
+
+void
+push_callback_init(push_callback_t *callback,
+                   size_t min_bytes_requested,
+                   size_t max_bytes_requested,
+                   push_process_bytes_func_t *process_bytes,
+                   push_callback_free_func_t *free);
+
+
+/**
  * Free a callback object.
  */
 

@@ -64,10 +64,12 @@ sum_callback_new()
     if (result == NULL)
         return NULL;
 
-    result->base.min_bytes_requested = sizeof(uint32_t);
-    result->base.max_bytes_requested = sizeof(uint32_t);
-    result->base.process_bytes = sum_callback_process_bytes;
-    result->base.free = NULL;
+    push_callback_init(&result->base,
+                       sizeof(uint32_t),
+                       sizeof(uint32_t),
+                       sum_callback_process_bytes,
+                       NULL);
+
     result->sum = 0;
 
     return result;
