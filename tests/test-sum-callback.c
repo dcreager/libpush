@@ -142,6 +142,39 @@ START_TEST(test_sum_02)
 END_TEST
 
 
+START_TEST(test_sum_03)
+{
+    push_parser_t  *parser;
+    sum_callback_t  *callback;
+
+    /*
+     * Basically the same as test_sum_01, but this one turns off the
+     * callback's maximum, so it should process all in one go.  End
+     * result should be the same.
+     */
+
+    callback = sum_callback_new();
+    fail_if(callback == NULL,
+            "Could not allocate a new sum callback");
+
+    callback->base.max_bytes_requested = 0;
+
+    parser = push_parser_new((push_callback_t *) callback);
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    push_parser_submit_data(parser, &DATA_01, LENGTH_01);
+
+    fail_unless(callback->sum == 15,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                callback->sum, 15);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
 START_TEST(test_misaligned_data)
 {
     push_parser_t  *parser;
@@ -189,6 +222,7 @@ test_suite()
     TCase  *tc = tcase_create("sum-callback");
     tcase_add_test(tc, test_sum_01);
     tcase_add_test(tc, test_sum_02);
+    tcase_add_test(tc, test_sum_03);
     tcase_add_test(tc, test_misaligned_data);
     suite_add_tcase(s, tc);
 

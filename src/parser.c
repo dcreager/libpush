@@ -78,7 +78,8 @@ process_bytes(push_parser_t *parser,
      */
 
     bytes_to_send =
-        (callback->max_bytes_requested > 0)?
+        ((callback->max_bytes_requested > 0) &&
+         (*bytes_available > callback->max_bytes_requested))?
         callback->max_bytes_requested:
         *bytes_available;
 

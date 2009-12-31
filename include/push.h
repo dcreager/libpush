@@ -115,7 +115,8 @@ struct _push_callback
 
     /**
      * The maximum number of bytes that will be passed into the next
-     * call to process_bytes.
+     * call to process_bytes.  If this is 0, process_bytes will get
+     * however bytes are available.
      */
 
     size_t  max_bytes_requested;
