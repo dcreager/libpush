@@ -11,6 +11,7 @@ libpush_files = map(File, \
     [
      "callback.c",
      "parser.c",
+     "protobuf/varint32.c",
     ])
 
 SOURCE_FILES.extend(libpush_files)
