@@ -30,6 +30,7 @@ def add_test(test_program):
     env.AlwaysBuild(run_test_target)
 
 
+add_test("test-double-sum-callback")
 add_test("test-sum-callback")
 
 

@@ -243,6 +243,17 @@ push_parser_free(push_parser_t *parser);
 
 
 /**
+ * Change the callback that the push parser will use for the next bit
+ * of data.  This can safely be called from within another callback's
+ * process_bytes function.
+ */
+
+void
+push_parser_set_callback(push_parser_t *parser,
+                         push_callback_t *callback);
+
+
+/**
  * Submit some data to the push parser for processing.
  */
 

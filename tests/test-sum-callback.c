@@ -98,7 +98,7 @@ START_TEST(test_sum_01)
     fail_if(callback == NULL,
             "Could not allocate a new sum callback");
 
-    parser = push_parser_new((push_callback_t *) callback);
+    parser = push_parser_new(&callback->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -127,7 +127,7 @@ START_TEST(test_sum_02)
     fail_if(callback == NULL,
             "Could not allocate a new sum callback");
 
-    parser = push_parser_new((push_callback_t *) callback);
+    parser = push_parser_new(&callback->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -161,7 +161,7 @@ START_TEST(test_sum_03)
 
     callback->base.max_bytes_requested = 0;
 
-    parser = push_parser_new((push_callback_t *) callback);
+    parser = push_parser_new(&callback->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -193,7 +193,7 @@ START_TEST(test_misaligned_data)
     fail_if(callback == NULL,
             "Could not allocate a new sum callback");
 
-    parser = push_parser_new((push_callback_t *) callback);
+    parser = push_parser_new(&callback->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 

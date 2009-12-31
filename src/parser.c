@@ -52,6 +52,14 @@ push_parser_free(push_parser_t *parser)
 }
 
 
+void
+push_parser_set_callback(push_parser_t *parser,
+                         push_callback_t *callback)
+{
+    parser->current_callback = callback;
+}
+
+
 /**
  * Send some data to the current callback's process_bytes function.
  * The caller is responsible for ensuring that <code>bytes_available >
