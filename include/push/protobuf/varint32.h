@@ -25,6 +25,10 @@
 
 typedef struct _push_protobuf_varint32
 {
+    /**
+     * The callback's “superclass” instance.
+     */
+
     push_callback_t  base;
 
     /**
@@ -47,11 +51,6 @@ typedef struct _push_protobuf_varint32
 
     bool  eof_allowed;
 
-    /**
-     * The callback to pass off to once we've read the varint.
-     */
-
-    push_callback_t  *next_callback;
 } push_protobuf_varint32_t;
 
 

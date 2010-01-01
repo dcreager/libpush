@@ -70,6 +70,7 @@ sum_callback_new()
                        sizeof(uint32_t),
                        sum_callback_process_bytes,
                        push_eof_allowed,
+                       NULL,
                        NULL);
 
     result->sum = 0;

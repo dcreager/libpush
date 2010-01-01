@@ -42,7 +42,6 @@ struct _sum_callback
 {
     push_callback_t  base;
     uint32_t  sum;
-    push_callback_t  *next_callback;
 };
 
 
@@ -84,7 +83,7 @@ sum_callback_process_bytes(push_parser_t *parser,
          * callback.
          */
 
-        push_parser_set_callback(parser, callback->next_callback);
+        push_parser_set_callback(parser, callback->base.next_callback);
     }
 
     return bytes_available;
@@ -132,15 +131,6 @@ index_callback_process_bytes(push_parser_t *parser,
 
 
 static void
-sum_callback_free(push_callback_t *pcallback)
-{
-    sum_callback_t  *callback = (sum_callback_t *) pcallback;
-    PUSH_DEBUG_MSG("sum: Freeing callback %p...\n", pcallback);
-    push_callback_free(callback->next_callback);
-}
-
-
-static void
 index_callback_free(push_callback_t *pcallback)
 {
     int  i;
@@ -173,10 +163,10 @@ sum_callback_new(push_callback_t *next_callback)
                        sizeof(uint32_t),
                        sum_callback_process_bytes,
                        push_eof_not_allowed,
-                       sum_callback_free);
+                       NULL,
+                       next_callback);
 
     result->sum = 0;
-    result->next_callback = next_callback;
 
     return result;
 }
@@ -202,7 +192,8 @@ index_callback_new()
                        sizeof(uint32_t),
                        index_callback_process_bytes,
                        push_eof_allowed,
-                       index_callback_free);
+                       index_callback_free,
+                       NULL);
 
     for (i = 0; i < NUM_SUM_CALLBACKS; i++)
     {

@@ -16,7 +16,8 @@ push_callback_init(push_callback_t *callback,
                    size_t max_bytes_requested,
                    push_process_bytes_func_t *process_bytes,
                    push_eof_func_t *eof,
-                   push_callback_free_func_t *free)
+                   push_callback_free_func_t *free,
+                   push_callback_t *next_callback)
 {
     callback->min_bytes_requested = min_bytes_requested;
     callback->max_bytes_requested = max_bytes_requested;
@@ -24,6 +25,7 @@ push_callback_init(push_callback_t *callback,
     callback->eof = eof;
     callback->free = free;
     callback->freeing = false;
+    callback->next_callback = next_callback;
 }
 
 
@@ -31,7 +33,8 @@ push_callback_t *
 push_callback_new(push_process_bytes_func_t *process_bytes,
                   push_eof_func_t *eof,
                   size_t min_bytes_requested,
-                  size_t max_bytes_requested)
+                  size_t max_bytes_requested,
+                  push_callback_t *next_callback)
 {
     push_callback_t  *result;
 
@@ -55,7 +58,8 @@ push_callback_new(push_process_bytes_func_t *process_bytes,
                        max_bytes_requested,
                        process_bytes,
                        eof,
-                       NULL);
+                       NULL,
+                       next_callback);
     return result;
 }
 
@@ -83,11 +87,21 @@ push_callback_free(push_callback_t *callback)
 
     /*
      * If the callback has a custom free function, call it first.
-     * Then, free the callback instance.
      */
 
     if (callback->free != NULL)
         callback->free(callback);
+
+    /*
+     * If the next_callback pointer is filled in, free it, too.
+     */
+
+    if (callback->next_callback != NULL)
+        push_callback_free(callback->next_callback);
+
+    /*
+     * Finally, free the callback object itself.
+     */
 
     free(callback);
 }

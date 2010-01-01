@@ -45,7 +45,7 @@ varint32_process_bytes(push_parser_t *parser,
         PUSH_DEBUG_MSG("varint32: Read value %"PRIu32", using 1 byte\n",
                        callback->value);
 
-        push_parser_set_callback(parser, callback->next_callback);
+        push_parser_set_callback(parser, callback->base.next_callback);
         return bytes_available - 1;
     }
 
@@ -93,7 +93,7 @@ varint32_process_bytes(push_parser_t *parser,
 
         callback->value = result;
         callback->bytes_processed = 0;
-        push_parser_set_callback(parser, callback->next_callback);
+        push_parser_set_callback(parser, callback->base.next_callback);
 
         return bytes_available;
 
@@ -138,7 +138,7 @@ varint32_process_bytes(push_parser_t *parser,
                                callback->value, callback->bytes_processed);
 
                 callback->bytes_processed = 0;
-                push_parser_set_callback(parser, callback->next_callback);
+                push_parser_set_callback(parser, callback->base.next_callback);
                 return bytes_available;
             }
 
@@ -179,17 +179,6 @@ varint32_eof(push_parser_t *parser,
 }
 
 
-static void
-varint32_free(push_callback_t *pcallback)
-{
-    push_protobuf_varint32_t  *callback =
-        (push_protobuf_varint32_t *) pcallback;
-
-    PUSH_DEBUG_MSG("varint32: Freeing callback %p...\n", pcallback);
-    push_callback_free(callback->next_callback);
-}
-
-
 push_protobuf_varint32_t *
 push_protobuf_varint32_new(push_callback_t *next_callback,
                            bool eof_allowed)
@@ -205,12 +194,12 @@ push_protobuf_varint32_new(push_callback_t *next_callback,
                        PUSH_PROTOBUF_MAX_VARINT_LENGTH,
                        varint32_process_bytes,
                        varint32_eof,
-                       varint32_free);
+                       NULL,
+                       next_callback);
 
     result->bytes_processed = 0; 
     result->value = 0;
     result->eof_allowed = eof_allowed;
-    result->next_callback = next_callback;
 
     return result;
 }

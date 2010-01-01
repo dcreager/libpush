@@ -59,7 +59,7 @@ const uint64_t  EXPECTED_04 = 5000000000;
         callback = push_protobuf_varint64_new(NULL, true);          \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
-        callback->next_callback = &callback->base;                  \
+        callback->base.next_callback = &callback->base;             \
                                                                     \
         parser = push_parser_new(&callback->base);                  \
         fail_if(parser == NULL,                                     \
@@ -105,7 +105,7 @@ const uint64_t  EXPECTED_04 = 5000000000;
         callback = push_protobuf_varint64_new(NULL, true);          \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
-        callback->next_callback = &callback->base;                  \
+        callback->base.next_callback = &callback->base;             \
                                                                     \
         parser = push_parser_new(&callback->base);                  \
         fail_if(parser == NULL,                                     \
@@ -166,7 +166,7 @@ START_TEST(test_parse_error_03)
     callback = push_protobuf_varint64_new(NULL, true);
     fail_if(callback == NULL,
             "Could not allocate a new callback");
-    callback->next_callback = &callback->base;
+    callback->base.next_callback = &callback->base;
 
     parser = push_parser_new(&callback->base);
     fail_if(parser == NULL,

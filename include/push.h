@@ -203,6 +203,12 @@ struct _push_callback
      */
 
     bool  freeing;
+
+    /**
+     * The callback to pass off to after this one finishes processing.
+     */
+
+    push_callback_t  *next_callback;
 };
 
 
@@ -226,7 +232,8 @@ push_callback_t *
 push_callback_new(push_process_bytes_func_t *process_bytes,
                   push_eof_func_t *eof,
                   size_t min_bytes_requested,
-                  size_t max_bytes_requested);
+                  size_t max_bytes_requested,
+                  push_callback_t *next_callback);
 
 
 /**
@@ -245,7 +252,8 @@ push_callback_init(push_callback_t *callback,
                    size_t max_bytes_requested,
                    push_process_bytes_func_t *process_bytes,
                    push_eof_func_t *eof,
-                   push_callback_free_func_t *free);
+                   push_callback_free_func_t *free,
+                   push_callback_t *next_callback);
 
 
 /**

@@ -81,7 +81,7 @@ varint64_process_bytes(push_parser_t *parser,
 
         callback->value = result;
         callback->bytes_processed = 0;
-        push_parser_set_callback(parser, callback->next_callback);
+        push_parser_set_callback(parser, callback->base.next_callback);
 
         return bytes_available;
 
@@ -126,7 +126,7 @@ varint64_process_bytes(push_parser_t *parser,
                                callback->value, callback->bytes_processed);
 
                 callback->bytes_processed = 0;
-                push_parser_set_callback(parser, callback->next_callback);
+                push_parser_set_callback(parser, callback->base.next_callback);
                 return bytes_available;
             }
 
@@ -167,17 +167,6 @@ varint64_eof(push_parser_t *parser,
 }
 
 
-static void
-varint64_free(push_callback_t *pcallback)
-{
-    push_protobuf_varint64_t  *callback =
-        (push_protobuf_varint64_t *) pcallback;
-
-    PUSH_DEBUG_MSG("varint64: Freeing callback %p...\n", pcallback);
-    push_callback_free(callback->next_callback);
-}
-
-
 push_protobuf_varint64_t *
 push_protobuf_varint64_new(push_callback_t *next_callback,
                            bool eof_allowed)
@@ -193,12 +182,12 @@ push_protobuf_varint64_new(push_callback_t *next_callback,
                        PUSH_PROTOBUF_MAX_VARINT_LENGTH,
                        varint64_process_bytes,
                        varint64_eof,
-                       varint64_free);
+                       NULL,
+                       next_callback);
 
     result->bytes_processed = 0; 
     result->value = 0;
     result->eof_allowed = eof_allowed;
-    result->next_callback = next_callback;
 
     return result;
 }

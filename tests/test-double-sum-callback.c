@@ -40,7 +40,6 @@ struct _sum_callback
 {
     push_callback_t  base;
     uint32_t  sum;
-    sum_callback_t  *next_callback;
 };
 
 
@@ -75,19 +74,10 @@ sum_callback_process_bytes(push_parser_t *parser,
          * callback.
          */
 
-        push_parser_set_callback(parser, &callback->next_callback->base);
+        push_parser_set_callback(parser, callback->base.next_callback);
     }
 
     return bytes_available;
-}
-
-
-static void
-sum_callback_free(push_callback_t *pcallback)
-{
-    sum_callback_t  *callback = (sum_callback_t *) pcallback;
-    PUSH_DEBUG_MSG("Freeing callback %p...\n", pcallback);
-    push_callback_free(&callback->next_callback->base);
 }
 
 
@@ -105,10 +95,10 @@ sum_callback_new()
                        sizeof(uint32_t),
                        sum_callback_process_bytes,
                        push_eof_allowed,
-                       sum_callback_free);
+                       NULL,
+                       NULL);   /* next_callback must be set by the user */
 
     result->sum = 0;
-    result->next_callback = NULL; /* must be set by the user */
 
     return result;
 }
@@ -141,8 +131,8 @@ START_TEST(test_double_sum_01)
     fail_if(callback_odd == NULL,
             "Could not allocate odd sum callback");
 
-    callback_even->next_callback = callback_odd;
-    callback_odd->next_callback = callback_even;
+    callback_even->base.next_callback = &callback_odd->base;
+    callback_odd->base.next_callback = &callback_even->base;
 
     parser = push_parser_new(&callback_even->base);
     fail_if(parser == NULL,
@@ -188,8 +178,8 @@ START_TEST(test_double_sum_02)
     fail_if(callback_odd == NULL,
             "Could not allocate odd sum callback");
 
-    callback_even->next_callback = callback_odd;
-    callback_odd->next_callback = callback_even;
+    callback_even->base.next_callback = &callback_odd->base;
+    callback_odd->base.next_callback = &callback_even->base;
 
     parser = push_parser_new(&callback_even->base);
     fail_if(parser == NULL,
@@ -244,8 +234,8 @@ START_TEST(test_double_sum_03)
     callback_even->base.max_bytes_requested = 0;
     callback_odd->base.max_bytes_requested = 0;
 
-    callback_even->next_callback = callback_odd;
-    callback_odd->next_callback = callback_even;
+    callback_even->base.next_callback = &callback_odd->base;
+    callback_odd->base.next_callback = &callback_even->base;
 
     parser = push_parser_new(&callback_even->base);
     fail_if(parser == NULL,
@@ -294,8 +284,8 @@ START_TEST(test_misaligned_data)
     fail_if(callback_odd == NULL,
             "Could not allocate odd sum callback");
 
-    callback_even->next_callback = callback_odd;
-    callback_odd->next_callback = callback_even;
+    callback_even->base.next_callback = &callback_odd->base;
+    callback_odd->base.next_callback = &callback_even->base;
 
     parser = push_parser_new(&callback_even->base);
     fail_if(parser == NULL,
