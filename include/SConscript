@@ -6,6 +6,7 @@ env = root_env.Clone()
 
 env.Alias("install", env.Install("$INCLUDEDIR"))
 
+
 h_files = map(File, \
     [
      "push.h",
@@ -16,6 +17,7 @@ SOURCE_FILES.extend(h_files)
 env.Alias("install", env.Install("$INCLUDEDIR",
                                  h_files))
 
+
 push_h_files = map(File, \
     [
      "push/protobuf.h",
@@ -25,3 +27,15 @@ SOURCE_FILES.extend(push_h_files)
 
 env.Alias("install", env.Install("$INCLUDEDIR/push",
                                  push_h_files))
+
+
+protobuf_h_files = map(File, \
+    [
+     "push/protobuf/varint32.h",
+     "push/protobuf/varint64.h",
+    ])
+
+SOURCE_FILES.extend(push_h_files)
+
+env.Alias("install", env.Install("$INCLUDEDIR/push/protobuf",
+                                 protobuf_h_files))

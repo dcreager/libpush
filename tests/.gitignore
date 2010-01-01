@@ -3,3 +3,4 @@ test-indexed-sum-callback
 test-sum-callback
 
 test-protobuf-varint32
+test-protobuf-varint64
