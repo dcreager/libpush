@@ -36,6 +36,10 @@ const uint8_t  DATA_03[] = "\xac\x02";
 const size_t  LENGTH_03 = 2;
 const uint64_t  EXPECTED_03 = 300;
 
+const uint8_t  DATA_04[] = "\x80\xe4\x97\xd0\x12";
+const size_t  LENGTH_04 = 5;
+const uint64_t  EXPECTED_04 = 5000000000;
+
 
 /*-----------------------------------------------------------------------
  * Helper functions
@@ -80,6 +84,61 @@ const uint64_t  EXPECTED_03 = 300;
     END_TEST
 
 
+/*
+ * Just like READ_TEST, but sends in the data in two chunks.  Tests
+ * the ability of the callback to maintain its state across calls to
+ * process_bytes.
+ */
+
+#define TWO_PART_READ_TEST(test_name)                               \
+    START_TEST(test_two_part_read_##test_name)                      \
+    {                                                               \
+        push_parser_t  *parser;                                     \
+        push_protobuf_varint64_t  *callback;                        \
+        size_t  first_chunk_size;                                   \
+                                                                    \
+        PUSH_DEBUG_MSG("---\nStarting test case "                   \
+                       "test_two_part_read_"                        \
+                       #test_name                                   \
+                       "\n");                                       \
+                                                                    \
+        callback = push_protobuf_varint64_new(NULL, true);          \
+        fail_if(callback == NULL,                                   \
+                "Could not allocate a new callback");               \
+        callback->next_callback = &callback->base;                  \
+                                                                    \
+        parser = push_parser_new(&callback->base);                  \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        first_chunk_size = LENGTH_##test_name / 2;                  \
+                                                                    \
+        fail_unless(push_parser_submit_data                         \
+                    (parser,                                        \
+                     &DATA_##test_name,                             \
+                     first_chunk_size) == PUSH_SUCCESS,             \
+                    "Could not parse data");                        \
+                                                                    \
+        fail_unless(push_parser_submit_data                         \
+                    (parser,                                        \
+                     &DATA_##test_name[first_chunk_size],           \
+                     LENGTH_##test_name - first_chunk_size) ==      \
+                    PUSH_SUCCESS,                                   \
+                    "Could not parse data");                        \
+                                                                    \
+        fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
+                    "Shouldn't get parse error at EOF");            \
+                                                                    \
+        fail_unless(callback->value == EXPECTED_##test_name,        \
+                    "Value doesn't match (got %"PRIu64              \
+                    ", expected %"PRIu64")",                        \
+                    callback->value, EXPECTED_##test_name);         \
+                                                                    \
+        push_parser_free(parser);                                   \
+    }                                                               \
+    END_TEST
+
+
 /*-----------------------------------------------------------------------
  * Test cases
  */
@@ -87,6 +146,15 @@ const uint64_t  EXPECTED_03 = 300;
 READ_TEST(01)
 READ_TEST(02)
 READ_TEST(03)
+READ_TEST(04)
+
+/*
+ * Only do the two-part read test for the test cases that have more
+ * than one byte int them.
+ */
+
+TWO_PART_READ_TEST(03)
+TWO_PART_READ_TEST(04)
 
 START_TEST(test_parse_error_03)
 {
@@ -131,6 +199,9 @@ test_suite()
     tcase_add_test(tc, test_read_01);
     tcase_add_test(tc, test_read_02);
     tcase_add_test(tc, test_read_03);
+    tcase_add_test(tc, test_read_04);
+    tcase_add_test(tc, test_two_part_read_03);
+    tcase_add_test(tc, test_two_part_read_04);
     tcase_add_test(tc, test_parse_error_03);
     suite_add_tcase(s, tc);
 

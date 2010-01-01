@@ -109,7 +109,7 @@ varint64_process_bytes(push_parser_t *parser,
 
             PUSH_DEBUG_MSG("varint64:   byte = 0x%02"PRIx8"\n", *buf);
 
-            callback->value |= (*buf & 0x7F) << shift;
+            callback->value |= ((uint64_t) (*buf & 0x7F)) << shift;
             shift += 7;
 
             callback->bytes_processed++;
