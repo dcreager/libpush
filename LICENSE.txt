@@ -1,4 +1,4 @@
-Copyright © 2009, RedJack, LLC.
+Copyright © 2009-2010, RedJack, LLC.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
