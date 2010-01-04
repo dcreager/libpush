@@ -230,9 +230,9 @@ PARSE_ERROR_TEST(02, varint64)
 Suite *
 test_suite()
 {
-    Suite  *s = suite_create("protobuf-varint32");
+    Suite  *s = suite_create("protobuf-field");
 
-    TCase  *tc = tcase_create("protobuf-varint32");
+    TCase  *tc = tcase_create("protobuf-field");
     tcase_add_test(tc, test_read_01);
     tcase_add_test(tc, test_read_02);
     tcase_add_test(tc, test_two_part_read_01);

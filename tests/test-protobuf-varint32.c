@@ -18,6 +18,7 @@
 
 #include <push.h>
 #include <push/protobuf.h>
+#include <push/trash.h>
 
 
 /*-----------------------------------------------------------------------
@@ -41,6 +42,9 @@ const size_t  LENGTH_04 = 5;
 /* 5,000,000,000 truncated to 32 bits */
 const uint32_t  EXPECTED_04 = 705032704;
 
+const uint8_t  DATA_TRASH[] = "\x00\x00\x00\x00\x00\x00";
+const size_t  LENGTH_TRASH = 6;
+
 
 /*-----------------------------------------------------------------------
  * Helper functions
@@ -51,6 +55,7 @@ const uint32_t  EXPECTED_04 = 705032704;
     {                                                               \
         push_parser_t  *parser;                                     \
         push_protobuf_varint32_t  *callback;                        \
+        push_callback_t  *trash;                                    \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_read_"                                 \
@@ -60,7 +65,11 @@ const uint32_t  EXPECTED_04 = 705032704;
         callback = push_protobuf_varint32_new(NULL, true);          \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
-        callback->base.next_callback = &callback->base;             \
+                                                                    \
+        trash = push_trash_new();                                   \
+        fail_if(trash == NULL,                                      \
+                "Could not allocate a new trash callback");         \
+        callback->base.next_callback = trash;                       \
                                                                     \
         parser = push_parser_new(&callback->base);                  \
         fail_if(parser == NULL,                                     \
@@ -96,6 +105,7 @@ const uint32_t  EXPECTED_04 = 705032704;
     {                                                               \
         push_parser_t  *parser;                                     \
         push_protobuf_varint32_t  *callback;                        \
+        push_callback_t  *trash;                                    \
         size_t  first_chunk_size;                                   \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
@@ -106,7 +116,11 @@ const uint32_t  EXPECTED_04 = 705032704;
         callback = push_protobuf_varint32_new(NULL, true);          \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
-        callback->base.next_callback = &callback->base;             \
+                                                                    \
+        trash = push_trash_new();                                   \
+        fail_if(trash == NULL,                                      \
+                "Could not allocate a new trash callback");         \
+        callback->base.next_callback = trash;                       \
                                                                     \
         parser = push_parser_new(&callback->base);                  \
         fail_if(parser == NULL,                                     \
@@ -140,6 +154,56 @@ const uint32_t  EXPECTED_04 = 705032704;
     END_TEST
 
 
+#define TRASH_TEST(test_name)                                       \
+    START_TEST(test_trash_##test_name)                              \
+    {                                                               \
+        push_parser_t  *parser;                                     \
+        push_protobuf_varint32_t  *callback;                        \
+        push_callback_t  *trash;                                    \
+                                                                    \
+        PUSH_DEBUG_MSG("---\nStarting test case "                   \
+                       "test_read_"                                 \
+                       #test_name                                   \
+                       "\n");                                       \
+                                                                    \
+        callback = push_protobuf_varint32_new(NULL, true);          \
+        fail_if(callback == NULL,                                   \
+                "Could not allocate a new callback");               \
+                                                                    \
+        trash = push_trash_new();                                   \
+        fail_if(trash == NULL,                                      \
+                "Could not allocate a new trash callback");         \
+        callback->base.next_callback = trash;                       \
+                                                                    \
+        parser = push_parser_new(&callback->base);                  \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        fail_unless(push_parser_submit_data                         \
+                    (parser,                                        \
+                     &DATA_##test_name,                             \
+                     LENGTH_##test_name) == PUSH_SUCCESS,           \
+                    "Could not parse data");                        \
+                                                                    \
+        fail_unless(push_parser_submit_data                         \
+                    (parser,                                        \
+                     &DATA_TRASH,                                   \
+                     LENGTH_TRASH) == PUSH_SUCCESS,                 \
+                    "Could not parse trailing trash");              \
+                                                                    \
+        fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
+                    "Shouldn't get parse error at EOF");            \
+                                                                    \
+        fail_unless(callback->value == EXPECTED_##test_name,        \
+                    "Value doesn't match (got %"PRIu32              \
+                    ", expected %"PRIu32")",                        \
+                    callback->value, EXPECTED_##test_name);         \
+                                                                    \
+        push_parser_free(parser);                                   \
+    }                                                               \
+    END_TEST
+
+
 /*-----------------------------------------------------------------------
  * Test cases
  */
@@ -156,6 +220,11 @@ READ_TEST(04)
 
 TWO_PART_READ_TEST(03)
 TWO_PART_READ_TEST(04)
+
+TRASH_TEST(01)
+TRASH_TEST(02)
+TRASH_TEST(03)
+TRASH_TEST(04)
 
 START_TEST(test_parse_error_03)
 {
@@ -203,6 +272,10 @@ test_suite()
     tcase_add_test(tc, test_read_04);
     tcase_add_test(tc, test_two_part_read_03);
     tcase_add_test(tc, test_two_part_read_04);
+    tcase_add_test(tc, test_trash_01);
+    tcase_add_test(tc, test_trash_02);
+    tcase_add_test(tc, test_trash_03);
+    tcase_add_test(tc, test_trash_04);
     tcase_add_test(tc, test_parse_error_03);
     suite_add_tcase(s, tc);
 

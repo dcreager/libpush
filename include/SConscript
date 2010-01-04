@@ -21,6 +21,7 @@ env.Alias("install", env.Install("$INCLUDEDIR",
 push_h_files = map(File, \
     [
      "push/protobuf.h",
+     "push/trash.h",
     ])
 
 SOURCE_FILES.extend(push_h_files)
