@@ -16,6 +16,25 @@
 #include <push/protobuf.h>
 
 
+static push_error_code_t
+varint64_activate(push_parser_t *parser,
+                  push_callback_t *pcallback,
+                  push_callback_t *old_callback)
+{
+    push_protobuf_varint64_t  *callback =
+        (push_protobuf_varint64_t *) pcallback;
+
+    /*
+     * Initialize the fields that store the current value.
+     */
+
+    callback->bytes_processed = 0;
+    callback->value = 0;
+
+    return PUSH_SUCCESS;
+}
+
+
 static ssize_t
 varint64_process_bytes(push_parser_t *parser,
                        push_callback_t *pcallback,
@@ -80,7 +99,6 @@ varint64_process_bytes(push_parser_t *parser,
         bytes_available -= (ptr - buf);
 
         callback->value = result;
-        callback->bytes_processed = 0;
         push_parser_set_callback(parser, callback->base.next_callback);
 
         return bytes_available;
@@ -125,7 +143,6 @@ varint64_process_bytes(push_parser_t *parser,
                                ", using %zu bytes\n",
                                callback->value, callback->bytes_processed);
 
-                callback->bytes_processed = 0;
                 push_parser_set_callback(parser, callback->base.next_callback);
                 return bytes_available;
             }
@@ -180,6 +197,7 @@ push_protobuf_varint64_new(push_callback_t *next_callback,
     push_callback_init(&result->base,
                        1,
                        PUSH_PROTOBUF_MAX_VARINT_LENGTH,
+                       varint64_activate,
                        varint64_process_bytes,
                        varint64_eof,
                        NULL,

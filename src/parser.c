@@ -31,11 +31,30 @@ push_parser_new(push_callback_t *callback)
     }
 
     /*
-     * If it works, initialize and return the new instance.
+     * If it works, initialize the new instance.
      */
 
-    result->current_callback = callback;
     hwm_buffer_init(&result->leftover);
+
+    /*
+     * Set the initial callback.  If this returns an error code, free
+     * the parser and return an error code.
+     */
+
+    if (callback == NULL)
+    {
+        result->current_callback = NULL;
+    } else {
+        push_error_code_t  rc;
+
+        rc = push_parser_set_callback(result, callback);
+        if (rc != PUSH_SUCCESS)
+        {
+            push_parser_free(result);
+            return NULL;
+        }
+    }
+
     return result;
 }
 
@@ -53,11 +72,31 @@ push_parser_free(push_parser_t *parser)
 }
 
 
-void
+push_error_code_t
 push_parser_set_callback(push_parser_t *parser,
                          push_callback_t *callback)
 {
+    push_callback_t  *old_callback =
+        parser->current_callback;
+
+    /*
+     * Set the new callback pointer, and call its activation function,
+     * if any.  Return the activation's error code as our own error
+     * code.
+     */
+
     parser->current_callback = callback;
+
+    if (callback->activate != NULL)
+    {
+        return callback->activate(parser, callback, old_callback);
+    }
+
+    /*
+     * If there's no activation function, then there's no error.
+     */
+
+    return PUSH_SUCCESS;
 }
 
 

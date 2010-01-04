@@ -110,6 +110,7 @@ verify_tag_new(push_protobuf_field_t *field_callback)
     push_callback_init(&result->base,
                        0,
                        0,
+                       NULL,
                        verify_tag_process_bytes,
                        push_eof_not_allowed,
                        verify_tag_free,
@@ -199,6 +200,7 @@ finish_new(push_protobuf_field_t *field_callback)
     push_callback_init(&result->base,
                        0,
                        0,
+                       NULL,
                        finish_process_bytes,
                        push_eof_not_allowed,
                        finish_free,
@@ -268,6 +270,7 @@ push_protobuf_field_new(push_protobuf_tag_type_t expected_tag_type,
     push_callback_init(&result->base,
                        0,
                        0,
+                       NULL,
                        field_process_bytes,
                        eof_allowed?
                            push_eof_allowed:

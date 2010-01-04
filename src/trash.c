@@ -30,7 +30,8 @@ push_callback_t *
 push_trash_new()
 {
     return
-        push_callback_new(trash_process_bytes,
+        push_callback_new(NULL,
+                          trash_process_bytes,
                           push_eof_allowed,
                           1,
                           0,

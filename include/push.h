@@ -72,6 +72,28 @@ typedef enum
 
 
 /**
+ * Called by a push parser when a callback is <i>activated</i> — that
+ * is, when it becomes the parser's new callback.  This allows the
+ * callback to perform any necessary initialization before it is given
+ * data to process.
+ *
+ * @param parser The push parser that initiated the call.
+ *
+ * @param callback The parser's callback object.
+ *
+ * @param old_callback The parser's previous callback object.
+ *
+ * @result A push_error_code_t value that indicates whether there were
+ * any problems activating the callback.
+ */
+
+typedef push_error_code_t
+push_activate_func_t(push_parser_t *parser,
+                     push_callback_t *callback,
+                     push_callback_t *old_callback);
+
+
+/**
  * Called by a push parser when bytes are available to be processed.
  * The bytes should be handled accordingly.  The number of bytes
  * presented to the callback might be less than what was requested; in
@@ -172,6 +194,12 @@ struct _push_callback
     size_t  max_bytes_requested;
 
     /**
+     * Called by the push parser when this callback is activated.
+     */
+
+    push_activate_func_t  *activate;
+
+    /**
      * Called by the push parser when bytes are available for
      * processing.
      */
@@ -229,7 +257,8 @@ struct _push_callback
  */
 
 push_callback_t *
-push_callback_new(push_process_bytes_func_t *process_bytes,
+push_callback_new(push_activate_func_t *activate,
+                  push_process_bytes_func_t *process_bytes,
                   push_eof_func_t *eof,
                   size_t min_bytes_requested,
                   size_t max_bytes_requested,
@@ -250,6 +279,7 @@ void
 push_callback_init(push_callback_t *callback,
                    size_t min_bytes_requested,
                    size_t max_bytes_requested,
+                   push_activate_func_t *activate,
                    push_process_bytes_func_t *process_bytes,
                    push_eof_func_t *eof,
                    push_callback_free_func_t *free,
@@ -330,9 +360,14 @@ push_parser_free(push_parser_t *parser);
  * Change the callback that the push parser will use for the next bit
  * of data.  This can safely be called from within another callback's
  * process_bytes function.
+ *
+ * We call the activation function of the new callback, which might
+ * result in an error condition.  This means that you should check the
+ * return value; if it's not PUSH_SUCCESS, you should pass on the
+ * error.
  */
 
-void
+push_error_code_t
 push_parser_set_callback(push_parser_t *parser,
                          push_callback_t *callback);
 

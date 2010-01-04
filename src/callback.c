@@ -14,6 +14,7 @@ void
 push_callback_init(push_callback_t *callback,
                    size_t min_bytes_requested,
                    size_t max_bytes_requested,
+                   push_activate_func_t *activate,
                    push_process_bytes_func_t *process_bytes,
                    push_eof_func_t *eof,
                    push_callback_free_func_t *free,
@@ -21,6 +22,7 @@ push_callback_init(push_callback_t *callback,
 {
     callback->min_bytes_requested = min_bytes_requested;
     callback->max_bytes_requested = max_bytes_requested;
+    callback->activate = activate;
     callback->process_bytes = process_bytes;
     callback->eof = eof;
     callback->free = free;
@@ -30,7 +32,8 @@ push_callback_init(push_callback_t *callback,
 
 
 push_callback_t *
-push_callback_new(push_process_bytes_func_t *process_bytes,
+push_callback_new(push_activate_func_t *activate,
+                  push_process_bytes_func_t *process_bytes,
                   push_eof_func_t *eof,
                   size_t min_bytes_requested,
                   size_t max_bytes_requested,
@@ -56,6 +59,7 @@ push_callback_new(push_process_bytes_func_t *process_bytes,
     push_callback_init(result,
                        min_bytes_requested,
                        max_bytes_requested,
+                       activate,
                        process_bytes,
                        eof,
                        NULL,

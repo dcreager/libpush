@@ -30,6 +30,19 @@ typedef struct _sum_callback
 } sum_callback_t;
 
 
+static push_error_code_t
+sum_callback_activate(push_parser_t *parser,
+                      push_callback_t *pcallback,
+                      push_callback_t *old_callback)
+{
+    sum_callback_t  *callback = (sum_callback_t *) pcallback;
+
+    PUSH_DEBUG_MSG("sum: Activating callback.\n");
+    callback->sum = 0;
+    return PUSH_SUCCESS;
+}
+
+
 static ssize_t
 sum_callback_process_bytes(push_parser_t *parser,
                            push_callback_t *pcallback,
@@ -68,6 +81,7 @@ sum_callback_new()
     push_callback_init(&result->base,
                        sizeof(uint32_t),
                        sizeof(uint32_t),
+                       sum_callback_activate,
                        sum_callback_process_bytes,
                        push_eof_allowed,
                        NULL,

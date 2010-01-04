@@ -32,9 +32,7 @@ typedef struct _push_protobuf_varint32
     push_callback_t  base;
 
     /**
-     * The number of bytes currently added to the varint.  After we've
-     * parsed an integer, we reset the count 0, so that we're ready to
-     * process another one later.
+     * The number of bytes currently added to the varint.
      */
 
     size_t  bytes_processed;

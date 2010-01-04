@@ -93,6 +93,7 @@ sum_callback_new()
     push_callback_init(&result->base,
                        sizeof(uint32_t),
                        sizeof(uint32_t),
+                       NULL,
                        sum_callback_process_bytes,
                        push_eof_allowed,
                        NULL,

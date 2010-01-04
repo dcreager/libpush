@@ -79,4 +79,3 @@ push_protobuf_field_new(push_protobuf_tag_type_t expected_tag_type,
 
 
 #endif  /* PUSH_PROTOBUF_FIELD_H */
-

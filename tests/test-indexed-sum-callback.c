@@ -90,6 +90,31 @@ sum_callback_process_bytes(push_parser_t *parser,
 }
 
 
+static push_error_code_t
+index_callback_activate(push_parser_t *parser,
+                        push_callback_t *pcallback,
+                        push_callback_t *old_callback)
+{
+    index_callback_t  *callback = (index_callback_t *) pcallback;
+
+    PUSH_DEBUG_MSG("index: Activating callback.\n");
+
+    if (old_callback == NULL)
+    {
+        int  i;
+
+        PUSH_DEBUG_MSG("index: First activation, resetting sums.\n");
+
+        for (i = 0; i < NUM_SUM_CALLBACKS; i++)
+        {
+            callback->sum_callbacks[i]->sum = 0;
+        }
+    }
+
+    return PUSH_SUCCESS;
+}
+
+
 static ssize_t
 index_callback_process_bytes(push_parser_t *parser,
                              push_callback_t *pcallback,
@@ -161,6 +186,7 @@ sum_callback_new(push_callback_t *next_callback)
     push_callback_init(&result->base,
                        sizeof(uint32_t),
                        sizeof(uint32_t),
+                       NULL,
                        sum_callback_process_bytes,
                        push_eof_not_allowed,
                        NULL,
@@ -190,6 +216,7 @@ index_callback_new()
     push_callback_init(&result->base,
                        sizeof(uint32_t),
                        sizeof(uint32_t),
+                       index_callback_activate,
                        index_callback_process_bytes,
                        push_eof_allowed,
                        index_callback_free,
