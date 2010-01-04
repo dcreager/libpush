@@ -38,7 +38,7 @@ const uint64_t  EXPECTED_03 = 300;
 
 const uint8_t  DATA_04[] = "\x80\xe4\x97\xd0\x12";
 const size_t  LENGTH_04 = 5;
-const uint64_t  EXPECTED_04 = 5000000000;
+const uint64_t  EXPECTED_04 = UINT64_C(5000000000);
 
 
 /*-----------------------------------------------------------------------
