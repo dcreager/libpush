@@ -92,6 +92,9 @@ process_bytes(push_parser_t *parser,
         callback->max_bytes_requested:
         *bytes_available;
 
+    PUSH_DEBUG_MSG("Calling callback %p with %zu bytes at %p.\n",
+                   callback, bytes_to_send, *buf);
+
     bytes_left = callback->process_bytes
         (parser, callback, *buf, bytes_to_send);
 

@@ -31,11 +31,13 @@ env.Alias("install", env.Install("$INCLUDEDIR/push",
 
 protobuf_h_files = map(File, \
     [
+     "push/protobuf/basics.h",
+     "push/protobuf/field.h",
      "push/protobuf/varint32.h",
      "push/protobuf/varint64.h",
     ])
 
-SOURCE_FILES.extend(push_h_files)
+SOURCE_FILES.extend(protobuf_h_files)
 
 env.Alias("install", env.Install("$INCLUDEDIR/push/protobuf",
                                  protobuf_h_files))

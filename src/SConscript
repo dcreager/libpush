@@ -11,6 +11,7 @@ libpush_files = map(File, \
     [
      "callback.c",
      "parser.c",
+     "protobuf/field.c",
      "protobuf/varint32.c",
      "protobuf/varint64.c",
     ])

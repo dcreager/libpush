@@ -2,5 +2,6 @@ test-double-sum-callback
 test-indexed-sum-callback
 test-sum-callback
 
+test-protobuf-field
 test-protobuf-varint32
 test-protobuf-varint64

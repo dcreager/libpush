@@ -34,6 +34,7 @@ add_test("test-double-sum-callback")
 add_test("test-indexed-sum-callback")
 add_test("test-sum-callback")
 
+add_test("test-protobuf-field")
 add_test("test-protobuf-varint32")
 add_test("test-protobuf-varint64")
 
