@@ -61,7 +61,7 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         field_callback = push_protobuf_field_new                    \
             (PUSH_PROTOBUF_TAG_TYPE_VARINT,                         \
              &value_callback->base,                                 \
-             NULL, true);                                           \
+             true);                                                 \
         fail_if(field_callback == NULL,                             \
                 "Could not allocate a new field callback");         \
                                                                     \
@@ -119,7 +119,7 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         field_callback = push_protobuf_field_new                    \
             (PUSH_PROTOBUF_TAG_TYPE_VARINT,                         \
              &value_callback->base,                                 \
-             NULL, true);                                           \
+             true);                                                 \
         fail_if(field_callback == NULL,                             \
                 "Could not allocate a new field callback");         \
                                                                     \
@@ -184,7 +184,7 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         field_callback = push_protobuf_field_new                    \
             (PUSH_PROTOBUF_TAG_TYPE_VARINT,                         \
              &value_callback->base,                                 \
-             NULL, true);                                           \
+             true);                                                 \
         fail_if(field_callback == NULL,                             \
                 "Could not allocate a new field callback");         \
                                                                     \

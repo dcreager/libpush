@@ -255,7 +255,6 @@ field_free(push_callback_t *pcallback)
 push_protobuf_field_t *
 push_protobuf_field_new(push_protobuf_tag_type_t expected_tag_type,
                         push_callback_t *value_callback,
-                        push_callback_t *next_callback,
                         bool eof_allowed)
 {
     push_protobuf_field_t  *result =
@@ -356,10 +355,7 @@ push_protobuf_field_new(push_protobuf_tag_type_t expected_tag_type,
      */
 
     if (result != NULL)
-    {
         push_callback_free(&result->base);
-        free(result);
-    }
 
     return NULL;
 }
