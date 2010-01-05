@@ -1,5 +1,6 @@
 test-double-sum-callback
 test-indexed-sum-callback
+test-skip
 test-sum-callback
 
 test-protobuf-field
