@@ -14,12 +14,20 @@ libpush_files = map(File, \
      "parser.c",
      "skip.c",
      "trash.c",
+     "protobuf/assign-uint32.c",
+     "protobuf/assign-uint64.c",
      "protobuf/field.c",
+     "protobuf/message.c",
      "protobuf/varint32.c",
      "protobuf/varint64.c",
     ])
 
 SOURCE_FILES.extend(libpush_files)
+
+# Add the source file that isn't compiled on its own, so that the
+# sdist contains it.
+
+SOURCE_FILES.append(File("protobuf/assign-template.c"))
 
 libpush = env.SharedLibrary("push", libpush_files,
                             LIBS=["$libhwm_LIB"])

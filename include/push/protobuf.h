@@ -21,6 +21,7 @@
 
 #include <push/protobuf/basics.h>
 #include <push/protobuf/field.h>
+#include <push/protobuf/message.h>
 #include <push/protobuf/varint32.h>
 #include <push/protobuf/varint64.h>
 
