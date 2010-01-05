@@ -17,6 +17,7 @@
 #include <check.h>
 
 #include <push.h>
+#include <push/eof.h>
 #include <push/protobuf.h>
 
 
@@ -24,16 +25,18 @@
  * Sample data
  */
 
+const push_protobuf_tag_t  TAG_01 =
+    0x08;                       /* field 1, wire type 0 */
 const uint8_t  DATA_01[] =
-    "\x08"                      /* field 1, wire type 0 */
     "\xac\x02";                 /*   value = 300 */
-const size_t  LENGTH_01 = 3;
+const size_t  LENGTH_01 = 2;
 const uint32_t  EXPECTED_01 = 300;
 
+const push_protobuf_tag_t  TAG_02 =
+    0x10;                       /* field 2, wire type 0 */
 const uint8_t  DATA_02[] =
-    "\x10"                      /* field 2, wire type 0 */
     "\x80\xe4\x97\xd0\x12";     /*   value = 5,000,000,000 */
-const size_t  LENGTH_02 = 6;
+const size_t  LENGTH_02 = 5;
 const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
 
 
@@ -47,6 +50,7 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         push_parser_t  *parser;                                     \
         push_protobuf_##value_type##_t  *value_callback;            \
         push_protobuf_field_t  *field_callback;                     \
+        push_callback_t  *eof;                                      \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_read_"                                 \
@@ -65,12 +69,17 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         fail_if(field_callback == NULL,                             \
                 "Could not allocate a new field callback");         \
                                                                     \
-        field_callback->base.next_callback =                        \
-            &field_callback->base;                                  \
+        eof = push_eof_new();                                       \
+        fail_if(eof == NULL,                                        \
+                "Could not allocate a new EOF callback");           \
+                                                                    \
+        field_callback->base.next_callback = eof;                   \
                                                                     \
         parser = push_parser_new(&field_callback->base);            \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
+                                                                    \
+        field_callback->actual_tag = TAG_##test_name;               \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
@@ -104,6 +113,7 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         push_parser_t  *parser;                                     \
         push_protobuf_##value_type##_t  *value_callback;            \
         push_protobuf_field_t  *field_callback;                     \
+        push_callback_t  *eof;                                      \
         size_t  first_chunk_size;                                   \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
@@ -123,14 +133,19 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         fail_if(field_callback == NULL,                             \
                 "Could not allocate a new field callback");         \
                                                                     \
-        field_callback->base.next_callback =                        \
-            &field_callback->base;                                  \
+        eof = push_eof_new();                                       \
+        fail_if(eof == NULL,                                        \
+                "Could not allocate a new EOF callback");           \
+                                                                    \
+        field_callback->base.next_callback = eof;                   \
                                                                     \
         parser = push_parser_new(&field_callback->base);            \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
         first_chunk_size = LENGTH_##test_name / 2;                  \
+                                                                    \
+        field_callback->actual_tag = TAG_##test_name;               \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
@@ -170,6 +185,7 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         push_parser_t  *parser;                                     \
         push_protobuf_##value_type##_t  *value_callback;            \
         push_protobuf_field_t  *field_callback;                     \
+        push_callback_t  *eof;                                      \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_parse_error_"                          \
@@ -188,12 +204,17 @@ const uint64_t  EXPECTED_02 = UINT64_C(5000000000);
         fail_if(field_callback == NULL,                             \
                 "Could not allocate a new field callback");         \
                                                                     \
-        field_callback->base.next_callback =                        \
-            &field_callback->base;                                  \
+        eof = push_eof_new();                                       \
+        fail_if(eof == NULL,                                        \
+                "Could not allocate a new EOF callback");           \
+                                                                    \
+        field_callback->base.next_callback = eof;                   \
                                                                     \
         parser = push_parser_new(&field_callback->base);            \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
+                                                                    \
+        field_callback->actual_tag = TAG_##test_name;               \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \

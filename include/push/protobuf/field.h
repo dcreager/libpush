@@ -39,10 +39,11 @@ typedef struct _push_protobuf_field
     push_protobuf_tag_type_t  expected_tag_type;
 
     /**
-     * The callback that will be used to parse the field's tag.
+     * The actual tag value that was read.  This must be set before
+     * passing off to the field callback.
      */
 
-    push_protobuf_varint32_t  *tag_callback;
+    push_protobuf_tag_t  actual_tag;
 
     /**
      * The callback that verifies that the tag is correct for this

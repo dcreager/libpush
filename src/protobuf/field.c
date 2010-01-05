@@ -52,7 +52,7 @@ verify_tag_process_bytes(push_parser_t *parser,
 
     PUSH_DEBUG_MSG("field: Verifying tag type.\n");
 
-    actual_tag = callback->field_callback->tag_callback->value;
+    actual_tag = callback->field_callback->actual_tag;
     expected_tag_type = callback->field_callback->expected_tag_type;
 
     PUSH_DEBUG_MSG("field:   Got tag type %d, expecting tag type %d.\n",
@@ -228,12 +228,12 @@ field_process_bytes(push_parser_t *parser,
     /*
      * The field_callback doesn't actually do anything, we just thread
      * through our child callbacks.  Pass off right away into the
-     * tag_callback.
+     * verify_tag callback.
      */
 
-    PUSH_DEBUG_MSG("field: Switching to tag callback.\n");
+    PUSH_DEBUG_MSG("field: Switching to tag verification callback.\n");
 
-    push_parser_set_callback(parser, &callback->tag_callback->base);
+    push_parser_set_callback(parser, callback->verify_tag_callback);
     return bytes_available;
 }
 
@@ -245,7 +245,6 @@ field_free(push_callback_t *pcallback)
         (push_protobuf_field_t *) pcallback;
 
     PUSH_DEBUG_MSG("field: Freeing field callback %p...\n", pcallback);
-    push_callback_free(&callback->tag_callback->base);
     push_callback_free(callback->verify_tag_callback);
     push_callback_free(callback->value_callback);
     push_callback_free(callback->finish_callback);
@@ -280,19 +279,7 @@ push_protobuf_field_new(push_protobuf_tag_type_t expected_tag_type,
     result->expected_tag_type = expected_tag_type;
 
     /*
-     * Try to create that callback for reading the field's tag.
-     */
-
-    result->tag_callback =
-        push_protobuf_varint32_new(NULL, eof_allowed);
-    if (result->tag_callback == NULL)
-    {
-        PUSH_DEBUG_MSG("Couldn't allocate tag callback.\n");
-        goto error;
-    }
-
-    /*
-     * ...and then the callback for verifying the tag.
+     * Try to create the callback for verifying the tag.
      */
 
     {
@@ -336,9 +323,6 @@ push_protobuf_field_new(push_protobuf_tag_type_t expected_tag_type,
     /*
      * Finally, link all of the callbacks together.
      */
-
-    result->tag_callback->base.next_callback =
-        result->verify_tag_callback;
 
     result->verify_tag_callback->next_callback =
         value_callback;
