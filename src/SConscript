@@ -19,8 +19,8 @@ libpush_files = map(File, \
      #"protobuf/assign-uint64.c",
      #"protobuf/field.c",
      #"protobuf/message.c",
-     #"protobuf/varint32.c",
-     #"protobuf/varint64.c",
+     "protobuf/varint32.c",
+     "protobuf/varint64.c",
     ])
 
 SOURCE_FILES.extend(libpush_files)

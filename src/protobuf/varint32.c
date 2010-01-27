@@ -19,7 +19,7 @@
 static push_error_code_t
 varint32_activate(push_parser_t *parser,
                   push_callback_t *pcallback,
-                  push_callback_t *old_callback)
+                  void *input)
 {
     push_protobuf_varint32_t  *callback =
         (push_protobuf_varint32_t *) pcallback;
@@ -50,6 +50,20 @@ varint32_process_bytes(push_parser_t *parser,
                    bytes_available, vbuf);
 
     /*
+     * If we don't have any data to process, that's a parse error.
+     */
+
+    if (bytes_available == 0)
+        return PUSH_PARSE_ERROR;
+
+    /*
+     * In all cases below, once we've parsed the varint, we store it
+     * into the callback's value field.  The callback constructor will
+     * already have pointed the result pointer at this field, so the
+     * value will be correctly passed into any downstream callbacks.
+     */
+
+    /*
      * Special case for single-byte varints — super common, especially
      * for tag numbers.
      */
@@ -64,7 +78,6 @@ varint32_process_bytes(push_parser_t *parser,
         PUSH_DEBUG_MSG("varint32: Read value %"PRIu32", using 1 byte\n",
                        callback->value);
 
-        push_parser_set_callback(parser, callback->base.next_callback);
         return bytes_available - 1;
     }
 
@@ -111,7 +124,6 @@ varint32_process_bytes(push_parser_t *parser,
         bytes_available -= (ptr - buf);
 
         callback->value = result;
-        push_parser_set_callback(parser, callback->base.next_callback);
 
         return bytes_available;
 
@@ -155,50 +167,24 @@ varint32_process_bytes(push_parser_t *parser,
                                ", using %zu bytes\n",
                                callback->value, callback->bytes_processed);
 
-                push_parser_set_callback(parser, callback->base.next_callback);
                 return bytes_available;
             }
 
             buf++;
         }
 
-        return bytes_available;
+        /*
+         * We ran out of data without processing a full varint, so
+         * return the incomplete code.
+         */
+
+        return PUSH_INCOMPLETE;
     }
-}
-
-
-static push_error_code_t
-varint32_eof(push_parser_t *parser,
-             push_callback_t *pcallback)
-{
-    push_protobuf_varint32_t  *callback =
-        (push_protobuf_varint32_t *) pcallback;
-
-    /*
-     * If we've processed part of a varint, but not all of it, then
-     * EOF isn't allowed.
-     */
-
-    if (callback->bytes_processed > 0)
-    {
-        PUSH_DEBUG_MSG("Reached EOF in middle of varint.  Parse fails.\n");
-        return PUSH_PARSE_ERROR;
-    }
-
-    /*
-     * Otherwise, the EOF occurred instead of a varint.  The
-     * eof_allowed flag lets us know whether that's allowed.
-     */
-
-    return callback->eof_allowed?
-        PUSH_SUCCESS:
-        PUSH_PARSE_ERROR;
 }
 
 
 push_protobuf_varint32_t *
-push_protobuf_varint32_new(push_callback_t *next_callback,
-                           bool eof_allowed)
+push_protobuf_varint32_new()
 {
     push_protobuf_varint32_t  *result =
         (push_protobuf_varint32_t *) malloc(sizeof(push_protobuf_varint32_t));
@@ -207,17 +193,13 @@ push_protobuf_varint32_new(push_callback_t *next_callback,
         return NULL;
 
     push_callback_init(&result->base,
-                       1,
-                       PUSH_PROTOBUF_MAX_VARINT_LENGTH,
                        varint32_activate,
                        varint32_process_bytes,
-                       varint32_eof,
-                       NULL,
-                       next_callback);
+                       NULL);
 
     result->bytes_processed = 0; 
     result->value = 0;
-    result->eof_allowed = eof_allowed;
+    result->base.result = &result->value;
 
     return result;
 }

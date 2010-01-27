@@ -19,8 +19,8 @@
 
 /**
  * A callback for parsing a varint-encoded integer, which we don't
- * expect to be more than 32 bits.  Once the integer has been parsed,
- * we pass off to next_callback.
+ * expect to be more than 32 bits.  The result pointer will point at
+ * the parsed value, stored as a uint32_t.
  */
 
 typedef struct _push_protobuf_varint32
@@ -43,12 +43,6 @@ typedef struct _push_protobuf_varint32
 
     uint32_t  value;
 
-    /**
-     * Whether EOF is allowed in place of this varint.
-     */
-
-    bool  eof_allowed;
-
 } push_protobuf_varint32_t;
 
 
@@ -57,8 +51,7 @@ typedef struct _push_protobuf_varint32
  */
 
 push_protobuf_varint32_t *
-push_protobuf_varint32_new(push_callback_t *next_callback,
-                           bool eof_allowed);
+push_protobuf_varint32_new();
 
 
 #endif  /* PUSH_PROTOBUF_VARINT32_H */
