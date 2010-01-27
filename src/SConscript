@@ -12,6 +12,7 @@ libpush_files = map(File, \
      "bind.c",
      "callback.c",
      "eof.c",
+     "min-bytes.c",
      "parser.c",
      "skip.c",
      "trash.c",

@@ -18,6 +18,7 @@
 
 #include <push/basics.h>
 #include <push/bind.h>
+#include <push/min-bytes.h>
 
 
 /*-----------------------------------------------------------------------
@@ -70,6 +71,7 @@ sum_callback_process_bytes(push_parser_t *parser,
         PUSH_DEBUG_MSG("sum: Adding %"PRIu32".  "
                        "Sum is now %"PRIu32".\n",
                        *next_int, callback->sum);
+        PUSH_DEBUG_MSG("sum: Returning %zu bytes.\n", bytes_available);
 
         return bytes_available;
     }
@@ -201,50 +203,46 @@ END_TEST
 START_TEST(test_sum_05)
 {
     push_parser_t  *parser;
-    sum_callback_t  *sum1;
-    sum_callback_t  *sum2;
-    sum_callback_t  *sum3;
-    sum_callback_t  *sum4;
-    sum_callback_t  *sum5;
+    sum_callback_t  *sum[5];
     push_bind_t  *bind;
     uint32_t  input = 0;
     uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_sum_05\n");
 
-    sum1 = sum_callback_new();
-    fail_if(sum1 == NULL,
+    sum[0] = sum_callback_new();
+    fail_if(sum[0] == NULL,
             "Could not allocate first sum callback");
 
-    sum2 = sum_callback_new();
-    fail_if(sum2 == NULL,
+    sum[1] = sum_callback_new();
+    fail_if(sum[1] == NULL,
             "Could not allocate second sum callback");
 
-    sum3 = sum_callback_new();
-    fail_if(sum3 == NULL,
+    sum[2] = sum_callback_new();
+    fail_if(sum[2] == NULL,
             "Could not allocate third sum callback");
 
-    sum4 = sum_callback_new();
-    fail_if(sum4 == NULL,
+    sum[3] = sum_callback_new();
+    fail_if(sum[3] == NULL,
             "Could not allocate fourth sum callback");
 
-    sum5 = sum_callback_new();
-    fail_if(sum5 == NULL,
+    sum[4] = sum_callback_new();
+    fail_if(sum[4] == NULL,
             "Could not allocate fifth sum callback");
 
-    bind = push_bind_new(&sum1->base, &sum2->base);
+    bind = push_bind_new(&sum[0]->base, &sum[1]->base);
     fail_if(bind == NULL,
             "Could not allocate bind callback");
 
-    bind = push_bind_new(&bind->base, &sum3->base);
+    bind = push_bind_new(&bind->base, &sum[2]->base);
     fail_if(bind == NULL,
             "Could not allocate bind callback");
 
-    bind = push_bind_new(&bind->base, &sum4->base);
+    bind = push_bind_new(&bind->base, &sum[3]->base);
     fail_if(bind == NULL,
             "Could not allocate bind callback");
 
-    bind = push_bind_new(&bind->base, &sum5->base);
+    bind = push_bind_new(&bind->base, &sum[4]->base);
     fail_if(bind == NULL,
             "Could not allocate bind callback");
 
@@ -257,6 +255,106 @@ START_TEST(test_sum_05)
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
+    result = (uint32_t *) bind->base.result;
+
+    fail_unless(*result == 15,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                *result, 15);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
+START_TEST(test_wrapped_sum_05)
+{
+    push_parser_t  *parser;
+    sum_callback_t  *sum[5];
+    push_min_bytes_t  *wrapped[5];
+    push_bind_t  *bind;
+    uint32_t  input = 0;
+    uint32_t  *result;
+    size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
+
+    PUSH_DEBUG_MSG("---\nStarting test_wrapped_sum_05\n");
+
+    sum[0] = sum_callback_new();
+    fail_if(sum[0] == NULL,
+            "Could not allocate first sum callback");
+
+    wrapped[0] = push_min_bytes_new(&sum[0]->base, sizeof(uint32_t));
+    fail_if(wrapped[0] == NULL,
+            "Could not allocate first min-bytes callback");
+
+    sum[1] = sum_callback_new();
+    fail_if(sum[1] == NULL,
+            "Could not allocate second sum callback");
+
+    wrapped[1] = push_min_bytes_new(&sum[1]->base, sizeof(uint32_t));
+    fail_if(wrapped[1] == NULL,
+            "Could not allocate second min-bytes callback");
+
+    sum[2] = sum_callback_new();
+    fail_if(sum[2] == NULL,
+            "Could not allocate third sum callback");
+
+    wrapped[2] = push_min_bytes_new(&sum[2]->base, sizeof(uint32_t));
+    fail_if(wrapped[2] == NULL,
+            "Could not allocate third min-bytes callback");
+
+    sum[3] = sum_callback_new();
+    fail_if(sum[3] == NULL,
+            "Could not allocate fourth sum callback");
+
+    wrapped[3] = push_min_bytes_new(&sum[3]->base, sizeof(uint32_t));
+    fail_if(wrapped[3] == NULL,
+            "Could not allocate fourth min-bytes callback");
+
+    sum[4] = sum_callback_new();
+    fail_if(sum[4] == NULL,
+            "Could not allocate fifth sum callback");
+
+    wrapped[4] = push_min_bytes_new(&sum[4]->base, sizeof(uint32_t));
+    fail_if(wrapped[4] == NULL,
+            "Could not allocate fifth min-bytes callback");
+
+    bind = push_bind_new(&wrapped[0]->base, &wrapped[1]->base);
+    fail_if(bind == NULL,
+            "Could not allocate bind callback");
+
+    bind = push_bind_new(&bind->base, &wrapped[2]->base);
+    fail_if(bind == NULL,
+            "Could not allocate bind callback");
+
+    bind = push_bind_new(&bind->base, &wrapped[3]->base);
+    fail_if(bind == NULL,
+            "Could not allocate bind callback");
+
+    bind = push_bind_new(&bind->base, &wrapped[4]->base);
+    fail_if(bind == NULL,
+            "Could not allocate bind callback");
+
+    parser = push_parser_new(&bind->base);
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    fail_unless(push_parser_activate(parser, &input) == PUSH_SUCCESS,
+                "Could not activate parser");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_INCOMPLETE,
+                "Could not parse data");
+
+    fail_unless(push_parser_submit_data
+                (parser,
+                 ((void *) DATA_01) + FIRST_CHUNK_SIZE,
+                 LENGTH_01 - FIRST_CHUNK_SIZE) == PUSH_SUCCESS,
                 "Could not parse data");
 
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
@@ -383,6 +481,7 @@ test_suite()
     tcase_add_test(tc, test_sum_01);
     tcase_add_test(tc, test_sum_02);
     tcase_add_test(tc, test_sum_05);
+    tcase_add_test(tc, test_wrapped_sum_05);
     tcase_add_test(tc, test_parse_error_01);
     tcase_add_test(tc, test_parse_error_02);
     suite_add_tcase(s, tc);
