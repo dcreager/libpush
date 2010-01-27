@@ -16,7 +16,7 @@
 
 #include <check.h>
 
-#include <push.h>
+#include <push/basics.h>
 #include <push/skip.h>
 
 
@@ -37,8 +37,11 @@ START_TEST(test_skip_01)
 {
     push_parser_t  *parser;
     push_skip_t  *callback;
+    size_t  bytes_to_skip = 5;
 
-    callback = push_skip_new(NULL, true);
+    PUSH_DEBUG_MSG("---\nStarting test_skip_01\n");
+
+    callback = push_skip_new();
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 
@@ -47,12 +50,12 @@ START_TEST(test_skip_01)
      * succeed.
      */
 
-    callback->base.next_callback = &callback->base;
-    callback->bytes_to_skip = 5;
-
     parser = push_parser_new(&callback->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
+
+    fail_unless(push_parser_activate(parser, &bytes_to_skip) == PUSH_SUCCESS,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, 5) == PUSH_SUCCESS,
@@ -70,6 +73,9 @@ START_TEST(test_skip_02)
 {
     push_parser_t  *parser;
     push_skip_t  *callback;
+    size_t  bytes_to_skip = 5;
+
+    PUSH_DEBUG_MSG("---\nStarting test_skip_02\n");
 
     callback = push_skip_new(NULL, true);
     fail_if(callback == NULL,
@@ -77,21 +83,21 @@ START_TEST(test_skip_02)
 
     /*
      * Skip over five bytes, and provide 7 bytes.  This should
-     * fail.
+     * succeed.
      */
-
-    callback->base.next_callback = &callback->base;
-    callback->bytes_to_skip = 5;
 
     parser = push_parser_new(&callback->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    fail_unless(push_parser_activate(parser, &bytes_to_skip) == PUSH_SUCCESS,
+                "Could not activate parser");
+
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, 7) == PUSH_SUCCESS,
                 "Could not parse data");
 
-    fail_unless(push_parser_eof(parser) == PUSH_PARSE_ERROR,
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
     push_parser_free(parser);
@@ -103,29 +109,31 @@ START_TEST(test_skip_03)
 {
     push_parser_t  *parser;
     push_skip_t  *callback;
+    size_t  bytes_to_skip = 5;
+
+    PUSH_DEBUG_MSG("---\nStarting test_skip_03\n");
 
     callback = push_skip_new(NULL, true);
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 
     /*
-     * Skip over five bytes, and provide 10 bytes.  This should
-     * succeed, since the skip callback loops back on itself.
+     * Skip over five bytes, and provide 3 bytes.  This should fail.
      */
-
-    callback->base.next_callback = &callback->base;
-    callback->bytes_to_skip = 5;
 
     parser = push_parser_new(&callback->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    fail_unless(push_parser_activate(parser, &bytes_to_skip) == PUSH_SUCCESS,
+                "Could not activate parser");
+
     fail_unless(push_parser_submit_data
-                (parser, &DATA_01, 10) == PUSH_SUCCESS,
+                (parser, &DATA_01, 3) == PUSH_INCOMPLETE,
                 "Could not parse data");
 
-    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
-                "Shouldn't get parse error at EOF");
+    fail_unless(push_parser_eof(parser) == PUSH_PARSE_ERROR,
+                "Should get parse error at EOF");
 
     push_parser_free(parser);
 }

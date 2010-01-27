@@ -1,6 +1,8 @@
+test-bind
 test-eof
 test-double-sum-callback
 test-indexed-sum-callback
+test-int
 test-skip
 test-sum-callback
 

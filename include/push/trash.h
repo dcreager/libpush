@@ -11,8 +11,7 @@
 #ifndef PUSH_TRASH_H
 #define PUSH_TRASH_H
 
-#include <stdlib.h>
-
+#include <push/basics.h>
 
 /**
  * Allocate and initialize a new callback that ignores all remaining

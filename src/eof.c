@@ -8,7 +8,7 @@
  * ----------------------------------------------------------------------
  */
 
-#include <push.h>
+#include <push/basics.h>
 #include <push/eof.h>
 
 
@@ -23,9 +23,16 @@ eof_process_bytes(push_parser_t *parser,
      */
 
     if (bytes_available > 0)
+    {
+        PUSH_DEBUG_MSG("eof: Expected EOF, but got %zu bytes.\n",
+                       bytes_available);
+
         return PUSH_PARSE_ERROR;
-    else
+    } else {
+        PUSH_DEBUG_MSG("eof: Reached expected EOF.\n");
+
         return 0;
+    }
 }
 
 
@@ -34,9 +41,5 @@ push_eof_new()
 {
     return
         push_callback_new(NULL,
-                          eof_process_bytes,
-                          push_eof_allowed,
-                          1,
-                          0,
-                          NULL);
+                          eof_process_bytes);
 }

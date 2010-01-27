@@ -20,6 +20,8 @@ env.Alias("install", env.Install("$INCLUDEDIR",
 
 push_h_files = map(File, \
     [
+     "push/basics.h",
+     "push/bind.h",
      "push/eof.h",
      "push/protobuf.h",
      "push/skip.h",

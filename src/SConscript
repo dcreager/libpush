@@ -9,17 +9,18 @@ env.Append(CPPPATH = ["#/include", "$libhwm_CPPPATH"],
 
 libpush_files = map(File, \
     [
+     "bind.c",
      "callback.c",
      "eof.c",
      "parser.c",
      "skip.c",
      "trash.c",
-     "protobuf/assign-uint32.c",
-     "protobuf/assign-uint64.c",
-     "protobuf/field.c",
-     "protobuf/message.c",
-     "protobuf/varint32.c",
-     "protobuf/varint64.c",
+     #"protobuf/assign-uint32.c",
+     #"protobuf/assign-uint64.c",
+     #"protobuf/field.c",
+     #"protobuf/message.c",
+     #"protobuf/varint32.c",
+     #"protobuf/varint64.c",
     ])
 
 SOURCE_FILES.extend(libpush_files)

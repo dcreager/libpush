@@ -13,11 +13,13 @@
 
 #include <stdlib.h>
 
+#include <push/basics.h>
+
 
 /**
  * A callback that skips the specified number of bytes.  The
- * bytes_to_skip field should be filled in before passing off to this
- * callback.
+ * callback's input should be a pointer to a size_t, indicating the
+ * number of bytes to skip.
  */
 
 typedef struct _push_skip
@@ -48,8 +50,7 @@ typedef struct _push_skip
  */
 
 push_skip_t *
-push_skip_new(push_callback_t *next_callback,
-              bool eof_allowed);
+push_skip_new();
 
 
 #endif  /* PUSH_SKIP_H */

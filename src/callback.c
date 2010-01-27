@@ -8,36 +8,25 @@
  * ----------------------------------------------------------------------
  */
 
-#include <push.h>
+#include <stdlib.h>
+
+#include <push/basics.h>
 
 void
 push_callback_init(push_callback_t *callback,
-                   size_t min_bytes_requested,
-                   size_t max_bytes_requested,
                    push_activate_func_t *activate,
                    push_process_bytes_func_t *process_bytes,
-                   push_eof_func_t *eof,
-                   push_callback_free_func_t *free,
-                   push_callback_t *next_callback)
+                   push_callback_free_func_t *free)
 {
-    callback->min_bytes_requested = min_bytes_requested;
-    callback->max_bytes_requested = max_bytes_requested;
     callback->activate = activate;
     callback->process_bytes = process_bytes;
-    callback->eof = eof;
     callback->free = free;
-    callback->freeing = false;
-    callback->next_callback = next_callback;
 }
 
 
 push_callback_t *
 push_callback_new(push_activate_func_t *activate,
-                  push_process_bytes_func_t *process_bytes,
-                  push_eof_func_t *eof,
-                  size_t min_bytes_requested,
-                  size_t max_bytes_requested,
-                  push_callback_t *next_callback)
+                  push_process_bytes_func_t *process_bytes)
 {
     push_callback_t  *result;
 
@@ -57,13 +46,9 @@ push_callback_new(push_activate_func_t *activate,
      */
 
     push_callback_init(result,
-                       min_bytes_requested,
-                       max_bytes_requested,
                        activate,
                        process_bytes,
-                       eof,
-                       NULL,
-                       next_callback);
+                       NULL);
     return result;
 }
 
@@ -97,13 +82,6 @@ push_callback_free(push_callback_t *callback)
         callback->free(callback);
 
     /*
-     * If the next_callback pointer is filled in, free it, too.
-     */
-
-    if (callback->next_callback != NULL)
-        push_callback_free(callback->next_callback);
-
-    /*
      * Finally, free the callback object itself.
      */
 
@@ -112,18 +90,34 @@ push_callback_free(push_callback_t *callback)
 
 
 push_error_code_t
-push_eof_allowed(push_parser_t *parser,
-                 push_callback_t *callback)
+push_callback_activate(push_parser_t *parser,
+                       push_callback_t *callback,
+                       void *input)
 {
-    PUSH_DEBUG_MSG("Reached EOF, parse succeeded.\n");
+    /*
+     * Call the callback's activation function, if any.  Return the
+     * activation's error code as our own error code.
+     */
+
+    if (callback->activate != NULL)
+    {
+        return callback->activate(parser, callback, input);
+    }
+
+    /*
+     * If there's no activation function, then there's no error.
+     */
+
     return PUSH_SUCCESS;
 }
 
 
-push_error_code_t
-push_eof_not_allowed(push_parser_t *parser,
-                     push_callback_t *callback)
+ssize_t
+push_callback_process_bytes(push_parser_t *parser,
+                            push_callback_t *callback,
+                            const void *buf,
+                            size_t bytes_available)
 {
-    PUSH_DEBUG_MSG("Reached EOF, parse failed.\n");
-    return PUSH_PARSE_ERROR;
+    return callback->process_bytes(parser, callback,
+                                   buf, bytes_available);
 }

@@ -8,17 +8,24 @@
  * ----------------------------------------------------------------------
  */
 
-#include <push.h>
+#include <stdlib.h>
+
+#include <push/basics.h>
 #include <push/skip.h>
 
 
 static push_error_code_t
 skip_activate(push_parser_t *parser,
               push_callback_t *pcallback,
-              push_callback_t *old_callback)
+              void *input)
 {
     push_skip_t  *callback = (push_skip_t *) pcallback;
+    size_t  *bytes_to_skip = (size_t *) input;
 
+    PUSH_DEBUG_MSG("skip: Activating.  Will skip %zu bytes.\n",
+                   *bytes_to_skip);
+
+    callback->bytes_to_skip = *bytes_to_skip;
     callback->bytes_skipped = 0;
 
     return PUSH_SUCCESS;
@@ -42,6 +49,23 @@ skip_process_bytes(push_parser_t *parser,
          * error.
          */
 
+        PUSH_DEBUG_MSG("skip: Fatal error, we somehow skipped over "
+                       "too many bytes!\n");
+
+        return PUSH_PARSE_ERROR;
+    }
+
+    /*
+     * If we reach EOF, then it's a parse error, since we didn't
+     * receive as many bytes as we needed to skip over.
+     */
+
+    if (bytes_available == 0)
+    {
+        PUSH_DEBUG_MSG("skip: Reached EOF still needing to skip "
+                       "%zu bytes.\n",
+                       callback->bytes_to_skip - callback->bytes_skipped);
+
         return PUSH_PARSE_ERROR;
     }
 
@@ -54,6 +78,8 @@ skip_process_bytes(push_parser_t *parser,
     if (skip_size > bytes_available)
         skip_size = bytes_available;
 
+    PUSH_DEBUG_MSG("skip: Skipping over %zu bytes.\n", skip_size);
+
     /*
      * Skip over the bytes.
      */
@@ -62,44 +88,31 @@ skip_process_bytes(push_parser_t *parser,
     bytes_available -= skip_size;
 
     /*
-     * If we've skipped over all of the bytes, we pass off to the next
-     * callback.
+     * If we haven't skipped over all of the bytes yet, then we need
+     * to return the “incomplete” code.
      */
 
-    if (callback->bytes_skipped == callback->bytes_to_skip)
+    if (callback->bytes_skipped < callback->bytes_to_skip)
     {
-        push_parser_set_callback(parser, pcallback->next_callback);
+        PUSH_DEBUG_MSG("skip: %zu bytes left to skip.\n",
+                       callback->bytes_to_skip - callback->bytes_skipped);
+        return PUSH_INCOMPLETE;
     }
 
     /*
-     * And return...
+     * Otherwise return a success code, indicating how many bytes are
+     * left in this chunk.
      */
+
+    PUSH_DEBUG_MSG("skip: Finished skipping; %zu bytes left.\n",
+                   bytes_available);
 
     return bytes_available;
 }
 
 
-static push_error_code_t
-skip_eof(push_parser_t *parser,
-         push_callback_t *pcallback)
-{
-    push_skip_t  *callback = (push_skip_t *) pcallback;
-
-    /*
-     * Only allow EOF at the beginning of the skipping; once we've
-     * started skipping some of the bytes, no more EOF!
-     */
-
-    return
-        (callback->bytes_skipped == 0)?
-        PUSH_SUCCESS:
-        PUSH_PARSE_ERROR;
-}
-
-
 push_skip_t *
-push_skip_new(push_callback_t *next_callback,
-              bool eof_allowed)
+push_skip_new()
 {
     push_skip_t  *result = (push_skip_t *) malloc(sizeof(push_skip_t));
 
@@ -107,15 +120,9 @@ push_skip_new(push_callback_t *next_callback,
         return NULL;
 
     push_callback_init(&result->base,
-                       1,
-                       0,
                        skip_activate,
                        skip_process_bytes,
-                       eof_allowed?
-                           skip_eof:
-                           push_eof_not_allowed,
-                       NULL,
-                       next_callback);
+                       NULL);
 
     result->bytes_to_skip = 0; 
     result->bytes_skipped = 0; 

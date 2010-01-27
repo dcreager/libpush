@@ -16,7 +16,8 @@
 
 #include <check.h>
 
-#include <push.h>
+#include <push/basics.h>
+#include <push/bind.h>
 #include <push/eof.h>
 
 
@@ -39,11 +40,13 @@ int_callback_process_bytes(push_parser_t *parser,
 {
     int_callback_t  *callback = (int_callback_t *) pcallback;
 
-    PUSH_DEBUG_MSG("Processing %zu bytes at %p.\n",
+    PUSH_DEBUG_MSG("int: Processing %zu bytes at %p.\n",
                    bytes_available, buf);
 
-    if (bytes_available >= sizeof(uint32_t))
+    if (bytes_available < sizeof(uint32_t))
     {
+        return PUSH_PARSE_ERROR;
+    } else {
         const uint32_t  *next_int = (const uint32_t *) buf;
         buf += sizeof(uint32_t);
         bytes_available -= sizeof(uint32_t);
@@ -52,39 +55,24 @@ int_callback_process_bytes(push_parser_t *parser,
 
         callback->value = *next_int;
 
-        /*
-         * Pass off to the next callback.
-         */
-
-        push_parser_set_callback(parser, pcallback->next_callback);
+        return bytes_available;
     }
-
-    return bytes_available;
 }
 
 
 static int_callback_t *
 int_callback_new()
 {
-    push_callback_t  *eof;
     int_callback_t  *result;
-
-    eof = push_eof_new();
-    if (eof == NULL)
-        return NULL;
 
     result = (int_callback_t *) malloc(sizeof(int_callback_t));
     if (result == NULL)
         return NULL;
 
     push_callback_init(&result->base,
-                       sizeof(uint32_t),
-                       sizeof(uint32_t),
                        NULL,
                        int_callback_process_bytes,
-                       push_eof_not_allowed,
-                       NULL,
-                       eof);
+                       NULL);
 
     result->value = 0;
 
@@ -109,6 +97,10 @@ START_TEST(test_eof_01)
 {
     push_parser_t  *parser;
     int_callback_t  *callback;
+    push_callback_t  *eof;
+    push_bind_t  *bind;
+
+    PUSH_DEBUG_MSG("---\nStarting test_eof_01\n");
 
     /*
      * Here, we only present one integer, so it should pass.
@@ -118,13 +110,21 @@ START_TEST(test_eof_01)
     fail_if(callback == NULL,
             "Could not allocate a new int callback");
 
-    parser = push_parser_new(&callback->base);
+    eof = push_eof_new();
+    fail_if(eof == NULL,
+            "Could not allocate a new EOF callback");
+
+    bind = push_bind_new(&callback->base, eof);
+    fail_if(bind == NULL,
+            "Could not allocate a new bind callback");
+
+    parser = push_parser_new(&bind->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, 1 * sizeof(uint32_t))
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not parse data");
 
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
@@ -144,7 +144,11 @@ START_TEST(test_parse_error_01)
 {
     push_parser_t  *parser;
     int_callback_t  *callback;
+    push_callback_t  *eof;
+    push_bind_t  *bind;
     size_t  FIRST_CHUNK_SIZE = 3; /* something not divisible by 4 */
+
+    PUSH_DEBUG_MSG("---\nStarting test_parse_error_01\n");
 
     /*
      * Our callback processes ints on nice 32-bit boundaries.  If we
@@ -156,12 +160,20 @@ START_TEST(test_parse_error_01)
     fail_if(callback == NULL,
             "Could not allocate a new int callback");
 
-    parser = push_parser_new(&callback->base);
+    eof = push_eof_new();
+    fail_if(eof == NULL,
+            "Could not allocate a new EOF callback");
+
+    bind = push_bind_new(&callback->base, eof);
+    fail_if(bind == NULL,
+            "Could not allocate a new bind callback");
+
+    parser = push_parser_new(&bind->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
     fail_unless(push_parser_submit_data
-                (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_SUCCESS,
+                (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_PARSE_ERROR,
                 "Could not parse data");
 
     fail_unless(push_parser_eof(parser) == PUSH_PARSE_ERROR,
@@ -176,16 +188,28 @@ START_TEST(test_parse_error_02)
 {
     push_parser_t  *parser;
     int_callback_t  *callback;
+    push_callback_t  *eof;
+    push_bind_t  *bind;
+
+    PUSH_DEBUG_MSG("---\nStarting test_parse_error_01\n");
 
     /*
-     * Here, we present two integer, so we should get a parse error.
+     * Here, we present two integers, so we should get a parse error.
      */
 
     callback = int_callback_new();
     fail_if(callback == NULL,
             "Could not allocate a new int callback");
 
-    parser = push_parser_new(&callback->base);
+    eof = push_eof_new();
+    fail_if(eof == NULL,
+            "Could not allocate a new EOF callback");
+
+    bind = push_bind_new(&callback->base, eof);
+    fail_if(bind == NULL,
+            "Could not allocate a new bind callback");
+
+    parser = push_parser_new(&bind->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
