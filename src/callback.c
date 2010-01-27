@@ -148,3 +148,23 @@ push_callback_process_bytes(push_parser_t *parser,
     return callback->process_bytes(parser, callback,
                                    buf, bytes_available);
 }
+
+
+ssize_t
+push_callback_tail_process_bytes(push_parser_t *parser,
+                                 push_callback_t *parent,
+                                 push_callback_t *child,
+                                 const void *buf,
+                                 size_t bytes_available)
+{
+    ssize_t  result;
+
+    result = push_callback_process_bytes(parser, child,
+                                         buf, bytes_available);
+    if (result >= 0)
+    {
+        parent->result = child->result;
+    }
+
+    return result;
+}

@@ -40,7 +40,6 @@ bind_process_bytes(push_parser_t *parser,
                    size_t bytes_available)
 {
     push_bind_t  *callback = (push_bind_t *) pcallback;
-    ssize_t  result;
 
     /*
      * If the first callback is active, pass the data in to it.
@@ -48,23 +47,25 @@ bind_process_bytes(push_parser_t *parser,
 
     if (callback->first_active)
     {
+        ssize_t  process_result;
         push_error_code_t  activate_result;
 
         PUSH_DEBUG_MSG("bind: Passing %zu bytes to first callback.\n",
                        bytes_available);
 
-        result = push_callback_process_bytes(parser, callback->first,
-                                             vbuf, bytes_available);
+        process_result =
+            push_callback_process_bytes(parser, callback->first,
+                                        vbuf, bytes_available);
 
         /*
          * If we get an error code or an incomplete, return that
          * status code right away.
          */
 
-        if (result < 0)
+        if (process_result < 0)
         {
             PUSH_DEBUG_MSG("bind: First callback didn't succeed.\n");
-            return result;
+            return process_result;
         }
 
         /*
@@ -95,7 +96,7 @@ bind_process_bytes(push_parser_t *parser,
          * processed it all), then we return an incomplete code.
          */
 
-        if ((bytes_available > 0) && (result == 0))
+        if ((bytes_available > 0) && (process_result == 0))
         {
             PUSH_DEBUG_MSG("bind: First callback processed "
                            "all %zu bytes.\n",
@@ -108,13 +109,13 @@ bind_process_bytes(push_parser_t *parser,
              * to update the buffer pointer.
              */
 
-            ptrdiff_t  bytes_processed = bytes_available - result;
+            ptrdiff_t  bytes_processed = bytes_available - process_result;
 
             PUSH_DEBUG_MSG("bind: First callback left %zd bytes.\n",
-                           result);
+                           process_result);
 
             vbuf += bytes_processed;
-            bytes_available = result;
+            bytes_available = process_result;
         }
     }
 
@@ -127,23 +128,9 @@ bind_process_bytes(push_parser_t *parser,
     PUSH_DEBUG_MSG("bind: Passing %zu bytes to second callback.\n",
                    bytes_available);
 
-    result = push_callback_process_bytes(parser, callback->second,
-                                         vbuf, bytes_available);
-
-    /*
-     * If the second callback succeeds, then we should use its result
-     * as our result.
-     */
-
-    if (result >= 0)
-    {
-        PUSH_DEBUG_MSG("bind: Second callback succeeded.\n");
-        callback->base.result = callback->second->result;
-    } else {
-        PUSH_DEBUG_MSG("bind: Second callback didn't succeed.\n");
-    }
-
-    return result;
+    return push_callback_tail_process_bytes(parser, &callback->base,
+                                            callback->second,
+                                            vbuf, bytes_available);
 }
 
 

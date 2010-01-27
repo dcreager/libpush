@@ -298,6 +298,21 @@ push_callback_process_bytes(push_parser_t *parser,
 
 
 /**
+ * “Tail-calls” a child callback on behalf of a parent callback.
+ * Calls the child's process_bytes function as usual; however, if it
+ * succeeds, we copy its result into the result of the parent before
+ * returning.
+ */
+
+ssize_t
+push_callback_tail_process_bytes(push_parser_t *parser,
+                                 push_callback_t *parent,
+                                 push_callback_t *child,
+                                 const void *buf,
+                                 size_t bytes_available);
+
+
+/**
  * @brief A push parser.
  */
 
