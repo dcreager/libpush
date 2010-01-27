@@ -147,6 +147,19 @@ bind_process_bytes(push_parser_t *parser,
 }
 
 
+static void
+bind_free(push_callback_t *pcallback)
+{
+    push_bind_t  *callback = (push_bind_t *) pcallback;
+
+    PUSH_DEBUG_MSG("bind: Freeing first callback.\n");
+    push_callback_free(callback->first);
+
+    PUSH_DEBUG_MSG("bind: Freeing second callback.\n");
+    push_callback_free(callback->second);
+}
+
+
 push_bind_t *
 push_bind_new(push_callback_t *first,
               push_callback_t *second)
@@ -159,7 +172,7 @@ push_bind_new(push_callback_t *first,
     push_callback_init(&result->base,
                        bind_activate,
                        bind_process_bytes,
-                       NULL);
+                       bind_free);
 
     result->first = first;
     result->second = second;

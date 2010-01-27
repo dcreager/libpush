@@ -12,6 +12,16 @@
 
 #include <push/basics.h>
 
+#ifndef PUSH_FREE
+#define PUSH_FREE 0
+#endif
+
+#if PUSH_FREE
+#define PUSH_FREE_MSG(...) PUSH_DEBUG_MSG(__VA_ARGS__)
+#else
+#define PUSH_FREE_MSG(...) /* skipping debug message */
+#endif
+
 void
 push_callback_init(push_callback_t *callback,
                    push_activate_func_t *activate,
@@ -21,6 +31,7 @@ push_callback_init(push_callback_t *callback,
     callback->activate = activate;
     callback->process_bytes = process_bytes;
     callback->free = free;
+    callback->freeing = false;
 }
 
 
@@ -64,13 +75,20 @@ push_callback_free(push_callback_t *callback)
      */
 
     if (callback->freeing)
+    {
+        PUSH_FREE_MSG("callback: %p: Already started freeing.\n",
+                      callback);
         return;
+    }
 
     /*
      * If we haven't started freeing the callback yet, set the freeing
      * flag so that a possible later call will now that we're taking
      * care of it.
      */
+
+    PUSH_FREE_MSG("callback: %p: Starting to free.\n",
+                  callback);
 
     callback->freeing = true;
 
@@ -79,13 +97,22 @@ push_callback_free(push_callback_t *callback)
      */
 
     if (callback->free != NULL)
+    {
+        PUSH_FREE_MSG("callback: %p: Calling custom free function.\n",
+                      callback);
         callback->free(callback);
+    }
 
     /*
      * Finally, free the callback object itself.
      */
 
+    PUSH_FREE_MSG("callback: %p: Freeing push_callback_t instance.\n",
+                  callback);
     free(callback);
+
+    PUSH_FREE_MSG("callback: %p: Finished freeing.\n",
+                  callback);
 }
 
 
