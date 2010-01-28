@@ -1,10 +1,10 @@
 test-bind
 test-eof
-test-double-sum-callback
-test-indexed-sum-callback
+test-double-sum
+test-indexed-sum
 test-int
 test-skip
-test-sum-callback
+test-sum
 
 test-protobuf-field
 test-protobuf-message

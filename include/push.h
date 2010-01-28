@@ -14,6 +14,7 @@
 #include <push/basics.h>
 #include <push/bind.h>
 #include <push/eof.h>
+#include <push/fold.h>
 #include <push/min-bytes.h>
 #include <push/skip.h>
 #include <push/trash.h>

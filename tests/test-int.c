@@ -32,10 +32,10 @@ typedef struct _integer_callback
 
 
 static ssize_t
-integer_callback_process_bytes(push_parser_t *parser,
-                           push_callback_t *pcallback,
-                           const void *buf,
-                           size_t bytes_available)
+integer_process_bytes(push_parser_t *parser,
+                      push_callback_t *pcallback,
+                      const void *buf,
+                      size_t bytes_available)
 {
     integer_callback_t  *callback = (integer_callback_t *) pcallback;
 
@@ -70,7 +70,7 @@ integer_callback_new()
 
     push_callback_init(&result->base,
                        NULL,
-                       integer_callback_process_bytes,
+                       integer_process_bytes,
                        NULL);
 
     result->integer = 0;

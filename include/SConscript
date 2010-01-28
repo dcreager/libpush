@@ -23,6 +23,7 @@ push_h_files = map(File, \
      "push/basics.h",
      "push/bind.h",
      "push/eof.h",
+     "push/fold.h",
      "push/min-bytes.h",
      "push/protobuf.h",
      "push/skip.h",
