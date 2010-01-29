@@ -15,12 +15,51 @@
 #include <push/min-bytes.h>
 
 
+/**
+ * The push_callback_t subclass that defines a min-bytes callback.
+ */
+
+typedef struct _min_bytes
+{
+    /**
+     * The callback's “superclass” instance.
+     */
+
+    push_callback_t  base;
+
+    /**
+     * The wrapped callback.
+     */
+
+    push_callback_t  *wrapped;
+
+    /**
+     * The minimum number of bytes to pass in to the wrapped callback.
+     */
+
+    size_t  minimum_bytes;
+
+    /**
+     * A buffer for storing data until we reach the minimum.
+     */
+
+    void  *buffer;
+
+    /**
+     * The number of bytes currently stored in the buffer.
+     */
+
+    size_t  bytes_buffered;
+
+} min_bytes_t;
+
+
 static push_error_code_t
 min_bytes_activate(push_parser_t *parser,
                    push_callback_t *pcallback,
                    void *input)
 {
-    push_min_bytes_t  *callback = (push_min_bytes_t *) pcallback;
+    min_bytes_t  *callback = (min_bytes_t *) pcallback;
 
     PUSH_DEBUG_MSG("min-bytes: Activating.\n");
 
@@ -38,7 +77,7 @@ min_bytes_process_bytes(push_parser_t *parser,
                         const void *vbuf,
                         size_t bytes_available)
 {
-    push_min_bytes_t  *callback = (push_min_bytes_t *) pcallback;
+    min_bytes_t  *callback = (min_bytes_t *) pcallback;
 
     PUSH_DEBUG_MSG("min-bytes: Processing %zu bytes.\n",
                    bytes_available);
@@ -204,19 +243,19 @@ min_bytes_process_bytes(push_parser_t *parser,
 static void
 min_bytes_free(push_callback_t *pcallback)
 {
-    push_min_bytes_t  *callback = (push_min_bytes_t *) pcallback;
+    min_bytes_t  *callback = (min_bytes_t *) pcallback;
 
     PUSH_DEBUG_MSG("min-bytes: Freeing wrapped callback.\n");
     push_callback_free(callback->wrapped);
 }
 
 
-push_min_bytes_t *
+push_callback_t *
 push_min_bytes_new(push_callback_t *wrapped,
                    size_t minimum_bytes)
 {
-    push_min_bytes_t  *result =
-        (push_min_bytes_t *) malloc(sizeof(push_min_bytes_t));
+    min_bytes_t  *result =
+        (min_bytes_t *) malloc(sizeof(min_bytes_t));
 
     if (result == NULL)
         return NULL;
@@ -237,5 +276,5 @@ push_min_bytes_new(push_callback_t *wrapped,
     result->minimum_bytes = minimum_bytes;
     result->bytes_buffered = 0;
 
-    return result;
+    return &result->base;
 }

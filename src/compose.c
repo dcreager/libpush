@@ -15,12 +15,45 @@
 #include <push/compose.h>
 
 
+/**
+ * The push_callback_t subclass that defines a compose callback.
+ */
+
+typedef struct _compose
+{
+    /**
+     * The callback's “superclass” instance.
+     */
+
+    push_callback_t  base;
+
+    /**
+     * The first child callback in the compose.
+     */
+
+    push_callback_t  *first;
+
+    /**
+     * The second child callback in the compose.
+     */
+
+    push_callback_t  *second;
+
+    /**
+     * Whether the first or second child callback is active.
+     */
+
+    bool first_active;
+
+} compose_t;
+
+
 static push_error_code_t
 compose_activate(push_parser_t *parser,
                  push_callback_t *pcallback,
                  void *input)
 {
-    push_compose_t  *callback = (push_compose_t *) pcallback;
+    compose_t  *callback = (compose_t *) pcallback;
 
     /*
      * We activate the compose by activating the first callback.
@@ -38,7 +71,7 @@ compose_process_bytes(push_parser_t *parser,
                       const void *vbuf,
                       size_t bytes_available)
 {
-    push_compose_t  *callback = (push_compose_t *) pcallback;
+    compose_t  *callback = (compose_t *) pcallback;
 
     /*
      * If the first callback is active, pass the data in to it.
@@ -136,7 +169,7 @@ compose_process_bytes(push_parser_t *parser,
 static void
 compose_free(push_callback_t *pcallback)
 {
-    push_compose_t  *callback = (push_compose_t *) pcallback;
+    compose_t  *callback = (compose_t *) pcallback;
 
     PUSH_DEBUG_MSG("compose: Freeing first callback.\n");
     push_callback_free(callback->first);
@@ -146,12 +179,12 @@ compose_free(push_callback_t *pcallback)
 }
 
 
-push_compose_t *
+push_callback_t *
 push_compose_new(push_callback_t *first,
                  push_callback_t *second)
 {
-    push_compose_t  *result =
-        (push_compose_t *) malloc(sizeof(push_compose_t));
+    compose_t  *result =
+        (compose_t *) malloc(sizeof(compose_t));
 
     if (result == NULL)
         return NULL;
@@ -165,5 +198,5 @@ push_compose_new(push_callback_t *first,
     result->second = second;
     result->first_active = true;
 
-    return result;
+    return &result->base;
 }

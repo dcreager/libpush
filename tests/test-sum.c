@@ -83,7 +83,7 @@ sum_callback_new()
     sum_callback_t  *sum =
         (sum_callback_t *) malloc(sizeof(sum_callback_t));
 
-    push_min_bytes_t  *result;
+    push_callback_t  *result;
 
     if (sum == NULL)
         return NULL;
@@ -103,7 +103,7 @@ sum_callback_new()
         return NULL;
     }
 
-    return &result->base;
+    return result;
 }
 
 
@@ -111,7 +111,7 @@ static push_callback_t *
 make_repeated_sum()
 {
     push_callback_t  *sum;
-    push_fold_t  *fold;
+    push_callback_t  *fold;
 
     sum = sum_callback_new();
     if (sum == NULL)
@@ -124,7 +124,7 @@ make_repeated_sum()
         return NULL;
     }
 
-    return &fold->base;
+    return fold;
 }
 
 

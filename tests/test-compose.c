@@ -156,7 +156,7 @@ START_TEST(test_sum_02)
     push_parser_t  *parser;
     sum_callback_t  *sum1;
     sum_callback_t  *sum2;
-    push_compose_t  *compose;
+    push_callback_t  *compose;
     uint32_t  input = 0;
     uint32_t  *result;
 
@@ -174,7 +174,7 @@ START_TEST(test_sum_02)
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    parser = push_parser_new(&compose->base);
+    parser = push_parser_new(compose);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -188,7 +188,7 @@ START_TEST(test_sum_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) compose->base.result;
+    result = (uint32_t *) compose->result;
 
     fail_unless(*result == 3,
                 "Sum doesn't match (got %"PRIu32
@@ -204,7 +204,7 @@ START_TEST(test_sum_05)
 {
     push_parser_t  *parser;
     sum_callback_t  *sum[5];
-    push_compose_t  *compose;
+    push_callback_t  *compose;
     uint32_t  input = 0;
     uint32_t  *result;
 
@@ -234,19 +234,19 @@ START_TEST(test_sum_05)
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    compose = push_compose_new(&compose->base, &sum[2]->base);
+    compose = push_compose_new(compose, &sum[2]->base);
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    compose = push_compose_new(&compose->base, &sum[3]->base);
+    compose = push_compose_new(compose, &sum[3]->base);
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    compose = push_compose_new(&compose->base, &sum[4]->base);
+    compose = push_compose_new(compose, &sum[4]->base);
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    parser = push_parser_new(&compose->base);
+    parser = push_parser_new(compose);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -260,7 +260,7 @@ START_TEST(test_sum_05)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) compose->base.result;
+    result = (uint32_t *) compose->result;
 
     fail_unless(*result == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -276,8 +276,8 @@ START_TEST(test_wrapped_sum_05)
 {
     push_parser_t  *parser;
     sum_callback_t  *sum[5];
-    push_min_bytes_t  *wrapped[5];
-    push_compose_t  *compose;
+    push_callback_t  *wrapped[5];
+    push_callback_t  *compose;
     uint32_t  input = 0;
     uint32_t  *result;
     size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
@@ -324,23 +324,23 @@ START_TEST(test_wrapped_sum_05)
     fail_if(wrapped[4] == NULL,
             "Could not allocate fifth min-bytes callback");
 
-    compose = push_compose_new(&wrapped[0]->base, &wrapped[1]->base);
+    compose = push_compose_new(wrapped[0], wrapped[1]);
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    compose = push_compose_new(&compose->base, &wrapped[2]->base);
+    compose = push_compose_new(compose, wrapped[2]);
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    compose = push_compose_new(&compose->base, &wrapped[3]->base);
+    compose = push_compose_new(compose, wrapped[3]);
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    compose = push_compose_new(&compose->base, &wrapped[4]->base);
+    compose = push_compose_new(compose, wrapped[4]);
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    parser = push_parser_new(&compose->base);
+    parser = push_parser_new(compose);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -360,7 +360,7 @@ START_TEST(test_wrapped_sum_05)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) compose->base.result;
+    result = (uint32_t *) compose->result;
 
     fail_unless(*result == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -377,7 +377,7 @@ START_TEST(test_parse_error_01)
     push_parser_t  *parser;
     sum_callback_t  *sum1;
     sum_callback_t  *sum2;
-    push_compose_t  *compose;
+    push_callback_t  *compose;
     uint32_t  input = 0;
     size_t  FIRST_CHUNK_SIZE = 3; /* something not divisible by 4 */
 
@@ -401,7 +401,7 @@ START_TEST(test_parse_error_01)
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    parser = push_parser_new(&compose->base);
+    parser = push_parser_new(compose);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -425,7 +425,7 @@ START_TEST(test_parse_error_02)
     push_parser_t  *parser;
     sum_callback_t  *sum1;
     sum_callback_t  *sum2;
-    push_compose_t  *compose;
+    push_callback_t  *compose;
     uint32_t  input = 0;
     size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
 
@@ -449,7 +449,7 @@ START_TEST(test_parse_error_02)
     fail_if(compose == NULL,
             "Could not allocate compose callback");
 
-    parser = push_parser_new(&compose->base);
+    parser = push_parser_new(compose);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 

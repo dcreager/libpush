@@ -16,9 +16,10 @@
 
 #include <check.h>
 
-#include <push.h>
-#include <push/protobuf.h>
-#include <push/trash.h>
+#include <push/basics.h>
+
+#include <push/protobuf/basics.h>
+#include <push/protobuf/varint64.h>
 
 
 /*-----------------------------------------------------------------------

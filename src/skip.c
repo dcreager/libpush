@@ -14,12 +14,39 @@
 #include <push/skip.h>
 
 
+/**
+ * The push_callback_t subclass that defines a skip callback.
+ */
+
+typedef struct _skip
+{
+    /**
+     * The callback's “superclass” instance.
+     */
+
+    push_callback_t  base;
+
+    /**
+     * The number of bytes to skip.
+     */
+
+    size_t  bytes_to_skip;
+
+    /**
+     * The number of bytes skipped so far.
+     */
+
+    size_t  bytes_skipped;
+
+} skip_t;
+
+
 static push_error_code_t
 skip_activate(push_parser_t *parser,
               push_callback_t *pcallback,
               void *input)
 {
-    push_skip_t  *callback = (push_skip_t *) pcallback;
+    skip_t  *callback = (skip_t *) pcallback;
     size_t  *bytes_to_skip = (size_t *) input;
 
     PUSH_DEBUG_MSG("skip: Activating.  Will skip %zu bytes.\n",
@@ -38,7 +65,7 @@ skip_process_bytes(push_parser_t *parser,
                    const void *vbuf,
                    size_t bytes_available)
 {
-    push_skip_t  *callback = (push_skip_t *) pcallback;
+    skip_t  *callback = (skip_t *) pcallback;
     size_t  skip_size;
 
     if (callback->bytes_skipped > callback->bytes_to_skip)
@@ -111,10 +138,10 @@ skip_process_bytes(push_parser_t *parser,
 }
 
 
-push_skip_t *
+push_callback_t *
 push_skip_new()
 {
-    push_skip_t  *result = (push_skip_t *) malloc(sizeof(push_skip_t));
+    skip_t  *result = (skip_t *) malloc(sizeof(skip_t));
 
     if (result == NULL)
         return NULL;
@@ -127,5 +154,5 @@ push_skip_new()
     result->bytes_to_skip = 0; 
     result->bytes_skipped = 0; 
 
-    return result;
+    return &result->base;
 }

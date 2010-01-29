@@ -36,7 +36,7 @@ const size_t  LENGTH_01 = 10;
 START_TEST(test_skip_01)
 {
     push_parser_t  *parser;
-    push_skip_t  *callback;
+    push_callback_t  *callback;
     size_t  bytes_to_skip = 5;
 
     PUSH_DEBUG_MSG("---\nStarting test_skip_01\n");
@@ -50,7 +50,7 @@ START_TEST(test_skip_01)
      * succeed.
      */
 
-    parser = push_parser_new(&callback->base);
+    parser = push_parser_new(callback);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -72,7 +72,7 @@ END_TEST
 START_TEST(test_skip_02)
 {
     push_parser_t  *parser;
-    push_skip_t  *callback;
+    push_callback_t  *callback;
     size_t  bytes_to_skip = 5;
 
     PUSH_DEBUG_MSG("---\nStarting test_skip_02\n");
@@ -86,7 +86,7 @@ START_TEST(test_skip_02)
      * succeed.
      */
 
-    parser = push_parser_new(&callback->base);
+    parser = push_parser_new(callback);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -108,7 +108,7 @@ END_TEST
 START_TEST(test_skip_03)
 {
     push_parser_t  *parser;
-    push_skip_t  *callback;
+    push_callback_t  *callback;
     size_t  bytes_to_skip = 5;
 
     PUSH_DEBUG_MSG("---\nStarting test_skip_03\n");
@@ -121,7 +121,7 @@ START_TEST(test_skip_03)
      * Skip over five bytes, and provide 3 bytes.  This should fail.
      */
 
-    parser = push_parser_new(&callback->base);
+    parser = push_parser_new(callback);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 

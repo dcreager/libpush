@@ -98,7 +98,7 @@ START_TEST(test_eof_01)
     push_parser_t  *parser;
     int_callback_t  *callback;
     push_callback_t  *eof;
-    push_compose_t  *compose;
+    push_callback_t  *compose;
 
     PUSH_DEBUG_MSG("---\nStarting test_eof_01\n");
 
@@ -118,7 +118,7 @@ START_TEST(test_eof_01)
     fail_if(compose == NULL,
             "Could not allocate a new compose callback");
 
-    parser = push_parser_new(&compose->base);
+    parser = push_parser_new(compose);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -145,7 +145,7 @@ START_TEST(test_parse_error_01)
     push_parser_t  *parser;
     int_callback_t  *callback;
     push_callback_t  *eof;
-    push_compose_t  *compose;
+    push_callback_t  *compose;
     size_t  FIRST_CHUNK_SIZE = 3; /* something not divisible by 4 */
 
     PUSH_DEBUG_MSG("---\nStarting test_parse_error_01\n");
@@ -168,7 +168,7 @@ START_TEST(test_parse_error_01)
     fail_if(compose == NULL,
             "Could not allocate a new compose callback");
 
-    parser = push_parser_new(&compose->base);
+    parser = push_parser_new(compose);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -189,7 +189,7 @@ START_TEST(test_parse_error_02)
     push_parser_t  *parser;
     int_callback_t  *callback;
     push_callback_t  *eof;
-    push_compose_t  *compose;
+    push_callback_t  *compose;
 
     PUSH_DEBUG_MSG("---\nStarting test_parse_error_01\n");
 
@@ -209,7 +209,7 @@ START_TEST(test_parse_error_02)
     fail_if(compose == NULL,
             "Could not allocate a new compose callback");
 
-    parser = push_parser_new(&compose->base);
+    parser = push_parser_new(compose);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 

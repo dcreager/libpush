@@ -15,12 +15,53 @@
 #include <push/fold.h>
 
 
+/**
+ * The push_callback_t subclass that defines a fold callback.
+ */
+
+typedef struct _fold
+{
+    /**
+     * The callback's “superclass” instance.
+     */
+
+    push_callback_t  base;
+
+    /**
+     * The wrapped callback.
+     */
+
+    push_callback_t  *wrapped;
+
+    /**
+     * A flag indicating whether we're in the middle of passing data
+     * to the wrapped callback.  This is true after a call to the
+     * wrapped callback returns PUSH_INCOMPLETE.  Later calls cannot
+     * backtrack the data that we already passed in, so if we get a
+     * PUSH_PARSE_ERROR after a PUSH_INCOMPLETE, we generate a parse
+     * error for the fold.
+     */
+
+    bool within_wrapped;
+
+    /**
+     * A saved copy of the most recent result.  While we're in the
+     * middle of trying the next iteration, we might generate a new
+     * result.  If the next iteration fails, then we need to return
+     * the result that we had before trying the iteration.
+     */
+
+    void  *last_result;
+
+} fold_t;
+
+
 static push_error_code_t
 fold_activate(push_parser_t *parser,
               push_callback_t *pcallback,
               void *input)
 {
-    push_fold_t  *callback = (push_fold_t *) pcallback;
+    fold_t  *callback = (fold_t *) pcallback;
 
     /*
      * We activate the fold by activating the first callback.  The
@@ -52,7 +93,7 @@ fold_activate(push_parser_t *parser,
 
 static ssize_t
 fold_process_one_iteration(push_parser_t *parser,
-                           push_fold_t *callback,
+                           fold_t *callback,
                            const void *vbuf,
                            size_t bytes_available)
 {
@@ -160,7 +201,7 @@ fold_process_bytes(push_parser_t *parser,
                    const void *vbuf,
                    size_t bytes_available)
 {
-    push_fold_t  *callback = (push_fold_t *) pcallback;
+    fold_t  *callback = (fold_t *) pcallback;
 
     /*
      * If this is EOF, pass the EOF on to the wrapped callback if
@@ -275,17 +316,17 @@ fold_process_bytes(push_parser_t *parser,
 static void
 fold_free(push_callback_t *pcallback)
 {
-    push_fold_t  *callback = (push_fold_t *) pcallback;
+    fold_t  *callback = (fold_t *) pcallback;
 
     PUSH_DEBUG_MSG("fold: Freeing wrapped callback.\n");
     push_callback_free(callback->wrapped);
 }
 
 
-push_fold_t *
+push_callback_t *
 push_fold_new(push_callback_t *wrapped)
 {
-    push_fold_t  *result = (push_fold_t *) malloc(sizeof(push_fold_t));
+    fold_t  *result = (fold_t *) malloc(sizeof(fold_t));
 
     if (result == NULL)
         return NULL;
@@ -299,5 +340,5 @@ push_fold_new(push_callback_t *wrapped)
     result->within_wrapped = false;
     result->last_result = NULL;
 
-    return result;
+    return &result->base;
 }

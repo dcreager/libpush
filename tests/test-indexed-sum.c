@@ -66,7 +66,7 @@ integer_callback_new()
 {
     integer_callback_t  *ints =
         (integer_callback_t *) malloc(sizeof(integer_callback_t));
-    push_min_bytes_t  *result;
+    push_callback_t  *result;
 
     if (ints == NULL)
         return NULL;
@@ -86,7 +86,7 @@ integer_callback_new()
         return NULL;
     }
 
-    return &result->base;
+    return result;
 }
 
 
@@ -215,9 +215,9 @@ make_index_callback()
     push_callback_t  *index;
     push_callback_t  *value;
     push_callback_t  *index_sum;
-    push_compose_t  *compose1;
-    push_compose_t  *compose2;
-    push_fold_t  *fold;
+    push_callback_t  *compose1;
+    push_callback_t  *compose2;
+    push_callback_t  *fold;
 
     index = integer_callback_new();
     if (index == NULL) return NULL;
@@ -231,13 +231,13 @@ make_index_callback()
     compose1 = push_compose_new(index, value);
     if (compose1 == NULL) return NULL;
 
-    compose2 = push_compose_new(&compose1->base, index_sum);
+    compose2 = push_compose_new(compose1, index_sum);
     if (compose2 == NULL) return NULL;
 
-    fold = push_fold_new(&compose2->base);
+    fold = push_fold_new(compose2);
     if (fold == NULL) return NULL;
 
-    return &fold->base;
+    return fold;
 }
 
 

@@ -17,39 +17,12 @@
 
 
 /**
- * A callback that skips the specified number of bytes.  The
- * callback's input should be a pointer to a size_t, indicating the
- * number of bytes to skip.
+ * Allocate and initialize a new callback that skips the specified
+ * number of bytes.  The callback's input should be a pointer to a
+ * size_t, indicating the number of bytes to skip.
  */
 
-typedef struct _push_skip
-{
-    /**
-     * The callback's “superclass” instance.
-     */
-
-    push_callback_t  base;
-
-    /**
-     * The number of bytes to skip.
-     */
-
-    size_t  bytes_to_skip;
-
-    /**
-     * The number of bytes skipped so far.
-     */
-
-    size_t  bytes_skipped;
-
-} push_skip_t;
-
-
-/**
- * Allocate and initialize a new push_skip_t.
- */
-
-push_skip_t *
+push_callback_t *
 push_skip_new();
 
 

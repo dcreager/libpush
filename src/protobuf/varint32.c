@@ -12,8 +12,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <push.h>
-#include <push/protobuf.h>
+#include <push/basics.h>
+
+#include <push/protobuf/basics.h>
+#include <push/protobuf/varint32.h>
 
 
 static push_error_code_t
