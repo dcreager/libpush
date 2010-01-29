@@ -14,9 +14,9 @@
 /**
  * @file
  *
- * When using the push parser, you provide a <i>callback</i> that is
- * used to process the bytes in the input buffer.  This callback is
- * defined by the push_callback_t type.
+ * This file defines the basic type that each parser callback must
+ * implement (push_callback_t), and the high-level type that most user
+ * code will use (push_parser_t).
  */
 
 #include <stdbool.h>

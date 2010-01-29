@@ -17,7 +17,7 @@
 #include <check.h>
 
 #include <push/basics.h>
-#include <push/skip.h>
+#include <push/primitives.h>
 
 
 /*-----------------------------------------------------------------------

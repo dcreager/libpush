@@ -12,11 +12,7 @@
 #define PUSH_H
 
 #include <push/basics.h>
-#include <push/compose.h>
-#include <push/eof.h>
-#include <push/fold.h>
-#include <push/min-bytes.h>
-#include <push/skip.h>
-#include <push/trash.h>
+#include <push/combinators.h>
+#include <push/primitives.h>
 
 #endif  /* PUSH_H */

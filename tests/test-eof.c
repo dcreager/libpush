@@ -17,8 +17,8 @@
 #include <check.h>
 
 #include <push/basics.h>
-#include <push/compose.h>
-#include <push/eof.h>
+#include <push/combinators.h>
+#include <push/primitives.h>
 
 
 /*-----------------------------------------------------------------------

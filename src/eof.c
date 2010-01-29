@@ -9,7 +9,7 @@
  */
 
 #include <push/basics.h>
-#include <push/eof.h>
+#include <push/primitives.h>
 
 
 static ssize_t

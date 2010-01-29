@@ -17,7 +17,7 @@
 #include <check.h>
 
 #include <push/basics.h>
-#include <push/min-bytes.h>
+#include <push/combinators.h>
 
 
 /*-----------------------------------------------------------------------

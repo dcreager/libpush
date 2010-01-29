@@ -21,13 +21,9 @@ env.Alias("install", env.Install("$INCLUDEDIR",
 push_h_files = map(File, \
     [
      "push/basics.h",
-     "push/compose.h",
-     "push/eof.h",
-     "push/fold.h",
-     "push/min-bytes.h",
+     "push/combinators.h",
+     "push/primitives.h",
      "push/protobuf.h",
-     "push/skip.h",
-     "push/trash.h",
     ])
 
 SOURCE_FILES.extend(push_h_files)

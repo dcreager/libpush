@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 #include <push/basics.h>
-#include <push/compose.h>
+#include <push/combinators.h>
 
 
 /**
