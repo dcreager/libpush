@@ -99,10 +99,7 @@ typedef enum
  * @param callback The parser's callback object.
  *
  * @param input An optional input value.  Each type of callback uses
- *     this parameter differently (or not at all).  In the Haskell
- *     monad <code>bind</code> operator, whose type is <code>m a -> (b
- *     -> m c) -> m c</code>, this parameter approximates the
- *     <code>b</code> value.
+ *     this parameter differently (or not at all).
  *
  * @result A push_error_code_t value that indicates whether there were
  * any problems activating the callback.

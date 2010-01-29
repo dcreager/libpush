@@ -9,8 +9,8 @@ env.Append(CPPPATH = ["#/include", "$libhwm_CPPPATH"],
 
 libpush_files = map(File, \
     [
-     "bind.c",
      "callback.c",
+     "compose.c",
      "eof.c",
      "fold.c",
      "min-bytes.c",

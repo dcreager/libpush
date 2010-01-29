@@ -17,7 +17,7 @@
 #include <check.h>
 
 #include <push/basics.h>
-#include <push/bind.h>
+#include <push/compose.h>
 #include <push/fold.h>
 #include <push/min-bytes.h>
 
@@ -209,8 +209,8 @@ make_double_sum_callback()
     push_callback_t  *int1;
     push_callback_t  *int2;
     push_callback_t  *double_sum;
-    push_bind_t  *bind1;
-    push_bind_t  *bind2;
+    push_compose_t  *compose1;
+    push_compose_t  *compose2;
     push_fold_t  *fold;
 
     int1 = integer_callback_new();
@@ -222,13 +222,13 @@ make_double_sum_callback()
     double_sum = double_sum_callback_new(int1, int2);
     if (double_sum == NULL) return NULL;
 
-    bind1 = push_bind_new(int1, int2);
-    if (bind1 == NULL) return NULL;
+    compose1 = push_compose_new(int1, int2);
+    if (compose1 == NULL) return NULL;
 
-    bind2 = push_bind_new(&bind1->base, double_sum);
-    if (bind2 == NULL) return NULL;
+    compose2 = push_compose_new(&compose1->base, double_sum);
+    if (compose2 == NULL) return NULL;
 
-    fold = push_fold_new(&bind2->base);
+    fold = push_fold_new(&compose2->base);
     if (fold == NULL) return NULL;
 
     return &fold->base;

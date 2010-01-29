@@ -17,7 +17,7 @@
 #include <check.h>
 
 #include <push/basics.h>
-#include <push/bind.h>
+#include <push/compose.h>
 #include <push/eof.h>
 
 
@@ -98,7 +98,7 @@ START_TEST(test_eof_01)
     push_parser_t  *parser;
     int_callback_t  *callback;
     push_callback_t  *eof;
-    push_bind_t  *bind;
+    push_compose_t  *compose;
 
     PUSH_DEBUG_MSG("---\nStarting test_eof_01\n");
 
@@ -114,11 +114,11 @@ START_TEST(test_eof_01)
     fail_if(eof == NULL,
             "Could not allocate a new EOF callback");
 
-    bind = push_bind_new(&callback->base, eof);
-    fail_if(bind == NULL,
-            "Could not allocate a new bind callback");
+    compose = push_compose_new(&callback->base, eof);
+    fail_if(compose == NULL,
+            "Could not allocate a new compose callback");
 
-    parser = push_parser_new(&bind->base);
+    parser = push_parser_new(&compose->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -145,7 +145,7 @@ START_TEST(test_parse_error_01)
     push_parser_t  *parser;
     int_callback_t  *callback;
     push_callback_t  *eof;
-    push_bind_t  *bind;
+    push_compose_t  *compose;
     size_t  FIRST_CHUNK_SIZE = 3; /* something not divisible by 4 */
 
     PUSH_DEBUG_MSG("---\nStarting test_parse_error_01\n");
@@ -164,11 +164,11 @@ START_TEST(test_parse_error_01)
     fail_if(eof == NULL,
             "Could not allocate a new EOF callback");
 
-    bind = push_bind_new(&callback->base, eof);
-    fail_if(bind == NULL,
-            "Could not allocate a new bind callback");
+    compose = push_compose_new(&callback->base, eof);
+    fail_if(compose == NULL,
+            "Could not allocate a new compose callback");
 
-    parser = push_parser_new(&bind->base);
+    parser = push_parser_new(&compose->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
@@ -189,7 +189,7 @@ START_TEST(test_parse_error_02)
     push_parser_t  *parser;
     int_callback_t  *callback;
     push_callback_t  *eof;
-    push_bind_t  *bind;
+    push_compose_t  *compose;
 
     PUSH_DEBUG_MSG("---\nStarting test_parse_error_01\n");
 
@@ -205,11 +205,11 @@ START_TEST(test_parse_error_02)
     fail_if(eof == NULL,
             "Could not allocate a new EOF callback");
 
-    bind = push_bind_new(&callback->base, eof);
-    fail_if(bind == NULL,
-            "Could not allocate a new bind callback");
+    compose = push_compose_new(&callback->base, eof);
+    fail_if(compose == NULL,
+            "Could not allocate a new compose callback");
 
-    parser = push_parser_new(&bind->base);
+    parser = push_parser_new(&compose->base);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 

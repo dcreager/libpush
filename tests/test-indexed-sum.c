@@ -17,7 +17,7 @@
 #include <check.h>
 
 #include <push/basics.h>
-#include <push/bind.h>
+#include <push/compose.h>
 #include <push/fold.h>
 #include <push/min-bytes.h>
 
@@ -215,8 +215,8 @@ make_index_callback()
     push_callback_t  *index;
     push_callback_t  *value;
     push_callback_t  *index_sum;
-    push_bind_t  *bind1;
-    push_bind_t  *bind2;
+    push_compose_t  *compose1;
+    push_compose_t  *compose2;
     push_fold_t  *fold;
 
     index = integer_callback_new();
@@ -228,13 +228,13 @@ make_index_callback()
     index_sum = index_callback_new(index, value);
     if (index_sum == NULL) return NULL;
 
-    bind1 = push_bind_new(index, value);
-    if (bind1 == NULL) return NULL;
+    compose1 = push_compose_new(index, value);
+    if (compose1 == NULL) return NULL;
 
-    bind2 = push_bind_new(&bind1->base, index_sum);
-    if (bind2 == NULL) return NULL;
+    compose2 = push_compose_new(&compose1->base, index_sum);
+    if (compose2 == NULL) return NULL;
 
-    fold = push_fold_new(&bind2->base);
+    fold = push_fold_new(&compose2->base);
     if (fold == NULL) return NULL;
 
     return &fold->base;

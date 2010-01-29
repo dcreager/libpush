@@ -12,34 +12,33 @@
 #include <stdlib.h>
 
 #include <push/basics.h>
-#include <push/bind.h>
+#include <push/compose.h>
 
 
 static push_error_code_t
-bind_activate(push_parser_t *parser,
-              push_callback_t *pcallback,
-              void *input)
+compose_activate(push_parser_t *parser,
+                 push_callback_t *pcallback,
+                 void *input)
 {
-    push_bind_t  *callback = (push_bind_t *) pcallback;
-
+    push_compose_t  *callback = (push_compose_t *) pcallback;
 
     /*
-     * We activate the bind by activating the first callback.
+     * We activate the compose by activating the first callback.
      */
 
     callback->first_active = true;
-    PUSH_DEBUG_MSG("bind: Activating first callback.\n");
+    PUSH_DEBUG_MSG("compose: Activating first callback.\n");
     return push_callback_activate(parser, callback->first, input);
 }
 
 
 static ssize_t
-bind_process_bytes(push_parser_t *parser,
-                   push_callback_t *pcallback,
-                   const void *vbuf,
-                   size_t bytes_available)
+compose_process_bytes(push_parser_t *parser,
+                      push_callback_t *pcallback,
+                      const void *vbuf,
+                      size_t bytes_available)
 {
-    push_bind_t  *callback = (push_bind_t *) pcallback;
+    push_compose_t  *callback = (push_compose_t *) pcallback;
 
     /*
      * If the first callback is active, pass the data in to it.
@@ -50,7 +49,7 @@ bind_process_bytes(push_parser_t *parser,
         ssize_t  process_result;
         push_error_code_t  activate_result;
 
-        PUSH_DEBUG_MSG("bind: Passing %zu bytes to first callback.\n",
+        PUSH_DEBUG_MSG("compose: Passing %zu bytes to first callback.\n",
                        bytes_available);
 
         process_result =
@@ -64,7 +63,7 @@ bind_process_bytes(push_parser_t *parser,
 
         if (process_result < 0)
         {
-            PUSH_DEBUG_MSG("bind: First callback didn't succeed.\n");
+            PUSH_DEBUG_MSG("compose: First callback didn't succeed.\n");
             return process_result;
         }
 
@@ -73,7 +72,7 @@ bind_process_bytes(push_parser_t *parser,
          * the second callback.
          */
 
-        PUSH_DEBUG_MSG("bind: First callback succeeded.\n");
+        PUSH_DEBUG_MSG("compose: First callback succeeded.\n");
         callback->first_active = false;
 
         /*
@@ -81,7 +80,7 @@ bind_process_bytes(push_parser_t *parser,
          * first.
          */
 
-        PUSH_DEBUG_MSG("bind: Activating second callback.\n");
+        PUSH_DEBUG_MSG("compose: Activating second callback.\n");
         activate_result = push_callback_activate(parser, callback->second,
                                                  callback->first->result);
 
@@ -98,7 +97,7 @@ bind_process_bytes(push_parser_t *parser,
 
         if ((bytes_available > 0) && (process_result == 0))
         {
-            PUSH_DEBUG_MSG("bind: First callback processed "
+            PUSH_DEBUG_MSG("compose: First callback processed "
                            "all %zu bytes.\n",
                            bytes_available);
 
@@ -111,7 +110,7 @@ bind_process_bytes(push_parser_t *parser,
 
             ptrdiff_t  bytes_processed = bytes_available - process_result;
 
-            PUSH_DEBUG_MSG("bind: First callback left %zd bytes.\n",
+            PUSH_DEBUG_MSG("compose: First callback left %zd bytes.\n",
                            process_result);
 
             vbuf += bytes_processed;
@@ -125,7 +124,7 @@ bind_process_bytes(push_parser_t *parser,
      * there's some left for the second callback to call.
      */
 
-    PUSH_DEBUG_MSG("bind: Passing %zu bytes to second callback.\n",
+    PUSH_DEBUG_MSG("compose: Passing %zu bytes to second callback.\n",
                    bytes_available);
 
     return push_callback_tail_process_bytes(parser, &callback->base,
@@ -135,31 +134,32 @@ bind_process_bytes(push_parser_t *parser,
 
 
 static void
-bind_free(push_callback_t *pcallback)
+compose_free(push_callback_t *pcallback)
 {
-    push_bind_t  *callback = (push_bind_t *) pcallback;
+    push_compose_t  *callback = (push_compose_t *) pcallback;
 
-    PUSH_DEBUG_MSG("bind: Freeing first callback.\n");
+    PUSH_DEBUG_MSG("compose: Freeing first callback.\n");
     push_callback_free(callback->first);
 
-    PUSH_DEBUG_MSG("bind: Freeing second callback.\n");
+    PUSH_DEBUG_MSG("compose: Freeing second callback.\n");
     push_callback_free(callback->second);
 }
 
 
-push_bind_t *
-push_bind_new(push_callback_t *first,
-              push_callback_t *second)
+push_compose_t *
+push_compose_new(push_callback_t *first,
+                 push_callback_t *second)
 {
-    push_bind_t  *result = (push_bind_t *) malloc(sizeof(push_bind_t));
+    push_compose_t  *result =
+        (push_compose_t *) malloc(sizeof(push_compose_t));
 
     if (result == NULL)
         return NULL;
 
     push_callback_init(&result->base,
-                       bind_activate,
-                       bind_process_bytes,
-                       bind_free);
+                       compose_activate,
+                       compose_process_bytes,
+                       compose_free);
 
     result->first = first;
     result->second = second;
