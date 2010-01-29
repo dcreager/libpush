@@ -141,18 +141,18 @@ skip_process_bytes(push_parser_t *parser,
 push_callback_t *
 push_skip_new()
 {
-    skip_t  *result = (skip_t *) malloc(sizeof(skip_t));
+    skip_t  *callback = (skip_t *) malloc(sizeof(skip_t));
 
-    if (result == NULL)
+    if (callback == NULL)
         return NULL;
 
-    push_callback_init(&result->base,
+    push_callback_init(&callback->base,
                        skip_activate,
                        skip_process_bytes,
                        NULL);
 
-    result->bytes_to_skip = 0; 
-    result->bytes_skipped = 0; 
+    callback->bytes_to_skip = 0;
+    callback->bytes_skipped = 0;
 
-    return &result->base;
+    return &callback->base;
 }

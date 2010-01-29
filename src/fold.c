@@ -326,19 +326,19 @@ fold_free(push_callback_t *pcallback)
 push_callback_t *
 push_fold_new(push_callback_t *wrapped)
 {
-    fold_t  *result = (fold_t *) malloc(sizeof(fold_t));
+    fold_t  *callback = (fold_t *) malloc(sizeof(fold_t));
 
-    if (result == NULL)
+    if (callback == NULL)
         return NULL;
 
-    push_callback_init(&result->base,
+    push_callback_init(&callback->base,
                        fold_activate,
                        fold_process_bytes,
                        fold_free);
 
-    result->wrapped = wrapped;
-    result->within_wrapped = false;
-    result->last_result = NULL;
+    callback->wrapped = wrapped;
+    callback->within_wrapped = false;
+    callback->last_result = NULL;
 
-    return &result->base;
+    return &callback->base;
 }

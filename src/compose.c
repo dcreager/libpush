@@ -183,20 +183,20 @@ push_callback_t *
 push_compose_new(push_callback_t *first,
                  push_callback_t *second)
 {
-    compose_t  *result =
+    compose_t  *callback =
         (compose_t *) malloc(sizeof(compose_t));
 
-    if (result == NULL)
+    if (callback == NULL)
         return NULL;
 
-    push_callback_init(&result->base,
+    push_callback_init(&callback->base,
                        compose_activate,
                        compose_process_bytes,
                        compose_free);
 
-    result->first = first;
-    result->second = second;
-    result->first_active = true;
+    callback->first = first;
+    callback->second = second;
+    callback->first_active = true;
 
-    return &result->base;
+    return &callback->base;
 }

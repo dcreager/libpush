@@ -254,27 +254,27 @@ push_callback_t *
 push_min_bytes_new(push_callback_t *wrapped,
                    size_t minimum_bytes)
 {
-    min_bytes_t  *result =
+    min_bytes_t  *callback =
         (min_bytes_t *) malloc(sizeof(min_bytes_t));
 
-    if (result == NULL)
+    if (callback == NULL)
         return NULL;
 
-    push_callback_init(&result->base,
+    push_callback_init(&callback->base,
                        min_bytes_activate,
                        min_bytes_process_bytes,
                        min_bytes_free);
 
-    result->buffer = malloc(minimum_bytes);
-    if (result->buffer == NULL)
+    callback->buffer = malloc(minimum_bytes);
+    if (callback->buffer == NULL)
     {
-        free(result);
+        free(callback);
         return NULL;
     }
 
-    result->wrapped = wrapped;
-    result->minimum_bytes = minimum_bytes;
-    result->bytes_buffered = 0;
+    callback->wrapped = wrapped;
+    callback->minimum_bytes = minimum_bytes;
+    callback->bytes_buffered = 0;
 
-    return &result->base;
+    return &callback->base;
 }

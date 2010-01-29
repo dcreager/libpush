@@ -188,20 +188,21 @@ varint32_process_bytes(push_parser_t *parser,
 push_protobuf_varint32_t *
 push_protobuf_varint32_new()
 {
-    push_protobuf_varint32_t  *result =
-        (push_protobuf_varint32_t *) malloc(sizeof(push_protobuf_varint32_t));
+    push_protobuf_varint32_t  *callback =
+        (push_protobuf_varint32_t *)
+        malloc(sizeof(push_protobuf_varint32_t));
 
-    if (result == NULL)
+    if (callback == NULL)
         return NULL;
 
-    push_callback_init(&result->base,
+    push_callback_init(&callback->base,
                        varint32_activate,
                        varint32_process_bytes,
                        NULL);
 
-    result->bytes_processed = 0; 
-    result->value = 0;
-    result->base.result = &result->value;
+    callback->bytes_processed = 0;
+    callback->value = 0;
+    callback->base.result = &callback->value;
 
-    return result;
+    return callback;
 }

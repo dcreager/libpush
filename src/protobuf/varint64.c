@@ -177,20 +177,21 @@ varint64_process_bytes(push_parser_t *parser,
 push_protobuf_varint64_t *
 push_protobuf_varint64_new()
 {
-    push_protobuf_varint64_t  *result =
-        (push_protobuf_varint64_t *) malloc(sizeof(push_protobuf_varint64_t));
+    push_protobuf_varint64_t  *callback =
+        (push_protobuf_varint64_t *)
+        malloc(sizeof(push_protobuf_varint64_t));
 
-    if (result == NULL)
+    if (callback == NULL)
         return NULL;
 
-    push_callback_init(&result->base,
+    push_callback_init(&callback->base,
                        varint64_activate,
                        varint64_process_bytes,
                        NULL);
 
-    result->bytes_processed = 0; 
-    result->value = 0;
-    result->base.result = &result->value;
+    callback->bytes_processed = 0;
+    callback->value = 0;
+    callback->base.result = &callback->value;
 
-    return result;
+    return callback;
 }
