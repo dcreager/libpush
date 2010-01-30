@@ -3,6 +3,7 @@ test-eof
 test-double-sum
 test-indexed-sum
 test-int
+test-pairs
 test-skip
 test-sum
 

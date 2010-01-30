@@ -13,6 +13,7 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/pairs.h>
 #include <push/primitives.h>
 
 #endif  /* PUSH_H */

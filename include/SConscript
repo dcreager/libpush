@@ -22,6 +22,7 @@ push_h_files = map(File, \
     [
      "push/basics.h",
      "push/combinators.h",
+     "push/pairs.h",
      "push/primitives.h",
      "push/protobuf.h",
     ])
