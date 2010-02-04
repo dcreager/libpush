@@ -38,8 +38,7 @@ protobuf_h_files = map(File, \
      "push/protobuf/basics.h",
      "push/protobuf/field.h",
      "push/protobuf/message.h",
-     "push/protobuf/varint32.h",
-     "push/protobuf/varint64.h",
+     "push/protobuf/primitives.h",
     ])
 
 SOURCE_FILES.extend(protobuf_h_files)

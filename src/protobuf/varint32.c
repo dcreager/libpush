@@ -9,13 +9,39 @@
  */
 
 #include <inttypes.h>
-#include <stdbool.h>
 #include <stdint.h>
 
 #include <push/basics.h>
 
 #include <push/protobuf/basics.h>
-#include <push/protobuf/varint32.h>
+#include <push/protobuf/primitives.h>
+
+
+/**
+ * The push_callback_t subclass that defines a varint32 callback.
+ */
+
+typedef struct _push_protobuf_varint32
+{
+    /**
+     * The callback's “superclass” instance.
+     */
+
+    push_callback_t  base;
+
+    /**
+     * The number of bytes currently added to the varint.
+     */
+
+    size_t  bytes_processed;
+
+    /**
+     * The parsed value.
+     */
+
+    uint32_t  value;
+
+} push_protobuf_varint32_t;
 
 
 static push_error_code_t
@@ -185,7 +211,7 @@ varint32_process_bytes(push_parser_t *parser,
 }
 
 
-push_protobuf_varint32_t *
+push_callback_t *
 push_protobuf_varint32_new()
 {
     push_protobuf_varint32_t  *callback =
@@ -204,5 +230,5 @@ push_protobuf_varint32_new()
     callback->value = 0;
     callback->base.result = &callback->value;
 
-    return callback;
+    return &callback->base;
 }

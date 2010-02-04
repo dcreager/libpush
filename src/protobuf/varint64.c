@@ -15,7 +15,35 @@
 #include <push/basics.h>
 
 #include <push/protobuf/basics.h>
-#include <push/protobuf/varint64.h>
+#include <push/protobuf/primitives.h>
+
+
+/**
+ * The push_callback_t subclass that defines a varint32 callback.
+ */
+
+
+typedef struct _push_protobuf_varint64
+{
+    /**
+     * The callback's “superclass” instance.
+     */
+
+    push_callback_t  base;
+
+    /**
+     * The number of bytes currently added to the varint.
+     */
+
+    size_t  bytes_processed;
+
+    /**
+     * The parsed value.
+     */
+
+    uint64_t  value;
+
+} push_protobuf_varint64_t;
 
 
 static push_error_code_t
@@ -174,7 +202,7 @@ varint64_process_bytes(push_parser_t *parser,
 }
 
 
-push_protobuf_varint64_t *
+push_callback_t *
 push_protobuf_varint64_new()
 {
     push_protobuf_varint64_t  *callback =
@@ -193,5 +221,5 @@ push_protobuf_varint64_new()
     callback->value = 0;
     callback->base.result = &callback->value;
 
-    return callback;
+    return &callback->base;
 }

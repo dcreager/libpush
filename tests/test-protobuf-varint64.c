@@ -19,7 +19,7 @@
 #include <push/basics.h>
 
 #include <push/protobuf/basics.h>
-#include <push/protobuf/varint64.h>
+#include <push/protobuf/primitives.h>
 
 
 /*-----------------------------------------------------------------------
@@ -54,7 +54,7 @@ const size_t  LENGTH_TRASH = 6;
     START_TEST(test_read_##test_name)                               \
     {                                                               \
         push_parser_t  *parser;                                     \
-        push_protobuf_varint64_t  *callback;                        \
+        push_callback_t  *callback;                                 \
         uint64_t  *result;                                          \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
@@ -66,7 +66,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
-        parser = push_parser_new(&callback->base);                  \
+        parser = push_parser_new(callback);                         \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
@@ -79,7 +79,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (uint64_t *) callback->base.result;                \
+        result = (uint64_t *) callback->result;                     \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu64              \
@@ -101,7 +101,7 @@ const size_t  LENGTH_TRASH = 6;
     START_TEST(test_two_part_read_##test_name)                      \
     {                                                               \
         push_parser_t  *parser;                                     \
-        push_protobuf_varint64_t  *callback;                        \
+        push_callback_t  *callback;                                 \
         uint64_t  *result;                                          \
         size_t  first_chunk_size;                                   \
                                                                     \
@@ -114,7 +114,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
-        parser = push_parser_new(&callback->base);                  \
+        parser = push_parser_new(callback);                         \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
@@ -136,7 +136,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (uint64_t *) callback->base.result;                \
+        result = (uint64_t *) callback->result;                     \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu64              \
@@ -152,7 +152,7 @@ const size_t  LENGTH_TRASH = 6;
     START_TEST(test_trash_##test_name)                              \
     {                                                               \
         push_parser_t  *parser;                                     \
-        push_protobuf_varint64_t  *callback;                        \
+        push_callback_t  *callback;                                 \
         uint64_t  *result;                                          \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
@@ -164,7 +164,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
-        parser = push_parser_new(&callback->base);                  \
+        parser = push_parser_new(callback);                         \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
@@ -183,7 +183,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (uint64_t *) callback->base.result;                \
+        result = (uint64_t *) callback->result;                     \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu64              \
@@ -220,7 +220,7 @@ TRASH_TEST(04)
 START_TEST(test_parse_error_03)
 {
     push_parser_t  *parser;
-    push_protobuf_varint64_t  *callback;
+    push_callback_t  *callback;
 
     PUSH_DEBUG_MSG("---\nStarting test case test_parse_error_03\n");
 
@@ -228,7 +228,7 @@ START_TEST(test_parse_error_03)
     fail_if(callback == NULL,
             "Could not allocate a new callback");
 
-    parser = push_parser_new(&callback->base);
+    parser = push_parser_new(callback);
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
