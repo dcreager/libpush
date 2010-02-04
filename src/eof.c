@@ -12,12 +12,50 @@
 #include <push/primitives.h>
 
 
+/**
+ * The push_callback_t subclass that defines a eof callback.
+ */
+
+typedef struct _eof
+{
+    /**
+     * The callback's “superclass” instance.
+     */
+
+    push_callback_t  base;
+
+    /**
+     * A copy of the input pointer.  Once the process_bytes function
+     * is called, we copy this to our output.
+     */
+
+    void  *input;
+
+} eof_t;
+
+
+static push_error_code_t
+eof_activate(push_parser_t *parser,
+             push_callback_t *pcallback,
+             void *input)
+{
+    eof_t  *callback = (eof_t *) pcallback;
+
+    PUSH_DEBUG_MSG("eof: Activating.\n");
+    callback->input = input;
+
+    return PUSH_SUCCESS;
+}
+
+
 static ssize_t
 eof_process_bytes(push_parser_t *parser,
                   push_callback_t *pcallback,
                   const void *vbuf,
                   size_t bytes_available)
 {
+    eof_t  *callback = (eof_t *) pcallback;
+
     /*
      * Any data results in a parse error.
      */
@@ -31,6 +69,12 @@ eof_process_bytes(push_parser_t *parser,
     } else {
         PUSH_DEBUG_MSG("eof: Reached expected EOF.\n");
 
+        /*
+         * Copy the input pointer to the output on success.
+         */
+
+        callback->base.result = callback->input;
+
         return 0;
     }
 }
@@ -39,7 +83,15 @@ eof_process_bytes(push_parser_t *parser,
 push_callback_t *
 push_eof_new()
 {
-    return
-        push_callback_new(NULL,
-                          eof_process_bytes);
+    eof_t  *callback = (eof_t *) malloc(sizeof(eof_t));
+
+    if (callback == NULL)
+        return NULL;
+
+    push_callback_init(&callback->base,
+                       eof_activate,
+                       eof_process_bytes,
+                       NULL);
+
+    return &callback->base;
 }
