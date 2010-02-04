@@ -32,6 +32,15 @@ push_eof_new();
 
 
 /**
+ * Create a new callback that does nothing.  It parses no data, and
+ * copies its input to its output.
+ */
+
+push_callback_t *
+push_noop_new();
+
+
+/**
  * Create a new callback that skips the specified number of bytes.
  * The callback's input should be a pointer to a size_t, indicating
  * the number of bytes to skip.
