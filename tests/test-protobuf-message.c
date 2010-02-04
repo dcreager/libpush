@@ -16,9 +16,10 @@
 
 #include <check.h>
 
-#include <push.h>
-#include <push/eof.h>
-#include <push/protobuf.h>
+#include <push/basics.h>
+#include <push/protobuf/basics.h>
+#include <push/protobuf/field-map.h>
+#include <push/protobuf/message.h>
 
 
 /*-----------------------------------------------------------------------
@@ -31,23 +32,32 @@ typedef struct _data
     uint64_t  int2;
 } data_t;
 
-static push_protobuf_message_t *
+static push_callback_t *
 create_data_message(data_t *dest)
 {
-    push_protobuf_message_t  *result =
-        push_protobuf_message_new();
+    push_protobuf_field_map_t  *field_map =
+        push_protobuf_field_map_new();
 
-    if (result == NULL)
+    push_callback_t  *callback;
+
+    if (field_map == NULL)
         return NULL;
 
 #define CHECK(call) { if (!(call)) return NULL; }
 
-    CHECK(push_protobuf_assign_uint32(result, 1, &dest->int1));
-    CHECK(push_protobuf_assign_uint64(result, 2, &dest->int2));
+    CHECK(push_protobuf_assign_uint32(field_map, 1, &dest->int1));
+    CHECK(push_protobuf_assign_uint64(field_map, 2, &dest->int2));
 
 #undef CHECK
 
-    return result;
+    callback = push_protobuf_message_new(field_map);
+    if (callback == NULL)
+    {
+        push_protobuf_field_map_free(field_map);
+        return NULL;
+    }
+
+    return callback;
 }
 
 static bool
@@ -80,7 +90,7 @@ const data_t  EXPECTED_01 = { 300, UINT64_C(5000000000) };
     START_TEST(test_read_##test_name)                               \
     {                                                               \
         push_parser_t  *parser;                                     \
-        push_protobuf_message_t  *message_callback;                 \
+        push_callback_t  *message_callback;                         \
         data_t  actual;                                             \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
@@ -92,14 +102,14 @@ const data_t  EXPECTED_01 = { 300, UINT64_C(5000000000) };
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(&message_callback->base);          \
+        parser = push_parser_new(message_callback);                 \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
                      &DATA_##test_name,                             \
-                     LENGTH_##test_name) == PUSH_SUCCESS,           \
+                     LENGTH_##test_name) == PUSH_INCOMPLETE,        \
                     "Could not parse data");                        \
                                                                     \
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
@@ -131,7 +141,7 @@ const data_t  EXPECTED_01 = { 300, UINT64_C(5000000000) };
     START_TEST(test_two_part_read_##test_name)                      \
     {                                                               \
         push_parser_t  *parser;                                     \
-        push_protobuf_message_t  *message_callback;                 \
+        push_callback_t  *message_callback;                         \
         data_t  actual;                                             \
         size_t  first_chunk_size;                                   \
                                                                     \
@@ -144,7 +154,7 @@ const data_t  EXPECTED_01 = { 300, UINT64_C(5000000000) };
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(&message_callback->base);          \
+        parser = push_parser_new(message_callback);                 \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
@@ -153,14 +163,14 @@ const data_t  EXPECTED_01 = { 300, UINT64_C(5000000000) };
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
                      &DATA_##test_name,                             \
-                     first_chunk_size) == PUSH_SUCCESS,             \
+                     first_chunk_size) == PUSH_INCOMPLETE,          \
                     "Could not parse data");                        \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
                      &DATA_##test_name[first_chunk_size],           \
                      LENGTH_##test_name - first_chunk_size) ==      \
-                    PUSH_SUCCESS,                                   \
+                    PUSH_INCOMPLETE,                                \
                     "Could not parse data");                        \
                                                                     \
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
@@ -191,7 +201,7 @@ const data_t  EXPECTED_01 = { 300, UINT64_C(5000000000) };
     START_TEST(test_parse_error_##test_name)                        \
     {                                                               \
         push_parser_t  *parser;                                     \
-        push_protobuf_message_t  *message_callback;                 \
+        push_callback_t  *message_callback;                         \
         data_t  actual;                                             \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
@@ -203,14 +213,14 @@ const data_t  EXPECTED_01 = { 300, UINT64_C(5000000000) };
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(&message_callback->base);          \
+        parser = push_parser_new(message_callback);                 \
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
                      &DATA_##test_name,                             \
-                     LENGTH_##test_name - 1) == PUSH_SUCCESS,       \
+                     LENGTH_##test_name - 1) == PUSH_INCOMPLETE,    \
                     "Could not parse data");                        \
                                                                     \
         fail_unless(push_parser_eof(parser) == PUSH_PARSE_ERROR,    \

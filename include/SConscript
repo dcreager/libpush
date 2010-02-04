@@ -36,7 +36,7 @@ env.Alias("install", env.Install("$INCLUDEDIR/push",
 protobuf_h_files = map(File, \
     [
      "push/protobuf/basics.h",
-     "push/protobuf/field.h",
+     "push/protobuf/field-map.h",
      "push/protobuf/message.h",
      "push/protobuf/primitives.h",
     ])

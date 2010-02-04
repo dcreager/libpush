@@ -8,7 +8,6 @@ test-pairs
 test-skip
 test-sum
 
-test-protobuf-field
 test-protobuf-message
 test-protobuf-varint32
 test-protobuf-varint64

@@ -57,8 +57,7 @@ add_test("test-pairs")
 add_test("test-skip")
 add_test("test-sum")
 
-#add_test("test-protobuf-field")
-#add_test("test-protobuf-message")
+add_test("test-protobuf-message")
 add_test("test-protobuf-varint32")
 add_test("test-protobuf-varint64")
 

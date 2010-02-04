@@ -27,30 +27,12 @@
  * Expected macros:
  *
  *   - PRETTY_NAME
+ *   - PARSED_T
+ *   - PRIuPARSED
  *   - DEST_T
  *   - PROTOBUF_TYPE
  *   - TAG_TYPE
  */
-
-#if 0
-#define _PRETTY_STR(pretty) #pretty
-#define PRETTY_STR _PRETTY_STR(PRETTY_NAME)
-
-#define _STRUCT_NAME(pretty) _assign_##pretty
-#define STRUCT_NAME _STRUCT_NAME(PRETTY_NAME)
-
-#define _ASSIGN_T(pretty) assign_##pretty##_t
-#define ASSIGN_T _ASSIGN_T(PRETTY_NAME)
-
-#define _VALUE_CALLBACK_T(protobuf) push_protobuf_##protobuf##_t
-#define VALUE_CALLBACK_T _VALUE_CALLBACK_T(PROTOBUF_TYPE)
-
-#define _VALUE_CALLBACK_NEW(protobuf) push_protobuf_##protobuf##_new
-#define VALUE_CALLBACK_NEW _VALUE_CALLBACK_NEW(PROTOBUF_TYPE)
-
-#define _PUSH_PROTOBUF_ASSIGN(pretty) push_protobuf_assign_##pretty
-#define PUSH_PROTOBUF_ASSIGN _PUSH_PROTOBUF_ASSIGN(PRETTY_NAME)
-#endif
 
 /*-----------------------------------------------------------------------
  * Assign callback
@@ -65,10 +47,10 @@ typedef struct STRUCT_NAME
     push_callback_t  base;
 
     /**
-     * The callback that reads the value.
+     * The input value.
      */
 
-    VALUE_CALLBACK_T  *value_callback;
+    PARSED_T  *input;
 
     /**
      * The pointer to assign the value to.
@@ -78,6 +60,21 @@ typedef struct STRUCT_NAME
 
 } ASSIGN_T;
 
+
+static push_error_code_t
+assign_activate(push_parser_t *parser,
+                push_callback_t *pcallback,
+                void *input)
+{
+    ASSIGN_T  *callback = (ASSIGN_T *) pcallback;
+
+    callback->input = (PARSED_T *) input;
+    PUSH_DEBUG_MSG(PRETTY_STR": Activating.  Got value "
+                   "%"PRIuPARSED".\n",
+                   *callback->input);
+
+    return PUSH_SUCCESS;
+}
 
 static ssize_t
 assign_process_bytes(push_parser_t *parser,
@@ -91,33 +88,21 @@ assign_process_bytes(push_parser_t *parser,
      * Copy the value from the callback into the destination.
      */
 
-    PUSH_DEBUG_MSG(PRETTY_STR": Assign value.\n");
-    *(callback->dest) = callback->value_callback->value;
+    PUSH_DEBUG_MSG(PRETTY_STR": Assigning value to %p.\n",
+                   callback->dest);
+    *callback->dest = *callback->input;
 
     /*
-     * We don't actually parse anything; pass off to the next callback
-     * and return.
+     * We don't actually parse anything, so return success.
      */
 
-    push_parser_set_callback(parser, pcallback->next_callback);
+    callback->base.result = callback->input;
     return bytes_available;
 }
 
 
-static void
-assign_free(push_callback_t *pcallback)
-{
-    ASSIGN_T  *callback =
-        (ASSIGN_T *) pcallback;
-
-    PUSH_DEBUG_MSG(PRETTY_STR": Freeing assign callback %p...\n",
-                   pcallback);
-    push_callback_free(&callback->value_callback->base);
-}
-
-
-static ASSIGN_T *
-assign_new(VALUE_CALLBACK_T *value_callback, DEST_T *dest)
+static push_callback_t *
+assign_new(DEST_T *dest)
 {
     ASSIGN_T  *result =
         (ASSIGN_T *) malloc(sizeof(ASSIGN_T));
@@ -131,55 +116,41 @@ assign_new(VALUE_CALLBACK_T *value_callback, DEST_T *dest)
      */
 
     push_callback_init(&result->base,
-                       0,
-                       0,
-                       NULL,
+                       assign_activate,
                        assign_process_bytes,
-                       push_eof_not_allowed,
-                       assign_free,
                        NULL);
 
-    result->value_callback = value_callback;
     result->dest = dest;
 
-    return result;
+    return &result->base;
 }
 
 
 bool
-PUSH_PROTOBUF_ASSIGN(push_protobuf_message_t *message,
+PUSH_PROTOBUF_ASSIGN(push_protobuf_field_map_t *field_map,
                      push_protobuf_tag_number_t field_number,
                      DEST_T *dest)
 {
-    VALUE_CALLBACK_T  *value_callback = NULL;
-    ASSIGN_T  *assign_callback = NULL;
-    push_protobuf_field_t  *field_callback = NULL;
+    push_callback_t  *value_callback = NULL;
+    push_callback_t  *assign_callback = NULL;
+    push_callback_t  *field_callback = NULL;
 
     /*
      * First, create the callbacks.
      */
 
-    value_callback = VALUE_CALLBACK_NEW(NULL, false);
+    value_callback = VALUE_CALLBACK_NEW();
     if (value_callback == NULL)
         goto error;
 
-    assign_callback = assign_new(NULL, dest);
+    assign_callback = assign_new(dest);
     if (assign_callback == NULL)
         goto error;
 
-    field_callback =
-        push_protobuf_field_new(TAG_TYPE, &value_callback->base, false);
+    field_callback = push_compose_new(value_callback,
+                                      assign_callback);
     if (field_callback == NULL)
         goto error;
-
-    /*
-     * Then link them up.
-     */
-
-    assign_callback->value_callback = value_callback;
-    field_callback->base.next_callback = &assign_callback->base;
-    assign_callback->base.next_callback =
-        &message->tag_callback->base;
 
     /*
      * Try to add the new field.  If we can't, free the field before
@@ -188,10 +159,10 @@ PUSH_PROTOBUF_ASSIGN(push_protobuf_message_t *message,
      * them.)
      */
 
-    if (!push_protobuf_message_add_field(message, field_number,
-                                         field_callback))
+    if (!push_protobuf_field_map_add_field(field_map, field_number,
+                                           TAG_TYPE, field_callback))
     {
-        push_callback_free(&field_callback->base);
+        push_callback_free(field_callback);
         return false;
     }
 
@@ -204,13 +175,13 @@ PUSH_PROTOBUF_ASSIGN(push_protobuf_message_t *message,
      */
 
     if (value_callback != NULL)
-        push_callback_free(&value_callback->base);
+        push_callback_free(value_callback);
 
     if (assign_callback != NULL)
-        push_callback_free(&assign_callback->base);
+        push_callback_free(assign_callback);
 
     if (field_callback != NULL)
-        push_callback_free(&field_callback->base);
+        push_callback_free(field_callback);
 
     return NULL;
 }

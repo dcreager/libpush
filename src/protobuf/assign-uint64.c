@@ -8,10 +8,13 @@
  * ----------------------------------------------------------------------
  */
 
+#include <inttypes.h>
 
 #define PRETTY_STR            "uint64"
 #define STRUCT_NAME           _assign_uint64
 #define ASSIGN_T              assign_uint64_t
+#define PARSED_T              uint64_t
+#define PRIuPARSED            PRIu64
 #define DEST_T                uint64_t
 #define VALUE_CALLBACK_T      push_protobuf_varint64_t
 #define VALUE_CALLBACK_NEW    push_protobuf_varint64_new

@@ -12,8 +12,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <push.h>
-#include <push/protobuf.h>
+#include <push/basics.h>
+#include <push/protobuf/basics.h>
+#include <push/protobuf/field-map.h>
+#include <push/protobuf/message.h>
+#include <push/protobuf/primitives.h>
 
 
 /*-----------------------------------------------------------------------
@@ -21,7 +24,10 @@
  */
 
 /**
- * The callback class for the message's dispatch_callback.
+ * A callback that takes in a field tag as input, and then dispatches
+ * to a reader callback for that field.  The readers are stored in a
+ * “field map”, which is an expandable array of
+ * push_protobuf_message_field_map_t instances.
  */
 
 typedef struct _dispatch
@@ -33,11 +39,96 @@ typedef struct _dispatch
     push_callback_t  base;
 
     /**
-     * A link back to the message callback.
+     * A mapping of field numbers to the callback that reads the
+     * corresponding field.
      */
 
-    push_protobuf_message_t  *message_callback;
+    push_protobuf_field_map_t  *field_map;
+
+    /**
+     * The field callback that we should dispatch to.
+     */
+
+    push_callback_t  *dispatch_callback;
+
 } dispatch_t;
+
+
+static push_error_code_t
+dispatch_activate(push_parser_t *parser,
+                  push_callback_t *pcallback,
+                  void *input)
+{
+    dispatch_t  *callback = (dispatch_t *) pcallback;
+    push_protobuf_tag_t  *field_tag;
+    push_protobuf_tag_number_t  field_number;
+    push_callback_t  *field_callback;
+
+    field_tag = (push_protobuf_tag_t *) input;
+    PUSH_DEBUG_MSG("dispatch: Activating.  Got tag 0x%04"PRIx32"\n",
+                   *field_tag);
+
+    /*
+     * Extract the field number from the tag_callback.
+     */
+
+    field_number = PUSH_PROTOBUF_GET_TAG_NUMBER(*field_tag);
+
+    PUSH_DEBUG_MSG("dispatch: Dispatching field %"PRIu32".\n",
+                   field_number);
+
+    /*
+     * Get the field callback for this field number.
+     */
+
+    field_callback =
+        push_protobuf_field_map_get_field(callback->field_map,
+                                          field_number);
+
+    if (field_callback == NULL)
+    {
+        /*
+         * TODO: If we didn't find a field callback that wants to
+         * handle this field, skip it.
+         */
+
+        PUSH_DEBUG_MSG("dispatch: No field callback for field %"PRIu32".\n",
+                       field_number);
+
+        return PUSH_PARSE_ERROR;
+
+    } else {
+        push_error_code_t  activate_result;
+
+        /*
+         * Found it!  Activate that callback, and save it so that our
+         * process_bytes function can pass off to it.
+         */
+
+        PUSH_DEBUG_MSG("dispatch: Callback %p matches.\n",
+                       field_callback);
+
+        /*
+         * The field callback is going to need to verify the wire
+         * type, so make sure to pass in the tag as input.
+         */
+
+        activate_result =
+            push_callback_activate(parser, field_callback,
+                                   field_tag);
+
+        if (activate_result != PUSH_SUCCESS)
+        {
+            PUSH_DEBUG_MSG("dispatch: Could not activate field "
+                           "callback.\n");
+            return activate_result;
+        }
+
+        callback->dispatch_callback = field_callback;
+        return PUSH_SUCCESS;
+    }
+
+}
 
 
 static ssize_t
@@ -46,91 +137,33 @@ dispatch_process_bytes(push_parser_t *parser,
                        const void *vbuf,
                        size_t bytes_available)
 {
-    dispatch_t  *callback =
-        (dispatch_t *) pcallback;
-
-    push_protobuf_tag_t  field_tag;
-    push_protobuf_tag_number_t  field_number;
+    dispatch_t  *callback = (dispatch_t *) pcallback;
 
     /*
-     * Extract the field number from the tag_callback.
+     * We figured out which callback to use when we activated, so just
+     * pass off to it.  Use a tail call so that its result is our
+     * result.
      */
 
-    field_tag = callback->message_callback->tag_callback->value;
-    field_number = PUSH_PROTOBUF_GET_TAG_NUMBER(field_tag);
-
-    PUSH_DEBUG_MSG("message: Dispatching field %"PRIu32".\n",
-                   field_number);
-
-    /*
-     * Loop through all of our field callbacks.  If we find one whose
-     * field number matches, pass of to that callback.
-     */
-
-    {
-        const push_protobuf_message_field_map_t  *field_map;
-        unsigned int  i;
-
-        field_map =
-            hwm_buffer_mem(&callback->message_callback->field_map,
-                           push_protobuf_message_field_map_t);
-
-        for (i = 0;
-             i < hwm_buffer_current_list_size
-                 (&callback->message_callback->field_map,
-                  push_protobuf_message_field_map_t);
-             i++)
-        {
-            if (field_map[i].field_number == field_number)
-            {
-                /*
-                 * Found one!  Switch over to that callback.
-                 */
-
-                push_protobuf_field_t  *field_callback =
-                    field_map[i].callback;
-
-                PUSH_DEBUG_MSG("message: Callback %p matches.\n",
-                               field_callback);
-
-                /*
-                 * The field callback is going to need to verify the
-                 * wire type, so make sure to tell it what tag we got.
-                 */
-
-                field_callback->actual_tag = field_tag;
-
-                push_parser_set_callback(parser, &field_callback->base);
-                return bytes_available;
-            }
-        }
-    }
-
-    /*
-     * TODO: If we didn't find a field callback that wants to handle this
-     * field, skip it.
-     */
-
-    PUSH_DEBUG_MSG("message: No field callback for field %"PRIu32".\n",
-                   field_number);
-
-    return PUSH_PARSE_ERROR;
+    return push_callback_tail_process_bytes
+        (parser, &callback->base,
+         callback->dispatch_callback,
+         vbuf, bytes_available);
 }
 
 
 static void
 dispatch_free(push_callback_t *pcallback)
 {
-    dispatch_t  *callback =
-        (dispatch_t *) pcallback;
+    dispatch_t  *callback = (dispatch_t *) pcallback;
 
-    PUSH_DEBUG_MSG("message: Freeing dispatch callback %p...\n", pcallback);
-    push_callback_free(&callback->message_callback->base);
+    PUSH_DEBUG_MSG("dispatch: Freeing field map...\n");
+    push_protobuf_field_map_free(callback->field_map);
 }
 
 
-static dispatch_t *
-dispatch_new(push_protobuf_message_t *message_callback)
+static push_callback_t *
+dispatch_new(push_protobuf_field_map_t *field_map)
 {
     dispatch_t  *result =
         (dispatch_t *) malloc(sizeof(dispatch_t));
@@ -138,23 +171,14 @@ dispatch_new(push_protobuf_message_t *message_callback)
     if (result == NULL)
         return NULL;
 
-    /*
-     * EOF is not allowed in place of dispatch — that's in between
-     * the tag and the value, which is a parse error.
-     */
-
     push_callback_init(&result->base,
-                       0,
-                       0,
-                       NULL,
+                       dispatch_activate,
                        dispatch_process_bytes,
-                       push_eof_not_allowed,
-                       dispatch_free,
-                       NULL);
+                       dispatch_free);
 
-    result->message_callback = message_callback;
+    result->field_map = field_map;
 
-    return result;
+    return &result->base;
 }
 
 
@@ -162,167 +186,47 @@ dispatch_new(push_protobuf_message_t *message_callback)
  * Top-level message callback
  */
 
-static ssize_t
-message_process_bytes(push_parser_t *parser,
-                      push_callback_t *pcallback,
-                      const void *vbuf,
-                      size_t bytes_available)
+
+push_callback_t *
+push_protobuf_message_new(push_protobuf_field_map_t *field_map)
 {
-    push_protobuf_message_t  *callback =
-        (push_protobuf_message_t *) pcallback;
+    push_callback_t  *read_field_tag;
+    push_callback_t  *dispatch;
+    push_callback_t  *compose;
+    push_callback_t  *fold;
 
-    /*
-     * The message_callback doesn't actually do anything, we just
-     * thread through our child callbacks.  Pass off right away into
-     * the tag_callback.
-     */
-
-    PUSH_DEBUG_MSG("message: Switching to tag callback.\n");
-
-    push_parser_set_callback(parser, &callback->tag_callback->base);
-    return bytes_available;
-}
-
-
-static void
-message_free(push_callback_t *pcallback)
-{
-    push_protobuf_message_t  *callback =
-        (push_protobuf_message_t *) pcallback;
-
-    PUSH_DEBUG_MSG("message: Freeing message callback %p...\n", pcallback);
-    push_callback_free(&callback->tag_callback->base);
-    push_callback_free(callback->dispatch_callback);
-
-    /*
-     * Free each of the field callbacks.
-     */
-
+    read_field_tag = push_protobuf_varint32_new();
+    if (read_field_tag == NULL)
     {
-        push_protobuf_message_field_map_t  *field_map;
-        unsigned int  i;
-
-        field_map =
-            hwm_buffer_writable_mem(&callback->field_map,
-                                    push_protobuf_message_field_map_t);
-
-        for (i = 0;
-             i < hwm_buffer_current_list_size
-                 (&callback->field_map,
-                  push_protobuf_message_field_map_t);
-             i++)
-        {
-            if (field_map[i].callback != NULL)
-            {
-                push_callback_t  *field_callback =
-                    &field_map[i].callback->base;
-
-                push_callback_free(field_callback);
-            }
-        }
-    }
-}
-
-
-push_protobuf_message_t *
-push_protobuf_message_new()
-{
-    push_protobuf_message_t  *result =
-        (push_protobuf_message_t *) malloc(sizeof(push_protobuf_message_t));
-
-    if (result == NULL)
-    {
-        PUSH_DEBUG_MSG("Couldn't allocate message callback.\n");
-        goto error;
+        return NULL;
     }
 
-    push_callback_init(&result->base,
-                       0,
-                       0,
-                       NULL,
-                       message_process_bytes,
-                       push_eof_allowed,
-                       message_free,
-                       NULL);
-
-    hwm_buffer_init(&result->field_map);
-
-    /*
-     * Try to create that callback for reading the message's tag.
-     */
-
-    result->tag_callback =
-        push_protobuf_varint32_new(NULL, true);
-    if (result->tag_callback == NULL)
+    dispatch = dispatch_new(field_map);
+    if (dispatch == NULL)
     {
-        PUSH_DEBUG_MSG("Couldn't allocate tag callback.\n");
-        goto error;
+        push_callback_free(read_field_tag);
+        return NULL;
     }
 
-    /*
-     * ...and then the callback for dispatching the field.
-     */
-
+    compose = push_compose_new(read_field_tag, dispatch);
+    if (compose == NULL)
     {
-        dispatch_t  *dispatch_callback;
-
-        dispatch_callback = dispatch_new(result);
-        if (dispatch_callback == NULL)
-        {
-            PUSH_DEBUG_MSG("Couldn't allocate dispatch callback.\n");
-            goto error;
-        }
-
-        result->dispatch_callback = &dispatch_callback->base;
+        push_callback_free(read_field_tag);
+        push_callback_free(dispatch);
+        return NULL;
     }
 
-    /*
-     * Finally, link all of the callbacks together.
-     */
+    fold = push_fold_new(compose);
+    if (fold == NULL)
+    {
+        /*
+         * We only have to free the compose, since it links to the
+         * other two.
+         */
 
-    result->tag_callback->base.next_callback =
-        result->dispatch_callback;
+        push_callback_free(compose);
+        return NULL;
+    }
 
-    return result;
-
-  error:
-    /*
-     * Before returning the NULL error code, free everything that we
-     * might've created so far.
-     */
-
-    if (result != NULL)
-        push_callback_free(&result->base);
-
-    return NULL;
-}
-
-
-bool
-push_protobuf_message_add_field(push_protobuf_message_t *message,
-                                push_protobuf_tag_number_t field_number,
-                                push_protobuf_field_t *field)
-{
-    push_protobuf_message_field_map_t  *new_field_map;
-
-    /*
-     * Try to allocate a new element in the list of field callbacks.
-     * If we can't, return an error code.
-     */
-
-    new_field_map =
-        hwm_buffer_append_list_elem(&message->field_map,
-                                    push_protobuf_message_field_map_t);
-
-    if (new_field_map == NULL)
-        return false;
-
-    /*
-     * If the allocation worked, save the callback.
-     */
-
-    new_field_map->field_number = field_number;
-    new_field_map->callback = field;
-
-    return true;
+    return fold;
 }

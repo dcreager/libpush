@@ -20,7 +20,7 @@
 
 
 #include <push/protobuf/basics.h>
-#include <push/protobuf/field.h>
+#include <push/protobuf/field-map.h>
 #include <push/protobuf/message.h>
 #include <push/protobuf/primitives.h>
 
