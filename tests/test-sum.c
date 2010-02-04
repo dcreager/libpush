@@ -24,126 +24,17 @@
 
 
 /*-----------------------------------------------------------------------
- * Sum callback implementation
- *
- * The sum callback is implemented using pairs: It expects to receive
- * a pair of uint32_t's.  The first one is the integer that was just
- * parsed; the second is the previous value of the sum.  The output is
- * a pair, with the first element NULL, and the second the new sum.
- *
- * The “repeated sum” callback links an integer callback and a sum
- * callback into a fold.  The folded callback has the following
- * design:
- *
- *    +----------------------------------------------+
- *    |                                              |
- *    |  NULL  +-----+  uint32_t  +-----+    NULL    |
- *    |=======>| Int |===========>|     |===========>|
- *    |        +-----+            | Sum |            |
- *    |                           |     |            |
- *    |==========================>|     |===========>|
- *    |          uint32_t         +-----+  uint32_t  |
- *    |                                              |
- *    +----------------------------------------------+
- *
- * So it takes in a pair, but the callback expects the first element
- * to be NULL on input, and outputs a NULL there as well.  The first
- * element is only used internally in between the Int and Sum
- * callbacks.
+ * Folded sum callback
  */
-
-typedef struct _sum_callback
-{
-    push_callback_t  base;
-    uint32_t  *input_int;
-    uint32_t  *input_sum;
-    push_pair_t  output_pair;
-    uint32_t  output_sum;
-} sum_callback_t;
-
-
-static push_error_code_t
-sum_activate(push_parser_t *parser,
-             push_callback_t *pcallback,
-             void *vinput)
-{
-    sum_callback_t  *callback = (sum_callback_t *) pcallback;
-    push_pair_t  *input = (push_pair_t *) vinput;
-
-    callback->input_int = (uint32_t *) input->first;
-    callback->input_sum = (uint32_t *) input->second;
-
-    PUSH_DEBUG_MSG("sum: Activating callback.  "
-                   "Received value %"PRIu32", sum %"PRIu32".\n",
-                   *callback->input_int,
-                   *callback->input_sum);
-    return PUSH_SUCCESS;
-}
-
-
-static ssize_t
-sum_process_bytes(push_parser_t *parser,
-                  push_callback_t *pcallback,
-                  const void *buf,
-                  size_t bytes_available)
-{
-    sum_callback_t  *callback = (sum_callback_t *) pcallback;
-
-    /*
-     * Add the two numbers together.  The pointers in the output pair
-     * don't change if we execute this callback more than once, so
-     * they were set in the constructor.  Same for the result pointer.
-     */
-
-    callback->output_sum = *callback->input_int + *callback->input_sum;
-
-    PUSH_DEBUG_MSG("sum: Adding, sum is now %"PRIu32"\n",
-                   callback->output_sum);
-
-    /*
-     * We don't actually parse anything, so we always succeed.
-     */
-
-    return bytes_available;
-}
-
-
-static push_callback_t *
-sum_callback_new()
-{
-    sum_callback_t  *sum =
-        (sum_callback_t *) malloc(sizeof(sum_callback_t));
-
-    if (sum == NULL)
-        return NULL;
-
-    push_callback_init(&sum->base,
-                       sum_activate,
-                       sum_process_bytes,
-                       NULL);
-
-    sum->output_pair.first = NULL;
-    sum->output_pair.second = &sum->output_sum;
-    sum->base.result = &sum->output_pair;
-
-    return &sum->base;
-}
-
 
 static push_callback_t *
 make_repeated_sum()
 {
-    push_callback_t  *integer;
-    push_callback_t  *first;
     push_callback_t  *sum;
-    push_callback_t  *compose;
     push_callback_t  *fold;
 
-    integer = integer_callback_new();
-    first = push_first_new(integer);
     sum = sum_callback_new();
-    compose = push_compose_new(first, sum);
-    fold = push_fold_new(compose);
+    fold = push_fold_new(sum);
 
     return fold;
 }
@@ -154,7 +45,6 @@ make_repeated_sum()
  */
 
 uint32_t  INT_0 = 0;
-push_pair_t  INPUT_PAIR = { NULL, &INT_0 };
 
 const uint32_t  DATA_01[] = { 1, 2, 3, 4, 5 };
 const size_t  LENGTH_01 = 5 * sizeof(uint32_t);
@@ -169,7 +59,6 @@ START_TEST(test_sum_01)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    push_pair_t  *pair;
     uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_sum_01\n");
@@ -182,7 +71,7 @@ START_TEST(test_sum_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &INPUT_PAIR)
+    fail_unless(push_parser_activate(parser, &INT_0)
                 == PUSH_SUCCESS,
                 "Could not activate parser");
 
@@ -193,8 +82,7 @@ START_TEST(test_sum_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    pair = (push_pair_t *) callback->result;
-    result = (uint32_t *) pair->second;
+    result = (uint32_t *) callback->result;
 
     fail_unless(*result == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -210,7 +98,6 @@ START_TEST(test_sum_02)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    push_pair_t  *pair;
     uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_sum_02\n");
@@ -227,7 +114,7 @@ START_TEST(test_sum_02)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &INPUT_PAIR)
+    fail_unless(push_parser_activate(parser, &INT_0)
                 == PUSH_SUCCESS,
                 "Could not activate parser");
 
@@ -242,8 +129,7 @@ START_TEST(test_sum_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    pair = (push_pair_t *) callback->result;
-    result = (uint32_t *) pair->second;
+    result = (uint32_t *) callback->result;
 
     fail_unless(*result == 30,
                 "Sum doesn't match (got %"PRIu32
@@ -259,7 +145,6 @@ START_TEST(test_misaligned_data)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    push_pair_t  *pair;
     uint32_t  *result;
     size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
 
@@ -279,7 +164,7 @@ START_TEST(test_misaligned_data)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &INPUT_PAIR)
+    fail_unless(push_parser_activate(parser, &INT_0)
                 == PUSH_SUCCESS,
                 "Could not activate parser");
 
@@ -296,8 +181,7 @@ START_TEST(test_misaligned_data)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    pair = (push_pair_t *) callback->result;
-    result = (uint32_t *) pair->second;
+    result = (uint32_t *) callback->result;
 
     fail_unless(*result == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -331,7 +215,7 @@ START_TEST(test_parse_error_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &INPUT_PAIR)
+    fail_unless(push_parser_activate(parser, &INT_0)
                 == PUSH_SUCCESS,
                 "Could not activate parser");
 

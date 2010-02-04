@@ -18,6 +18,7 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/pairs.h>
 
 #include <test-callbacks.h>
 
@@ -25,142 +26,30 @@
 /*-----------------------------------------------------------------------
  * Double-sum callback implementation
  *
- * This callback tests the push_parser_set_callback function.  The
- * goal is to create two sums from a list of integers — the first is
- * the sum of all of the even-indexed entries, the second the sum of
- * the odd-indexed entries.
- *
- * The callback doesn't actually parse anything; it contains links to
- * the callback that parses the “even” and “odd” integers.  When the
- * double-sum callback is activated, it takes the most recent results
- * from the linked callbacks and adds them to the sums.
- */
-
-typedef struct _double_sum_callback
-{
-    push_callback_t  base;
-
-    push_callback_t  *int1;
-    uint32_t  sum1;
-
-    push_callback_t  *int2;
-    uint32_t  sum2;
-} double_sum_callback_t;
-
-
-static push_error_code_t
-double_sum_activate(push_parser_t *parser,
-                    push_callback_t *pcallback,
-                    void *vinput)
-{
-    double_sum_callback_t  *callback =
-        (double_sum_callback_t *) pcallback;
-    uint32_t  *ptr1;
-    uint32_t  *ptr2;
-
-    PUSH_DEBUG_MSG("double-sum: Activating.\n");
-
-    ptr1 = (uint32_t *) callback->int1->result;
-    callback->sum1 += *ptr1;
-    PUSH_DEBUG_MSG("double-sum: Adding %"PRIu32" to first sum, "
-                   "sum is now %"PRIu32".\n",
-                   *ptr1, callback->sum1);
-
-    ptr2 = (uint32_t *) callback->int2->result;
-    callback->sum2 += *ptr2;
-    PUSH_DEBUG_MSG("double-sum: Adding %"PRIu32" to second sum, "
-                   "sum is now %"PRIu32".\n",
-                   *ptr2, callback->sum2);
-
-    return PUSH_SUCCESS;
-}
-
-
-static ssize_t
-double_sum_process_bytes(push_parser_t *parser,
-                         push_callback_t *pcallback,
-                         const void *buf,
-                         size_t bytes_available)
-{
-    /*
-     * We don't actually parse anything, so we always succeed.
-     */
-
-    return bytes_available;
-}
-
-
-static void
-double_sum_free(push_callback_t *pcallback)
-{
-    double_sum_callback_t  *callback =
-        (double_sum_callback_t *) pcallback;
-
-    PUSH_DEBUG_MSG("double-sum: Freeing first integer callback.\n");
-    push_callback_free(callback->int1);
-
-    PUSH_DEBUG_MSG("double-sum: Freeing second integer callback.\n");
-    push_callback_free(callback->int2);
-}
-
-
-static push_callback_t *
-double_sum_callback_new(push_callback_t *int1,
-                        push_callback_t *int2)
-{
-    double_sum_callback_t  *result =
-        (double_sum_callback_t *) malloc(sizeof(double_sum_callback_t));
-
-    if (result == NULL)
-        return NULL;
-
-    push_callback_init(&result->base,
-                       double_sum_activate,
-                       double_sum_process_bytes,
-                       double_sum_free);
-
-    result->int1 = int1;
-    result->sum1 = 0;
-
-    result->int2 = int2;
-    result->sum2 = 0;
-
-    result->base.result = result;
-
-    return &result->base;
-}
-
-
-/*-----------------------------------------------------------------------
- * The real deal
+ * This callbackcreates two sums from a list of integers — the first
+ * is the sum of all of the even-indexed entries, the second the sum
+ * of the odd-indexed entries.  We can do this by creating a par of
+ * two regular sum callbacks.
  */
 
 static push_callback_t *
 make_double_sum_callback()
 {
-    push_callback_t  *int1;
-    push_callback_t  *int2;
-    push_callback_t  *double_sum;
-    push_callback_t  *compose1;
-    push_callback_t  *compose2;
+    push_callback_t  *sum1;
+    push_callback_t  *sum2;
+    push_callback_t  *par;
     push_callback_t  *fold;
 
-    int1 = integer_callback_new();
-    if (int1 == NULL) return NULL;
+    sum1 = sum_callback_new();
+    if (sum1 == NULL) return NULL;
 
-    int2 = integer_callback_new();
-    if (int2 == NULL) return NULL;
+    sum2 = sum_callback_new();
+    if (sum2 == NULL) return NULL;
 
-    double_sum = double_sum_callback_new(int1, int2);
-    if (double_sum == NULL) return NULL;
+    par = push_par_new(sum1, sum2);
+    if (par == NULL) return NULL;
 
-    compose1 = push_compose_new(int1, int2);
-    if (compose1 == NULL) return NULL;
-
-    compose2 = push_compose_new(compose1, double_sum);
-    if (compose2 == NULL) return NULL;
-
-    fold = push_fold_new(compose2);
+    fold = push_fold_new(par);
     if (fold == NULL) return NULL;
 
     return fold;
@@ -170,6 +59,9 @@ make_double_sum_callback()
 /*-----------------------------------------------------------------------
  * Sample data
  */
+
+uint32_t  INT_0 = 0;
+push_pair_t  PAIR_0 = { &INT_0, &INT_0 };
 
 const uint32_t  DATA_01[] = { 1, 2, 3, 4, 5, 6 };
 const size_t  LENGTH_01 = 6 * sizeof(uint32_t);
@@ -184,7 +76,9 @@ START_TEST(test_double_sum_01)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    double_sum_callback_t  *result;
+    push_pair_t  *result;
+    uint32_t  *sum1;
+    uint32_t  *sum2;
 
     PUSH_DEBUG_MSG("---\nStarting test_double_sum_01\n");
 
@@ -196,6 +90,10 @@ START_TEST(test_double_sum_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    fail_unless(push_parser_activate(parser, &PAIR_0)
+                == PUSH_SUCCESS,
+                "Could not activate parser");
+
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_INCOMPLETE,
                 "Could not parse data");
@@ -203,17 +101,19 @@ START_TEST(test_double_sum_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (double_sum_callback_t *) callback->result;
+    result = (push_pair_t *) callback->result;
+    sum1 = (uint32_t *) result->first;
+    sum2 = (uint32_t *) result->second;
 
-    fail_unless(result->sum1 == 9,
+    fail_unless(*sum1 == 9,
                 "Even sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum1, 9);
+                *sum1, 9);
 
-    fail_unless(result->sum2 == 12,
+    fail_unless(*sum2 == 12,
                 "Odd sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum2, 12);
+                *sum2, 12);
 
     push_parser_free(parser);
 }
@@ -224,7 +124,9 @@ START_TEST(test_double_sum_02)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    double_sum_callback_t  *result;
+    push_pair_t  *result;
+    uint32_t  *sum1;
+    uint32_t  *sum2;
 
     PUSH_DEBUG_MSG("---\nStarting test_double_sum_02\n");
 
@@ -240,6 +142,10 @@ START_TEST(test_double_sum_02)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    fail_unless(push_parser_activate(parser, &PAIR_0)
+                == PUSH_SUCCESS,
+                "Could not activate parser");
+
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_INCOMPLETE,
                 "Could not parse data");
@@ -251,17 +157,19 @@ START_TEST(test_double_sum_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (double_sum_callback_t *) callback->result;
+    result = (push_pair_t *) callback->result;
+    sum1 = (uint32_t *) result->first;
+    sum2 = (uint32_t *) result->second;
 
-    fail_unless(result->sum1 == 18,
+    fail_unless(*sum1 == 18,
                 "Even sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum1, 18);
+                *sum1, 18);
 
-    fail_unless(result->sum2 == 24,
+    fail_unless(*sum2 == 24,
                 "Odd sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum2, 24);
+                *sum2, 24);
 
     push_parser_free(parser);
 }
@@ -272,7 +180,9 @@ START_TEST(test_double_sum_03)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    double_sum_callback_t  *result;
+    push_pair_t  *result;
+    uint32_t  *sum1;
+    uint32_t  *sum2;
 
     PUSH_DEBUG_MSG("---\nStarting test_double_sum_03\n");
 
@@ -290,6 +200,10 @@ START_TEST(test_double_sum_03)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    fail_unless(push_parser_activate(parser, &PAIR_0)
+                == PUSH_SUCCESS,
+                "Could not activate parser");
+
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_INCOMPLETE,
                 "Could not parse data");
@@ -297,17 +211,19 @@ START_TEST(test_double_sum_03)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (double_sum_callback_t *) callback->result;
+    result = (push_pair_t *) callback->result;
+    sum1 = (uint32_t *) result->first;
+    sum2 = (uint32_t *) result->second;
 
-    fail_unless(result->sum1 == 9,
+    fail_unless(*sum1 == 9,
                 "Even sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum1, 9);
+                *sum1, 9);
 
-    fail_unless(result->sum2 == 12,
+    fail_unless(*sum2 == 12,
                 "Odd sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum2, 12);
+                *sum2, 12);
 
     push_parser_free(parser);
 }
@@ -318,7 +234,9 @@ START_TEST(test_misaligned_data)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    double_sum_callback_t  *result;
+    push_pair_t  *result;
+    uint32_t  *sum1;
+    uint32_t  *sum2;
     size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
 
     PUSH_DEBUG_MSG("---\nStarting test_misaligned_data\n");
@@ -337,6 +255,10 @@ START_TEST(test_misaligned_data)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    fail_unless(push_parser_activate(parser, &PAIR_0)
+                == PUSH_SUCCESS,
+                "Could not activate parser");
+
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_INCOMPLETE,
                 "Could not parse data");
@@ -350,17 +272,19 @@ START_TEST(test_misaligned_data)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (double_sum_callback_t *) callback->result;
+    result = (push_pair_t *) callback->result;
+    sum1 = (uint32_t *) result->first;
+    sum2 = (uint32_t *) result->second;
 
-    fail_unless(result->sum1 == 9,
+    fail_unless(*sum1 == 9,
                 "Even sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum1, 9);
+                *sum1, 9);
 
-    fail_unless(result->sum2 == 12,
+    fail_unless(*sum2 == 12,
                 "Odd sum doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum2, 12);
+                *sum2, 12);
 
     push_parser_free(parser);
 }

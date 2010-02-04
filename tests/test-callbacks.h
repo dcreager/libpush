@@ -13,11 +13,23 @@
 
 #include <push/basics.h>
 
+
 /**
  * Create a callback that parses a single uint32_t.
  */
 
 push_callback_t *
 integer_callback_new();
+
+
+/**
+ * Create a callback that parses a single uint32_t and adds it to a
+ * running sum.  The previous value of the sum is taken in as an
+ * input; the new value is the output.
+ */
+
+push_callback_t *
+sum_callback_new();
+
 
 #endif  /* TEST_CALLBACKS_H */

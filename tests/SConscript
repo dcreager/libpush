@@ -16,6 +16,7 @@ env.Prepend(CPPPATH=[".", "#/include", "$check_CPPPATH"],
 libpushtests_files = map(File, \
     [
      "int-callback.c",
+     "sum-callback.c",
     ])
 
 SOURCE_FILES.extend(libpushtests_files)
