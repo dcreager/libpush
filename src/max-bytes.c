@@ -72,6 +72,7 @@ max_bytes_process_bytes(push_parser_t *parser,
                         size_t bytes_available)
 {
     max_bytes_t  *callback = (max_bytes_t *) pcallback;
+    ssize_t  result;
 
     PUSH_DEBUG_MSG("max-bytes: Processing %zu bytes.\n",
                    bytes_available);
@@ -84,7 +85,6 @@ max_bytes_process_bytes(push_parser_t *parser,
     if ((callback->bytes_remaining > 0) && (bytes_available > 0))
     {
         size_t  bytes_to_send;
-        size_t  bytes_processed;
         ssize_t  result;
 
         /*
@@ -121,21 +121,19 @@ max_bytes_process_bytes(push_parser_t *parser,
         }
 
         /*
-         * Otherwise update our pointers.
-         */
-
-        bytes_processed = bytes_to_send - result;
-        vbuf += bytes_processed;
-        bytes_available -= bytes_processed;
-        callback->bytes_remaining -= bytes_processed;
-
-        /*
          * If the wrapped callback succeeds, we go ahead and succeed,
          * too.
          */
 
         if (result >= 0)
         {
+            size_t  bytes_processed;
+
+            bytes_processed = bytes_to_send - result;
+            vbuf += bytes_processed;
+            bytes_available -= bytes_processed;
+            callback->bytes_remaining -= bytes_processed;
+
             PUSH_DEBUG_MSG("max-bytes: Wrapped callback succeeded "
                            "using %zu bytes.\n",
                            (callback->maximum_bytes -
@@ -150,6 +148,13 @@ max_bytes_process_bytes(push_parser_t *parser,
 
             return bytes_available;
         }
+
+        PUSH_DEBUG_MSG("max-bytes: Wrapped callback incomplete "
+                       "after using %zu bytes.\n",
+                       bytes_to_send);
+
+        vbuf += bytes_to_send;
+        bytes_available -= bytes_to_send;
     }
 
     /*
@@ -163,9 +168,27 @@ max_bytes_process_bytes(push_parser_t *parser,
 
     PUSH_DEBUG_MSG("max-bytes: Sending EOF to wrapped callback.\n");
 
-    return push_callback_tail_process_bytes
+    result = push_callback_tail_process_bytes
         (parser, &callback->base, callback->wrapped,
          NULL, 0);
+
+    /*
+     * If we get a success code, we return bytes_available, since the
+     * EOF we're sending to the wrapped callback might not be our EOF.
+     * (If it is, we'll correctly return a 0; if not, then the EOF
+     * success will let the next callback in the chain continue
+     * processing.)
+     */
+
+    if (result >= 0)
+    {
+        PUSH_DEBUG_MSG("max-bytes: Wrapped callback succeeds at EOF.  "
+                       "%zu bytes remaining.\n",
+                       bytes_available);
+        return bytes_available;
+    }
+
+    return result;
 }
 
 
