@@ -66,5 +66,20 @@ push_min_bytes_new(push_callback_t *wrapped,
                    size_t minimum_bytes);
 
 
+/**
+ * Create a new callback that wraps another callback, ensuring that no
+ * more than a certain number of bytes are passed into the wrapped
+ * callback.  There is no guarantee that <b>exactly</b> this many
+ * bytes will be processed; if the wrapped callback returns a success
+ * code earlier, the max-bytes callback succeeds, too.  Once we reach
+ * the maximum number of bytes, we send an EOF to the wrapped callback
+ * to give it a chance to throw a parse error, if necessary.
+ */
+
+push_callback_t *
+push_max_bytes_new(push_callback_t *wrapped,
+                   size_t maximum_bytes);
+
+
 
 #endif  /* PUSH_COMBINATORS_H */

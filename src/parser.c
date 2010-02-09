@@ -99,7 +99,10 @@ push_parser_submit_data(push_parser_t *parser,
      */
 
     if (result < 0)
+    {
+        PUSH_DEBUG_MSG("parser: Got failure code %zd.\n", result);
         return result;
+    }
 
     /*
      * Otherwise, we have a successful parse, possibly with some
@@ -107,6 +110,8 @@ push_parser_submit_data(push_parser_t *parser,
      * finished parsing, and return the success code.
      */
 
+    PUSH_DEBUG_MSG("parser: Got success code; %zd bytes "
+                   "remaining.\n", result);
     parser->finished = true;
     return PUSH_SUCCESS;
 }
