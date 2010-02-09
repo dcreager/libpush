@@ -13,6 +13,7 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/pairs.h>
 
 
 /**
@@ -62,6 +63,33 @@ max_bytes_activate(push_parser_t *parser,
 
     PUSH_DEBUG_MSG("max-bytes: Activating wrapped callback.\n");
     return push_callback_activate(parser, callback->wrapped, input);
+}
+
+
+static push_error_code_t
+dynamic_max_bytes_activate(push_parser_t *parser,
+                           push_callback_t *pcallback,
+                           void *input)
+{
+    max_bytes_t  *callback = (max_bytes_t *) pcallback;
+
+    /*
+     * Extract the threshold from the input pair.
+     */
+
+    push_pair_t  *pair = (push_pair_t *) input;
+    size_t  *maximum_bytes = (size_t *) pair->first;
+
+    callback->maximum_bytes = *maximum_bytes;
+
+    PUSH_DEBUG_MSG("max-bytes: [Dynamic] Activating.  "
+                   "Capping at %zu bytes.\n",
+                   callback->maximum_bytes);
+    callback->bytes_remaining = callback->maximum_bytes;
+
+    PUSH_DEBUG_MSG("max-bytes: Activating wrapped callback.\n");
+    return push_callback_activate(parser, callback->wrapped,
+                                  pair->second);
 }
 
 
@@ -220,6 +248,28 @@ push_max_bytes_new(push_callback_t *wrapped,
     callback->wrapped = wrapped;
     callback->maximum_bytes = maximum_bytes;
     callback->bytes_remaining = maximum_bytes;
+
+    return &callback->base;
+}
+
+
+push_callback_t *
+push_dynamic_max_bytes_new(push_callback_t *wrapped)
+{
+    max_bytes_t  *callback =
+        (max_bytes_t *) malloc(sizeof(max_bytes_t));
+
+    if (callback == NULL)
+        return NULL;
+
+    push_callback_init(&callback->base,
+                       dynamic_max_bytes_activate,
+                       max_bytes_process_bytes,
+                       max_bytes_free);
+
+    callback->wrapped = wrapped;
+    callback->maximum_bytes = 0;
+    callback->bytes_remaining = 0;
 
     return &callback->base;
 }

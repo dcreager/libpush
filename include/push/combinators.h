@@ -81,5 +81,21 @@ push_max_bytes_new(push_callback_t *wrapped,
                    size_t maximum_bytes);
 
 
+/**
+ * Create a new callback that wraps another callback, ensuring that no
+ * more than a certain number of bytes are passed into the wrapped
+ * callback.  This works exactly like the max-bytes combinator, except
+ * that the number of bytes is taken as an input during parsing,
+ * rather than provided once when constructing the callback.  The
+ * input to the callback should be a pair.  The first element should
+ * be a pointer to a size_t, indicating the number of bytes to use as
+ * a threshold.  The second element is the input value that should be
+ * passed into the wrapped callback.
+ */
+
+push_callback_t *
+push_dynamic_max_bytes_new(push_callback_t *wrapped);
+
+
 
 #endif  /* PUSH_COMBINATORS_H */

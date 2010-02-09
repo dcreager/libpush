@@ -46,6 +46,12 @@ make_repeated_sum()
 
 uint32_t  INT_0 = 0;
 
+size_t  MAX_SIZE_01 = sizeof(uint32_t) * 3;
+push_pair_t  MAX_INPUT_01 = { &MAX_SIZE_01, &INT_0 };
+
+size_t  MAX_SIZE_02 = sizeof(uint32_t) * 2;
+push_pair_t  MAX_INPUT_02 = { &MAX_SIZE_02, &INT_0 };
+
 const uint32_t  DATA_01[] = { 1, 2, 3, 4, 5 };
 const size_t  LENGTH_01 = 5 * sizeof(uint32_t);
 
@@ -249,7 +255,7 @@ START_TEST(test_max_01)
     fail_if(sum == NULL,
             "Could not allocate a new sum callback");
 
-    callback = push_max_bytes_new(sum, sizeof(uint32_t) * 3);
+    callback = push_max_bytes_new(sum, MAX_SIZE_01);
     fail_if(callback == NULL,
             "Could not allocate a new max-bytes callback");
 
@@ -304,7 +310,7 @@ START_TEST(test_max_02)
     fail_if(sum1 == NULL,
             "Could not allocate a new sum callback");
 
-    max1 = push_max_bytes_new(sum1, sizeof(uint32_t) * 2);
+    max1 = push_max_bytes_new(sum1, MAX_SIZE_02);
     fail_if(max1 == NULL,
             "Could not allocate a new max-bytes callback");
 
@@ -312,7 +318,7 @@ START_TEST(test_max_02)
     fail_if(sum2 == NULL,
             "Could not allocate a new sum callback");
 
-    max2 = push_max_bytes_new(sum2, sizeof(uint32_t) * 2);
+    max2 = push_max_bytes_new(sum2, MAX_SIZE_02);
     fail_if(max2 == NULL,
             "Could not allocate a new max-bytes callback");
 
@@ -325,6 +331,129 @@ START_TEST(test_max_02)
             "Could not allocate a new push parser");
 
     fail_unless(push_parser_activate(parser, &INT_0)
+                == PUSH_SUCCESS,
+                "Could not activate parser");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
+    pair = (push_pair_t *) callback->result;
+    result1 = (uint32_t *) pair->first;
+    result2 = (uint32_t *) pair->second;
+
+    fail_unless(*result1 == 3,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                *result1, 3);
+
+    fail_unless(*result2 == 7,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                *result2, 7);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
+START_TEST(test_dynamic_max_01)
+{
+    push_parser_t  *parser;
+    push_callback_t  *sum;
+    push_callback_t  *callback;
+    uint32_t  *result;
+
+    PUSH_DEBUG_MSG("---\nStarting test_dynamic_max_01\n");
+
+    /*
+     * If we use max-bytes to limit ourselves to three numbers, we
+     * should get a smaller sum.
+     */
+
+    sum = make_repeated_sum();
+    fail_if(sum == NULL,
+            "Could not allocate a new sum callback");
+
+    callback = push_dynamic_max_bytes_new(sum);
+    fail_if(callback == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    parser = push_parser_new(callback);
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    fail_unless(push_parser_activate(parser, &MAX_INPUT_01)
+                == PUSH_SUCCESS,
+                "Could not activate parser");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
+    result = (uint32_t *) callback->result;
+
+    fail_unless(*result == 6,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                *result, 6);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
+START_TEST(test_dynamic_max_02)
+{
+    push_parser_t  *parser;
+    push_callback_t  *sum1;
+    push_callback_t  *sum2;
+    push_callback_t  *max1;
+    push_callback_t  *max2;
+    push_callback_t  *callback;
+    push_pair_t  *pair;
+    uint32_t  *result1;
+    uint32_t  *result2;
+
+    PUSH_DEBUG_MSG("---\nStarting test_dynamic_max_02\n");
+
+    /*
+     * If we use max-bytes to limit ourselves to two numbers, we
+     * should get a smaller sum.  Then we repeat to get another
+     * smaller sum.
+     */
+
+    sum1 = make_repeated_sum();
+    fail_if(sum1 == NULL,
+            "Could not allocate a new sum callback");
+
+    max1 = push_dynamic_max_bytes_new(sum1);
+    fail_if(max1 == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    sum2 = make_repeated_sum();
+    fail_if(sum2 == NULL,
+            "Could not allocate a new sum callback");
+
+    max2 = push_dynamic_max_bytes_new(sum2);
+    fail_if(max2 == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    callback = push_both_new(max1, max2);
+    fail_if(callback == NULL,
+            "Could not allocate a new both callback");
+
+    parser = push_parser_new(callback);
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    fail_unless(push_parser_activate(parser, &MAX_INPUT_02)
                 == PUSH_SUCCESS,
                 "Could not activate parser");
 
@@ -370,6 +499,8 @@ test_suite()
     tcase_add_test(tc, test_parse_error_01);
     tcase_add_test(tc, test_max_01);
     tcase_add_test(tc, test_max_02);
+    tcase_add_test(tc, test_dynamic_max_01);
+    tcase_add_test(tc, test_dynamic_max_02);
     suite_add_tcase(s, tc);
 
     return s;
