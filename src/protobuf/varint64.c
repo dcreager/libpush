@@ -223,3 +223,19 @@ push_protobuf_varint64_new()
 
     return &callback->base;
 }
+
+
+/**
+ * Parse a varint into a size_t.  We can only use the varint64 parser
+ * if size_t is the same size as uint64_t.
+ */
+
+#if SIZE_MAX == UINT64_MAX
+
+push_callback_t *
+push_protobuf_varint_size_new()
+{
+    return push_protobuf_varint64_new();
+}
+
+#endif

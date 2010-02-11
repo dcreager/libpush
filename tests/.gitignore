@@ -11,3 +11,4 @@ test-sum
 test-protobuf-message
 test-protobuf-varint32
 test-protobuf-varint64
+test-protobuf-varint-size

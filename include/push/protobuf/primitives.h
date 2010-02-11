@@ -34,5 +34,15 @@ push_callback_t *
 push_protobuf_varint64_new();
 
 
+/**
+ * Create a new callback for parsing a varint-encoded integer, which
+ * we will use as a size.  The result pointer will point at the parsed
+ * value, stored as a size_t.
+ */
+
+push_callback_t *
+push_protobuf_varint_size_new();
+
+
 #endif  /* PUSH_PROTOBUF_PRIMITIVES_H */
 

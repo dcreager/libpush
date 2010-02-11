@@ -232,3 +232,19 @@ push_protobuf_varint32_new()
 
     return &callback->base;
 }
+
+
+/**
+ * Parse a varint into a size_t.  We can only use the varint32 parser
+ * if size_t is the same size as uint32_t.
+ */
+
+#if SIZE_MAX == UINT32_MAX
+
+push_callback_t *
+push_protobuf_varint_size_new()
+{
+    return push_protobuf_varint32_new();
+}
+
+#endif
