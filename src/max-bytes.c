@@ -183,6 +183,18 @@ max_bytes_process_bytes(push_parser_t *parser,
 
         vbuf += bytes_to_send;
         bytes_available -= bytes_to_send;
+        callback->bytes_remaining -= bytes_to_send;
+
+        if (callback->bytes_remaining > 0)
+        {
+            /*
+             * If the wrapped callback indicated that it's not done
+             * yet, and we haven't reached the threshold yet, return
+             * incomplete ourselves.
+             */
+
+            return PUSH_INCOMPLETE;
+        }
     }
 
     /*
