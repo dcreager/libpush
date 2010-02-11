@@ -79,27 +79,39 @@ push_protobuf_field_map_get_field
 
 
 /**
- * Add a new <code>uint32</code> field to the field map.  When
- * parsing, the field's value will be assigned to the dest pointer.
+ * Add a new submessage to a field map.
  *
  * @return <code>false</code> if we cannot add the new field.
  */
 
 bool
-push_protobuf_assign_uint32(push_protobuf_field_map_t *message,
+push_protobuf_add_submessage(push_protobuf_field_map_t *field_map,
+                             push_protobuf_tag_number_t field_number,
+                             push_callback_t *message);
+
+
+/**
+ * Add a new <code>uint32</code> field to a field map.  When parsing,
+ * the field's value will be assigned to the dest pointer.
+ *
+ * @return <code>false</code> if we cannot add the new field.
+ */
+
+bool
+push_protobuf_assign_uint32(push_protobuf_field_map_t *field_map,
                             push_protobuf_tag_number_t field_number,
                             uint32_t *dest);
 
 
 /**
- * Add a new <code>uint64</code> field to the field map.  When
- * parsing, the field's value will be assigned to the dest pointer.
+ * Add a new <code>uint64</code> field to a field map.  When parsing,
+ * the field's value will be assigned to the dest pointer.
  *
  * @return <code>false</code> if we cannot add the new field.
  */
 
 bool
-push_protobuf_assign_uint64(push_protobuf_field_map_t *message,
+push_protobuf_assign_uint64(push_protobuf_field_map_t *field_map,
                             push_protobuf_tag_number_t field_number,
                             uint64_t *dest);
 

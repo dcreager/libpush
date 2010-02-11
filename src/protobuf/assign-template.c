@@ -12,8 +12,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <push.h>
-#include <push/protobuf.h>
+#include <push/basics.h>
+#include <push/combinators.h>
+#include <push/protobuf/basics.h>
+#include <push/protobuf/field-map.h>
+#include <push/protobuf/primitives.h>
 
 
 /**
