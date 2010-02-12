@@ -30,6 +30,7 @@ libpush_files = map(File, \
      "protobuf/submessage.c",
      "protobuf/varint32.c",
      "protobuf/varint64.c",
+     "protobuf/varint-prefixed.c",
     ])
 
 SOURCE_FILES.extend(libpush_files)

@@ -45,4 +45,3 @@ push_protobuf_varint_size_new();
 
 
 #endif  /* PUSH_PROTOBUF_PRIMITIVES_H */
-
