@@ -46,6 +46,12 @@ typedef struct _dispatch
     push_protobuf_field_map_t  *field_map;
 
     /**
+     * A callback that can skip unknown length-prefixed fields.
+     */
+
+    push_callback_t  *skip_length_prefixed;
+
+    /**
      * The field callback that we should dispatch to.
      */
 
@@ -63,6 +69,7 @@ dispatch_activate(push_parser_t *parser,
     push_protobuf_tag_t  *field_tag;
     push_protobuf_tag_number_t  field_number;
     push_callback_t  *field_callback;
+    push_error_code_t  activate_result;
 
     field_tag = (push_protobuf_tag_t *) input;
     PUSH_DEBUG_MSG("dispatch: Activating.  Got tag 0x%04"PRIx32"\n",
@@ -87,46 +94,54 @@ dispatch_activate(push_parser_t *parser,
 
     if (field_callback == NULL)
     {
-        /*
-         * TODO: If we didn't find a field callback that wants to
-         * handle this field, skip it.
-         */
+        push_protobuf_tag_type_t  field_type =
+            PUSH_PROTOBUF_GET_TAG_TYPE(*field_tag);
 
-        PUSH_DEBUG_MSG("dispatch: No field callback for field %"PRIu32".\n",
-                       field_number);
-
-        return PUSH_PARSE_ERROR;
-
-    } else {
-        push_error_code_t  activate_result;
-
-        /*
-         * Found it!  Activate that callback, and save it so that our
-         * process_bytes function can pass off to it.
-         */
-
-        PUSH_DEBUG_MSG("dispatch: Callback %p matches.\n",
-                       field_callback);
-
-        /*
-         * The field callback is going to need to verify the wire
-         * type, so make sure to pass in the tag as input.
-         */
-
-        activate_result =
-            push_callback_activate(parser, field_callback,
-                                   field_tag);
-
-        if (activate_result != PUSH_SUCCESS)
+        switch (field_type)
         {
-            PUSH_DEBUG_MSG("dispatch: Could not activate field "
-                           "callback.\n");
-            return activate_result;
-        }
+          case PUSH_PROTOBUF_TAG_TYPE_LENGTH_DELIMITED:
+            field_callback = callback->skip_length_prefixed;
+            break;
 
-        callback->dispatch_callback = field_callback;
-        return PUSH_SUCCESS;
+          default:
+            /*
+             * TODO: Add skippers for the other field types.
+             */
+
+            PUSH_DEBUG_MSG("dispatch: No field callback for "
+                           "field %"PRIu32".\n",
+                           field_number);
+
+            return PUSH_PARSE_ERROR;
+        }
     }
+
+    /*
+     * Found it!  Activate that callback, and save it so that our
+     * process_bytes function can pass off to it.
+     */
+
+    PUSH_DEBUG_MSG("dispatch: Callback %p matches.\n",
+                   field_callback);
+
+    /*
+     * The field callback is going to need to verify the wire type, so
+     * make sure to pass in the tag as input.
+     */
+
+    activate_result =
+        push_callback_activate(parser, field_callback,
+                               field_tag);
+
+    if (activate_result != PUSH_SUCCESS)
+    {
+        PUSH_DEBUG_MSG("dispatch: Could not activate field "
+                       "callback.\n");
+        return activate_result;
+    }
+
+    callback->dispatch_callback = field_callback;
+    return PUSH_SUCCESS;
 
 }
 
@@ -165,11 +180,25 @@ dispatch_free(push_callback_t *pcallback)
 static push_callback_t *
 dispatch_new(push_protobuf_field_map_t *field_map)
 {
-    dispatch_t  *result =
-        (dispatch_t *) malloc(sizeof(dispatch_t));
+    dispatch_t  *result;
+    push_callback_t  *skip_length_prefixed = NULL;
+
+    /*
+     * Try to create the skipper callbacks first.
+     */
+
+    skip_length_prefixed = push_protobuf_skip_length_prefixed_new();
+    if (skip_length_prefixed == NULL)
+        goto error;
+
+    /*
+     * Then create the dispatch callback itself.
+     */
+
+    result = (dispatch_t *) malloc(sizeof(dispatch_t));
 
     if (result == NULL)
-        return NULL;
+        goto error;
 
     push_callback_init(&result->base,
                        dispatch_activate,
@@ -177,8 +206,15 @@ dispatch_new(push_protobuf_field_map_t *field_map)
                        dispatch_free);
 
     result->field_map = field_map;
+    result->skip_length_prefixed = skip_length_prefixed;
 
     return &result->base;
+
+  error:
+    if (skip_length_prefixed == NULL)
+        push_callback_free(skip_length_prefixed);
+
+    return NULL;
 }
 
 

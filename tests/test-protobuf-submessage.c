@@ -130,6 +130,26 @@ const data_t  EXPECTED_01 =
 { 300, { UINT64_C(5000000000), UINT64_C(7) } };
 
 
+const uint8_t  DATA_02[] =
+    "\x08"                      /* field 1, wire type 0 */
+    "\xac\x02"                  /*   value = 300 */
+    "\x22"                      /* field 4, wire type 2 */
+    "\x00"                      /*   length = 0 */
+    "\x12"                      /* field 2, wire type 2 */
+    "\x11"                      /*   length = 17 */
+    "\x10"                      /*   field 2, wire type 0 */
+    "\x80\xe4\x97\xd0\x12"      /*     value = 5,000,000,000 */
+    "\x2a"                      /*   field 5, wire type 2 */
+    "\x07"                      /*     length = 7 */
+    "1234567"                   /*     data */
+    "\x18"                      /*   field 3, wire type 0 */
+    "\x07";                     /*     value = 7 */
+
+const size_t  LENGTH_02 = 24;
+const data_t  EXPECTED_02 =
+{ 300, { UINT64_C(5000000000), UINT64_C(7) } };
+
+
 /*-----------------------------------------------------------------------
  * Helper functions
  */
@@ -288,10 +308,13 @@ const data_t  EXPECTED_01 =
  */
 
 READ_TEST(01)
+READ_TEST(02)
 
 TWO_PART_READ_TEST(01)
+TWO_PART_READ_TEST(02)
 
 PARSE_ERROR_TEST(01)
+PARSE_ERROR_TEST(02)
 
 
 /*-----------------------------------------------------------------------
@@ -305,8 +328,11 @@ test_suite()
 
     TCase  *tc = tcase_create("protobuf-message");
     tcase_add_test(tc, test_read_01);
+    tcase_add_test(tc, test_read_02);
     tcase_add_test(tc, test_two_part_read_01);
+    tcase_add_test(tc, test_two_part_read_02);
     tcase_add_test(tc, test_parse_error_01);
+    tcase_add_test(tc, test_parse_error_02);
     suite_add_tcase(s, tc);
 
     return s;

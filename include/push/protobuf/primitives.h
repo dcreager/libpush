@@ -15,6 +15,15 @@
 
 
 /**
+ * Create a new callback that skips over a length-prefixed Protocol
+ * Buffers field.
+ */
+
+push_callback_t *
+push_protobuf_skip_length_prefixed_new();
+
+
+/**
  * Create a new callback for parsing a varint-encoded integer, which
  * we don't expect to be more than 32 bits.  The result pointer will
  * point at the parsed value, stored as a uint32_t.

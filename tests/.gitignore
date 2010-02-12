@@ -9,6 +9,7 @@ test-skip
 test-sum
 
 test-protobuf-message
+test-protobuf-skip-length-prefixed
 test-protobuf-submessage
 test-protobuf-varint32
 test-protobuf-varint64
