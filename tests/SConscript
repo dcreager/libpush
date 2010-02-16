@@ -7,8 +7,8 @@ SOURCE_FILES.append(File('SConscript'))
 
 env = root_env.Clone()
 
-env.Prepend(CPPPATH=[".", "#/include", "$check_CPPPATH"],
-            LIBPATH=[".", "#/src", "$check_LIBPATH"])
+env.Prepend(CPPPATH=[".", "#/include", "$check_CPPPATH", "$libhwm_CPPPATH"],
+            LIBPATH=[".", "#/src", "$check_LIBPATH", "$libhwm_LIBPATH"])
 
 
 # The library with the common test callbacks.
@@ -37,7 +37,8 @@ def add_test(test_program):
     SOURCE_FILES.append(File(c_file))
 
     target = env.Program(test_program, [c_file],
-                         LIBS=['push', libpushtests, '$check_LIB'],
+                         LIBS=['push', libpushtests,
+                               '$check_LIB', '$libhwm_LIB'],
                          RPATH=rpath)
     env.Alias("build-tests", target)
 
@@ -50,6 +51,7 @@ def add_test(test_program):
 add_test("test-compose")
 add_test("test-double-sum")
 add_test("test-eof")
+add_test("test-hwm")
 add_test("test-indexed-sum")
 add_test("test-int")
 add_test("test-noop")

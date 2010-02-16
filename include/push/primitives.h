@@ -19,6 +19,8 @@
  * callbacks.
  */
 
+#include <hwm-buffer.h>
+
 #include <push/basics.h>
 
 
@@ -29,6 +31,20 @@
 
 push_callback_t *
 push_eof_new();
+
+
+/**
+ * Create a new callback that reads a string into a high-water mark
+ * buffer.  This callback doesn't do anything to determine the length
+ * of the string; instead, it takes in a pointer to a size_t as input,
+ * and uses that as the length of the string.  The callback's result
+ * will be a pointer to the data in the HWM buffer — not a pointer to
+ * the hwm_buffer_t object itself.  We will ensure that there is a NUL
+ * pointer at the end of the string.
+ */
+
+push_callback_t *
+push_hwm_string_new(hwm_buffer_t *buf);
 
 
 /**

@@ -1,6 +1,7 @@
 test-compose
-test-eof
 test-double-sum
+test-eof
+test-hwm
 test-indexed-sum
 test-int
 test-noop
