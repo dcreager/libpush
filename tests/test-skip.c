@@ -77,7 +77,7 @@ START_TEST(test_skip_02)
 
     PUSH_DEBUG_MSG("---\nStarting test_skip_02\n");
 
-    callback = push_skip_new(NULL, true);
+    callback = push_skip_new();
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 
@@ -113,7 +113,7 @@ START_TEST(test_skip_03)
 
     PUSH_DEBUG_MSG("---\nStarting test_skip_03\n");
 
-    callback = push_skip_new(NULL, true);
+    callback = push_skip_new();
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 
