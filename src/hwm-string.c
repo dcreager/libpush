@@ -174,6 +174,7 @@ hwm_string_process_bytes(push_parser_t *parser,
      */
 
     callback->bytes_left -= bytes_to_copy;
+    bytes_available -= bytes_to_copy;
 
     if (callback->bytes_left == 0)
     {
@@ -205,7 +206,7 @@ hwm_string_process_bytes(push_parser_t *parser,
          */
 
         callback->base.result = buf;
-        return PUSH_SUCCESS;
+        return bytes_available;
     }
 
     /*

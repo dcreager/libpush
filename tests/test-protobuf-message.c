@@ -142,6 +142,21 @@ const data_t  EXPECTED_03 =
 { 300, UINT64_C(5000000000), HWM_BUFFER_INIT(EXPECTED_BUF_03, 6) };
 
 
+const uint8_t  DATA_04[] =
+    "\x1a"                      /* field 3, wire type 2 */
+    "\x05"                      /*   length = 5 */
+    "abcde"                     /*   content */
+    "\x08"                      /* field 1, wire type 0 */
+    "\xac\x02"                  /*   value = 300 */
+    "\x10"                      /* field 2, wire type 0 */
+    "\x80\xe4\x97\xd0\x12";     /*   value = 5,000,000,000 */
+const size_t  LENGTH_04 = 16;
+const char  EXPECTED_BUF_04[] = "abcde";
+/* include an extra byte in the expected HWM for the NUL terminator */
+const data_t  EXPECTED_04 =
+{ 300, UINT64_C(5000000000), HWM_BUFFER_INIT(EXPECTED_BUF_03, 6) };
+
+
 /*-----------------------------------------------------------------------
  * Helper functions
  */
@@ -307,14 +322,17 @@ const data_t  EXPECTED_03 =
 READ_TEST(01)
 READ_TEST(02)
 READ_TEST(03)
+READ_TEST(04)
 
 TWO_PART_READ_TEST(01)
 TWO_PART_READ_TEST(02)
 TWO_PART_READ_TEST(03)
+TWO_PART_READ_TEST(04)
 
 PARSE_ERROR_TEST(01)
 PARSE_ERROR_TEST(02)
 PARSE_ERROR_TEST(03)
+PARSE_ERROR_TEST(04)
 
 
 /*-----------------------------------------------------------------------
@@ -330,12 +348,15 @@ test_suite()
     tcase_add_test(tc, test_read_01);
     tcase_add_test(tc, test_read_02);
     tcase_add_test(tc, test_read_03);
+    tcase_add_test(tc, test_read_04);
     tcase_add_test(tc, test_two_part_read_01);
     tcase_add_test(tc, test_two_part_read_02);
     tcase_add_test(tc, test_two_part_read_03);
+    tcase_add_test(tc, test_two_part_read_04);
     tcase_add_test(tc, test_parse_error_01);
     tcase_add_test(tc, test_parse_error_02);
     tcase_add_test(tc, test_parse_error_03);
+    tcase_add_test(tc, test_parse_error_04);
     suite_add_tcase(s, tc);
 
     return s;
