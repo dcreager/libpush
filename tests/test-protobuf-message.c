@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include <check.h>
+#include <hwm-buffer.h>
 
 #include <push/basics.h>
 #include <push/protobuf/basics.h>
@@ -30,7 +31,20 @@ typedef struct _data
 {
     uint32_t  int1;
     uint64_t  int2;
+    hwm_buffer_t  buf;
 } data_t;
+
+static void
+data_init(data_t *data)
+{
+    hwm_buffer_init(&data->buf);
+}
+
+static void
+data_done(data_t *data)
+{
+    hwm_buffer_done(&data->buf);
+}
 
 static push_callback_t *
 create_data_message(data_t *dest)
@@ -47,6 +61,7 @@ create_data_message(data_t *dest)
 
     CHECK(push_protobuf_assign_uint32(field_map, 1, &dest->int1));
     CHECK(push_protobuf_assign_uint64(field_map, 2, &dest->int2));
+    CHECK(push_protobuf_add_hwm_string(field_map, 3, &dest->buf));
 
 #undef CHECK
 
@@ -61,11 +76,25 @@ create_data_message(data_t *dest)
 }
 
 static bool
+buf_eq(const hwm_buffer_t *b1, const hwm_buffer_t *b2)
+{
+    const void *buf1, *buf2;
+
+    if (b1->current_size != b2->current_size) return false;
+
+    buf1 = hwm_buffer_mem(b1, void);
+    buf2 = hwm_buffer_mem(b2, void);
+    return (memcmp(buf1, buf2, b1->current_size) == 0);
+}
+
+static bool
 data_eq(const data_t *d1, const data_t *d2)
 {
     if (d1 == d2) return true;
     if ((d1 == NULL) || (d2 == NULL)) return false;
-    return (d1->int1 == d2->int1) && (d1->int2 == d2->int2);
+    return
+        (d1->int1 == d2->int1) && (d1->int2 == d2->int2) &&
+        buf_eq(&d1->buf, &d2->buf);
 }
 
 
@@ -79,7 +108,8 @@ const uint8_t  DATA_01[] =
     "\x10"                      /* field 2, wire type 0 */
     "\x80\xe4\x97\xd0\x12";     /*   value = 5,000,000,000 */
 const size_t  LENGTH_01 = 9;
-const data_t  EXPECTED_01 = { 300, UINT64_C(5000000000) };
+const data_t  EXPECTED_01 =
+{ 300, UINT64_C(5000000000), HWM_BUFFER_INIT(NULL, 0) };
 
 
 const uint8_t  DATA_02[] =
@@ -93,7 +123,23 @@ const uint8_t  DATA_02[] =
     "\x07"                      /*   length = 7 */
     "1234567";                  /*   data */
 const size_t  LENGTH_02 = 20;
-const data_t  EXPECTED_02 = { 300, UINT64_C(5000000000) };
+const data_t  EXPECTED_02 =
+{ 300, UINT64_C(5000000000), HWM_BUFFER_INIT(NULL, 0) };
+
+
+const uint8_t  DATA_03[] =
+    "\x08"                      /* field 1, wire type 0 */
+    "\xac\x02"                  /*   value = 300 */
+    "\x10"                      /* field 2, wire type 0 */
+    "\x80\xe4\x97\xd0\x12"      /*   value = 5,000,000,000 */
+    "\x1a"                      /* field 3, wire type 2 */
+    "\x05"                      /*   length = 5 */
+    "abcde";                    /*   content */
+const size_t  LENGTH_03 = 16;
+const char  EXPECTED_BUF_03[] = "abcde";
+/* include an extra byte in the expected HWM for the NUL terminator */
+const data_t  EXPECTED_03 =
+{ 300, UINT64_C(5000000000), HWM_BUFFER_INIT(EXPECTED_BUF_03, 6) };
 
 
 /*-----------------------------------------------------------------------
@@ -111,6 +157,8 @@ const data_t  EXPECTED_02 = { 300, UINT64_C(5000000000) };
                        "test_read_"                                 \
                        #test_name                                   \
                        "\n");                                       \
+                                                                    \
+        data_init(&actual);                                         \
                                                                     \
         message_callback = create_data_message(&actual);            \
         fail_if(message_callback == NULL,                           \
@@ -141,6 +189,7 @@ const data_t  EXPECTED_02 = { 300, UINT64_C(5000000000) };
                     (uint64_t) EXPECTED_##test_name.int2);          \
                                                                     \
         push_parser_free(parser);                                   \
+        data_done(&actual);                                         \
     }                                                               \
     END_TEST
 
@@ -163,6 +212,8 @@ const data_t  EXPECTED_02 = { 300, UINT64_C(5000000000) };
                        "test_two_part_read_"                        \
                        #test_name                                   \
                        "\n");                                       \
+                                                                    \
+        data_init(&actual);                                         \
                                                                     \
         message_callback = create_data_message(&actual);            \
         fail_if(message_callback == NULL,                           \
@@ -202,6 +253,7 @@ const data_t  EXPECTED_02 = { 300, UINT64_C(5000000000) };
                     (uint64_t) EXPECTED_##test_name.int2);          \
                                                                     \
         push_parser_free(parser);                                   \
+        data_done(&actual);                                         \
     }                                                               \
     END_TEST
 
@@ -223,6 +275,8 @@ const data_t  EXPECTED_02 = { 300, UINT64_C(5000000000) };
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
+        data_init(&actual);                                         \
+                                                                    \
         message_callback = create_data_message(&actual);            \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
@@ -241,6 +295,7 @@ const data_t  EXPECTED_02 = { 300, UINT64_C(5000000000) };
                     "Should get parse error at EOF");               \
                                                                     \
         push_parser_free(parser);                                   \
+        data_done(&actual);                                         \
     }                                                               \
     END_TEST
 
@@ -251,12 +306,15 @@ const data_t  EXPECTED_02 = { 300, UINT64_C(5000000000) };
 
 READ_TEST(01)
 READ_TEST(02)
+READ_TEST(03)
 
 TWO_PART_READ_TEST(01)
 TWO_PART_READ_TEST(02)
+TWO_PART_READ_TEST(03)
 
 PARSE_ERROR_TEST(01)
 PARSE_ERROR_TEST(02)
+PARSE_ERROR_TEST(03)
 
 
 /*-----------------------------------------------------------------------
@@ -271,10 +329,13 @@ test_suite()
     TCase  *tc = tcase_create("protobuf-message");
     tcase_add_test(tc, test_read_01);
     tcase_add_test(tc, test_read_02);
+    tcase_add_test(tc, test_read_03);
     tcase_add_test(tc, test_two_part_read_01);
     tcase_add_test(tc, test_two_part_read_02);
+    tcase_add_test(tc, test_two_part_read_03);
     tcase_add_test(tc, test_parse_error_01);
     tcase_add_test(tc, test_parse_error_02);
+    tcase_add_test(tc, test_parse_error_03);
     suite_add_tcase(s, tc);
 
     return s;

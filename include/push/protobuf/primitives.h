@@ -11,7 +11,18 @@
 #ifndef PUSH_PROTOBUF_PRIMITIVES_H
 #define PUSH_PROTOBUF_PRIMITIVES_H
 
+#include <hwm-buffer.h>
+
 #include <push/basics.h>
+
+
+/**
+ * Create a new callback that reads a length-prefixed Protocol Buffer
+ * string into a high-water mark buffer.
+ */
+
+push_callback_t *
+push_protobuf_hwm_string_new(hwm_buffer_t *buf);
 
 
 /**

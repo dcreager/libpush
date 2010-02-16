@@ -13,6 +13,8 @@
 
 #include <stdbool.h>
 
+#include <hwm-buffer.h>
+
 #include <push/basics.h>
 #include <push/protobuf/basics.h>
 
@@ -88,6 +90,17 @@ bool
 push_protobuf_add_submessage(push_protobuf_field_map_t *field_map,
                              push_protobuf_tag_number_t field_number,
                              push_callback_t *message);
+
+
+/**
+ * Create a new callback that reads a length-prefixed Protocol Buffer
+ * string into a high-water mark buffer.
+ */
+
+bool
+push_protobuf_add_hwm_string(push_protobuf_field_map_t *field_map,
+                             push_protobuf_tag_number_t field_number,
+                             hwm_buffer_t *dest);
 
 
 /**
