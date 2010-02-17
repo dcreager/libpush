@@ -131,6 +131,8 @@ START_TEST(test_hwm_string_03)
 
     PUSH_DEBUG_MSG("---\nStarting test_hwm_string_03\n");
 
+    hwm_buffer_init(&buf);
+
     callback = push_hwm_string_new(&buf);
     fail_if(callback == NULL,
             "Could not allocate a new HWM-string callback");
