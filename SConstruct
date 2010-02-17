@@ -7,21 +7,26 @@ vars = Variables('.scons.vars', ARGUMENTS)
 vars.AddVariables(
     PathVariable("prefix", "Installation prefix", "/usr",
                  PathVariable.PathAccept),
+    ('CC', "The C compiler to use"),
+    ('CCFLAGS', "Any additional options to pass in to the C compiler"),
+    ('CPPFLAGS', "Any additional options to pass in to the C preprocessor"),
+    ('LDFLAGS', "Any additional options to pass in to the linker"),
     )
 
 
 root_env = Environment(tools=['default', 'packaging'],
                        package="libpush",
                        pkg_version="1.0-dev",
+                       CCFLAGS="-O2",
                        BINDIR = "$prefix/bin",
                        DOCDIR = "$prefix/share/doc/$package",
                        LIBDIR = "$prefix/lib",
                        INCLUDEDIR = "$prefix/include")
 
-root_env.MergeFlags('-g -O2 -Wall -Werror')
-
 vars.Update(root_env)
 vars.Save(".scons.vars", root_env)
+
+root_env.MergeFlags('-g -Wall -Werror')
 
 # An action that can clean up the scons temporary files.
 
