@@ -7,10 +7,15 @@ vars = Variables('.scons.vars', ARGUMENTS)
 vars.AddVariables(
     PathVariable("prefix", "Installation prefix", "/usr",
                  PathVariable.PathAccept),
+    ('AR', "The static archiver to use"),
+    ('RANLIB', "The archive indexer to use"),
     ('CC', "The C compiler to use"),
+    ('LINK', "The linker to use"),
+    ('SHLINK', "The shared library linker to use"),
     ('CCFLAGS', "Any additional options to pass in to the C compiler"),
     ('CPPFLAGS', "Any additional options to pass in to the C preprocessor"),
-    ('LDFLAGS', "Any additional options to pass in to the linker"),
+    ('LINKFLAGS', "Any additional options to pass in to the linker"),
+    ('SHLINKFLAGS', "Any additional options to pass in to the shared library linker"),
     )
 
 
