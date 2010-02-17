@@ -31,7 +31,7 @@ typedef struct _min_bytes
      * The wrapped callback.
      */
 
-    push_callback_t  *wrapped;
+    push_callback_t * const  wrapped;
 
     /**
      * The minimum number of bytes to pass in to the wrapped callback.
@@ -254,8 +254,23 @@ push_callback_t *
 push_min_bytes_new(push_callback_t *wrapped,
                    size_t minimum_bytes)
 {
+    /*
+     * We need a mutable copy of the struct to be able to assign to
+     * the callback pointers.
+     */
+
+    typedef struct _mutable
+    {
+        push_callback_t  base;
+        push_callback_t  *wrapped;
+        size_t  minimum_bytes;
+        void  *buffer;
+        size_t  bytes_buffered;
+    } mutable_t;
+
     min_bytes_t  *callback =
         (min_bytes_t *) malloc(sizeof(min_bytes_t));
+    mutable_t  *mcallback = (mutable_t *) callback;
 
     if (callback == NULL)
         return NULL;
@@ -272,7 +287,7 @@ push_min_bytes_new(push_callback_t *wrapped,
         return NULL;
     }
 
-    callback->wrapped = wrapped;
+    mcallback->wrapped = wrapped;
     callback->minimum_bytes = minimum_bytes;
     callback->bytes_buffered = 0;
 

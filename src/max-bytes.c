@@ -32,7 +32,7 @@ typedef struct _max_bytes
      * The wrapped callback.
      */
 
-    push_callback_t  *wrapped;
+    push_callback_t * const  wrapped;
 
     /**
      * The maximum number of bytes to pass in to the wrapped callback.
@@ -252,14 +252,18 @@ push_max_bytes_new(push_callback_t *wrapped,
     if (callback == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
-                       max_bytes_activate,
-                       max_bytes_process_bytes,
-                       max_bytes_free);
+    {
+        max_bytes_t  mcallback = {
+            PUSH_CALLBACK_INIT(max_bytes_activate,
+                               max_bytes_process_bytes,
+                               max_bytes_free),
+            wrapped,
+            maximum_bytes,
+            maximum_bytes
+        };
 
-    callback->wrapped = wrapped;
-    callback->maximum_bytes = maximum_bytes;
-    callback->bytes_remaining = maximum_bytes;
+        memcpy(callback, &mcallback, sizeof(max_bytes_t));
+    }
 
     return &callback->base;
 }
@@ -268,8 +272,22 @@ push_max_bytes_new(push_callback_t *wrapped,
 push_callback_t *
 push_dynamic_max_bytes_new(push_callback_t *wrapped)
 {
+    /*
+     * We need a mutable copy of the struct to be able to assign to
+     * the callback pointers.
+     */
+
+    typedef struct _mutable
+    {
+        push_callback_t  base;
+        push_callback_t  *wrapped;
+        size_t  maximum_bytes;
+        size_t  bytes_remaining;
+    } mutable_t;
+
     max_bytes_t  *callback =
         (max_bytes_t *) malloc(sizeof(max_bytes_t));
+    mutable_t  *mcallback = (mutable_t *) callback;
 
     if (callback == NULL)
         return NULL;
@@ -279,7 +297,7 @@ push_dynamic_max_bytes_new(push_callback_t *wrapped)
                        max_bytes_process_bytes,
                        max_bytes_free);
 
-    callback->wrapped = wrapped;
+    mcallback->wrapped = wrapped;
     callback->maximum_bytes = 0;
     callback->bytes_remaining = 0;
 

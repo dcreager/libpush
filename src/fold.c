@@ -31,7 +31,7 @@ typedef struct _fold
      * The wrapped callback.
      */
 
-    push_callback_t  *wrapped;
+    push_callback_t * const  wrapped;
 
     /**
      * A flag indicating whether we're in the middle of passing data
@@ -326,7 +326,21 @@ fold_free(push_callback_t *pcallback)
 push_callback_t *
 push_fold_new(push_callback_t *wrapped)
 {
+    /*
+     * We need a mutable copy of the struct to be able to assign to
+     * the callback pointers.
+     */
+
+    typedef struct _mutable
+    {
+        push_callback_t  base;
+        push_callback_t  *wrapped;
+        bool within_wrapped;
+        void  *last_result;
+    } mutable_t;
+
     fold_t  *callback = (fold_t *) malloc(sizeof(fold_t));
+    mutable_t  *mcallback = (mutable_t *) callback;
 
     if (callback == NULL)
         return NULL;
@@ -336,7 +350,7 @@ push_fold_new(push_callback_t *wrapped)
                        fold_process_bytes,
                        fold_free);
 
-    callback->wrapped = wrapped;
+    mcallback->wrapped = wrapped;
     callback->within_wrapped = false;
     callback->last_result = NULL;
 

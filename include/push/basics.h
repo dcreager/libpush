@@ -191,14 +191,14 @@ struct _push_callback
      * Called by the push parser when this callback is activated.
      */
 
-    push_activate_func_t  *activate;
+    push_activate_func_t * const  activate;
 
     /**
      * Called by the push parser when bytes are available for
      * processing.
      */
 
-    push_process_bytes_func_t  *process_bytes;
+    push_process_bytes_func_t * const  process_bytes;
 
     /**
      * Called by the push_callback_free() function to free any
@@ -263,6 +263,21 @@ push_callback_init(push_callback_t *callback,
                    push_activate_func_t *activate,
                    push_process_bytes_func_t *process_bytes,
                    push_callback_free_func_t *free);
+
+/**
+ * @brief Initialize the push_callback_t portion of a specialized
+ * callback type.
+ *
+ * This function shouldn't be called directly by users; it's used by
+ * specialized callback initializers to make sure that the
+ * push_callback_t “superclass” portion of the <code>struct</code> is
+ * initialized consistently.
+ *
+ * This is simply a static initializer version of push_callback_init.
+ */
+
+#define PUSH_CALLBACK_INIT(activate, process_bytes, free) \
+    { (activate), (process_bytes), (free), NULL, false }
 
 
 /**

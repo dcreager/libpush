@@ -31,13 +31,13 @@ typedef struct _compose
      * The first child callback in the compose.
      */
 
-    push_callback_t  *first;
+    push_callback_t * const  first;
 
     /**
      * The second child callback in the compose.
      */
 
-    push_callback_t  *second;
+    push_callback_t * const  second;
 
     /**
      * Whether the first or second child callback is active.
@@ -183,8 +183,22 @@ push_callback_t *
 push_compose_new(push_callback_t *first,
                  push_callback_t *second)
 {
+    /*
+     * We need a mutable copy of the struct to be able to assign to
+     * the callback pointers.
+     */
+
+    typedef struct _mutable
+    {
+        push_callback_t  base;
+        push_callback_t  *first;
+        push_callback_t  *second;
+        bool first_active;
+    } mutable_t;
+
     compose_t  *callback =
         (compose_t *) malloc(sizeof(compose_t));
+    mutable_t  *mcallback = (mutable_t *) callback;
 
     if (callback == NULL)
         return NULL;
@@ -194,8 +208,8 @@ push_compose_new(push_callback_t *first,
                        compose_process_bytes,
                        compose_free);
 
-    callback->first = first;
-    callback->second = second;
+    mcallback->first = first;
+    mcallback->second = second;
     callback->first_active = true;
 
     return &callback->base;

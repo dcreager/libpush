@@ -22,14 +22,31 @@
 #define PUSH_FREE_MSG(...) /* skipping debug message */
 #endif
 
+
 void
 push_callback_init(push_callback_t *callback,
                    push_activate_func_t *activate,
                    push_process_bytes_func_t *process_bytes,
                    push_callback_free_func_t *free)
 {
-    callback->activate = activate;
-    callback->process_bytes = process_bytes;
+    /**
+     * We need a mutable copy of the struct to be able to assign to
+     * the function pointers.
+     */
+
+    typedef struct _mutable
+    {
+        push_activate_func_t  *activate;
+        push_process_bytes_func_t  *process_bytes;
+        push_callback_free_func_t  *free;
+        void  *result;
+        bool  freeing;
+    } mutable_t;
+
+    mutable_t  *mcallback = (mutable_t *) callback;
+
+    mcallback->activate = activate;
+    mcallback->process_bytes = process_bytes;
     callback->free = free;
     callback->freeing = false;
 }
