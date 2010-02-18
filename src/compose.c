@@ -39,13 +39,21 @@ typedef struct _compose
 
     push_callback_t  *second;
 
-    /**
-     * Whether the first or second child callback is active.
-     */
-
-    bool first_active;
-
 } compose_t;
+
+
+static ssize_t
+compose_first_process_bytes(push_parser_t *parser,
+                            push_callback_t *pcallback,
+                            const void *vbuf,
+                            size_t bytes_available);
+
+
+static ssize_t
+compose_second_process_bytes(push_parser_t *parser,
+                             push_callback_t *pcallback,
+                             const void *vbuf,
+                             size_t bytes_available);
 
 
 static push_error_code_t
@@ -59,102 +67,22 @@ compose_activate(push_parser_t *parser,
      * We activate the compose by activating the first callback.
      */
 
-    callback->first_active = true;
+    callback->base.process_bytes = compose_first_process_bytes;
     PUSH_DEBUG_MSG("compose: Activating first callback.\n");
     return push_callback_activate(parser, callback->first, input);
 }
 
 
 static ssize_t
-compose_process_bytes(push_parser_t *parser,
-                      push_callback_t *pcallback,
-                      const void *vbuf,
-                      size_t bytes_available)
+compose_second_process_bytes(push_parser_t *parser,
+                             push_callback_t *pcallback,
+                             const void *vbuf,
+                             size_t bytes_available)
 {
     compose_t  *callback = (compose_t *) pcallback;
 
     /*
-     * If the first callback is active, pass the data in to it.
-     */
-
-    if (callback->first_active)
-    {
-        ssize_t  process_result;
-        push_error_code_t  activate_result;
-
-        PUSH_DEBUG_MSG("compose: Passing %zu bytes to first callback.\n",
-                       bytes_available);
-
-        process_result =
-            push_callback_process_bytes(parser, callback->first,
-                                        vbuf, bytes_available);
-
-        /*
-         * If we get an error code or an incomplete, return that
-         * status code right away.
-         */
-
-        if (process_result < 0)
-        {
-            PUSH_DEBUG_MSG("compose: First callback didn't succeed.\n");
-            return process_result;
-        }
-
-        /*
-         * Otherwise, the first callback succeeded.  Switch over to
-         * the second callback.
-         */
-
-        PUSH_DEBUG_MSG("compose: First callback succeeded.\n");
-        callback->first_active = false;
-
-        /*
-         * Activate the second callback, using the result of the
-         * first.
-         */
-
-        PUSH_DEBUG_MSG("compose: Activating second callback.\n");
-        activate_result = push_callback_activate(parser, callback->second,
-                                                 callback->first->result);
-
-        if (activate_result != PUSH_SUCCESS)
-            return activate_result;
-
-        /*
-         * If we have data left in the buffer, or if there wasn't any
-         * data to begin with (indicating EOF), then we want to fall
-         * through and let the second callback process it.  Otherwise
-         * (if we had data to begin with, and the first callback
-         * processed it all), then we return an incomplete code.
-         */
-
-        if ((bytes_available > 0) && (process_result == 0))
-        {
-            PUSH_DEBUG_MSG("compose: First callback processed "
-                           "all %zu bytes.\n",
-                           bytes_available);
-
-            return PUSH_INCOMPLETE;
-        } else {
-            /*
-             * Before falling through to the second callback, we need
-             * to update the buffer pointer.
-             */
-
-            ptrdiff_t  bytes_processed = bytes_available - process_result;
-
-            PUSH_DEBUG_MSG("compose: First callback left %zd bytes.\n",
-                           process_result);
-
-            vbuf += bytes_processed;
-            bytes_available = process_result;
-        }
-    }
-
-    /*
-     * Either we're starting off this call with the second callback
-     * active, or the first callback parsed some of the data, and
-     * there's some left for the second callback to call.
+     * Pass the data into the second callback.
      */
 
     PUSH_DEBUG_MSG("compose: Passing %zu bytes to second callback.\n",
@@ -163,6 +91,93 @@ compose_process_bytes(push_parser_t *parser,
     return push_callback_tail_process_bytes(parser, &callback->base,
                                             callback->second,
                                             vbuf, bytes_available);
+}
+
+
+static ssize_t
+compose_first_process_bytes(push_parser_t *parser,
+                            push_callback_t *pcallback,
+                            const void *vbuf,
+                            size_t bytes_available)
+{
+    compose_t  *callback = (compose_t *) pcallback;
+    ssize_t  process_result;
+    push_error_code_t  activate_result;
+
+    /*
+     * Pass the data into the first callback.
+     */
+
+
+    PUSH_DEBUG_MSG("compose: Passing %zu bytes to first callback.\n",
+                   bytes_available);
+
+    process_result =
+        push_callback_process_bytes(parser, callback->first,
+                                    vbuf, bytes_available);
+
+    /*
+     * If we get an error code or an incomplete, return that status
+     * code right away.
+     */
+
+    if (process_result < 0)
+    {
+        PUSH_DEBUG_MSG("compose: First callback didn't succeed.\n");
+        return process_result;
+    }
+
+    /*
+     * Otherwise, the first callback succeeded.  Switch over to the
+     * second callback.
+     */
+
+    PUSH_DEBUG_MSG("compose: First callback succeeded.\n");
+    callback->base.process_bytes = compose_second_process_bytes;
+
+    /*
+     * Activate the second callback, using the result of the first.
+     */
+
+    PUSH_DEBUG_MSG("compose: Activating second callback.\n");
+    activate_result = push_callback_activate(parser, callback->second,
+                                             callback->first->result);
+
+    if (activate_result != PUSH_SUCCESS)
+        return activate_result;
+
+    /*
+     * If we have data left in the buffer, or if there wasn't any data
+     * to begin with (indicating EOF), then we want to fall through
+     * and let the second callback process it.  Otherwise (if we had
+     * data to begin with, and the first callback processed it all),
+     * then we return an incomplete code.
+     */
+
+    if ((bytes_available > 0) && (process_result == 0))
+    {
+        PUSH_DEBUG_MSG("compose: First callback processed "
+                       "all %zu bytes.\n",
+                       bytes_available);
+
+        return PUSH_INCOMPLETE;
+    } else {
+        /*
+         * Before falling through to the second callback, we need to
+         * update the buffer pointer.
+         */
+
+        ptrdiff_t  bytes_processed = bytes_available - process_result;
+
+        PUSH_DEBUG_MSG("compose: First callback left %zd bytes.\n",
+                       process_result);
+
+        vbuf += bytes_processed;
+        bytes_available = process_result;
+
+        return compose_second_process_bytes(parser, pcallback,
+                                            vbuf, bytes_available);
+    }
 }
 
 
@@ -191,12 +206,11 @@ push_compose_new(push_callback_t *first,
 
     push_callback_init(&callback->base,
                        compose_activate,
-                       compose_process_bytes,
+                       compose_first_process_bytes,
                        compose_free);
 
     callback->first = first;
     callback->second = second;
-    callback->first_active = true;
 
     return &callback->base;
 }
