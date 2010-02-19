@@ -19,7 +19,7 @@
  */
 
 push_callback_t *
-integer_callback_new();
+integer_callback_new(push_parser_t *parser);
 
 
 /**

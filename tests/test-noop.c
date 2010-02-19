@@ -48,13 +48,15 @@ START_TEST(test_noop_01)
      * Here, we only present one integer, so it should pass.
      */
 
-    callback = push_noop_new();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = push_noop_new(parser);
     fail_if(callback == NULL,
             "Could not allocate a new noop callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
 
     fail_unless(push_parser_activate(parser, &INT_1)
                 == PUSH_SUCCESS,
@@ -68,7 +70,7 @@ START_TEST(test_noop_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at noop");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 1,
                 "Int doesn't match (got %"PRIu32

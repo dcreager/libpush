@@ -16,7 +16,7 @@ env.Prepend(CPPPATH=[".", "#/include", "$check_CPPPATH", "$libhwm_CPPPATH"],
 libpushtests_files = map(File, \
     [
      "int-callback.c",
-     "sum-callback.c",
+     #"sum-callback.c",
     ])
 
 SOURCE_FILES.extend(libpushtests_files)
@@ -48,23 +48,23 @@ def add_test(test_program):
     env.AlwaysBuild(run_test_target)
 
 
-add_test("test-compose")
-add_test("test-double-sum")
-add_test("test-eof")
-add_test("test-hwm")
-add_test("test-indexed-sum")
-add_test("test-int")
+#add_test("test-compose")
+#add_test("test-double-sum")
+#add_test("test-eof")
+#add_test("test-hwm")
+#add_test("test-indexed-sum")
+#add_test("test-int")
 add_test("test-noop")
-add_test("test-pairs")
-add_test("test-skip")
-add_test("test-sum")
+#add_test("test-pairs")
+#add_test("test-skip")
+#add_test("test-sum")
 
-add_test("test-protobuf-message")
-add_test("test-protobuf-skip-length-prefixed")
-add_test("test-protobuf-submessage")
-add_test("test-protobuf-varint32")
-add_test("test-protobuf-varint64")
-add_test("test-protobuf-varint-size")
+#add_test("test-protobuf-message")
+#add_test("test-protobuf-skip-length-prefixed")
+#add_test("test-protobuf-submessage")
+#add_test("test-protobuf-varint32")
+#add_test("test-protobuf-varint64")
+#add_test("test-protobuf-varint-size")
 
 
 # Don't build the tests by default; but clean them by default.

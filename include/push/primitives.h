@@ -30,7 +30,7 @@
  */
 
 push_callback_t *
-push_eof_new();
+push_eof_new(push_parser_t *parser);
 
 
 /**
@@ -53,7 +53,7 @@ push_hwm_string_new(hwm_buffer_t *buf);
  */
 
 push_callback_t *
-push_noop_new();
+push_noop_new(push_parser_t *parser);
 
 
 /**

@@ -35,12 +35,6 @@
 #endif
 
 
-/* forward declarations */
-
-typedef struct _push_parser push_parser_t;
-typedef struct _push_callback push_callback_t;
-
-
 /**
  * Error codes that can be returned by a callback's process_bytes
  * function and the push_parser_submit_data() function.
@@ -88,181 +82,185 @@ typedef enum
 } push_error_code_t;
 
 
+/*----------------------------------------------------------------------*/
+/** @section continuations Continuation functions */
+
+
 /**
- * Called by a push parser when a callback is <i>activated</i> — that
- * is, just before it is first passed in any data.  This allows the
- * callback to perform any necessary initialization before it is given
- * data to process.
+ * Call a continuation.  Since this is implemented as a macro, and we
+ * use the same field names in all of our continuation objects, we
+ * don't need a separate activation function for each kind of
+ * continuation.
  *
- * @param parser The push parser that initiated the call.
- *
- * @param callback The parser's callback object.
- *
- * @param input An optional input value.  Each type of callback uses
- *     this parameter differently (or not at all).
- *
- * @result A push_error_code_t value that indicates whether there were
- * any problems activating the callback.
+ * @param continuation A pointer to a continuation object.
  */
 
-typedef push_error_code_t
-push_activate_func_t(push_parser_t *parser,
-                     push_callback_t *callback,
-                     void *input);
+#define push_continuation_call(continuation, ...)   \
+    ((continuation)->func((continuation)->user_data, __VA_ARGS__))
 
 
 /**
- * Called by a push parser when bytes are available to be processed.
- * The bytes should be handled accordingly.  The number of bytes
- * presented to the callback might be less than what is required; in
- * this case, the function should process the partial data as needed,
- * and leave its internal state such that it can resume parsing on the
- * next call.  The function should signal this case by returning
- * PUSH_INCOMPLETE.
+ * Sets the function and user data portions of a callback.
  *
- * The number of bytes will be 0 only at the end of the input.  The
- * callback should return a PUSH_PARSE_ERROR if this callback has only
- * parsed a partial value to this point.
- *
- * It might be the case that the callback doesn't need all of the data
- * to parse successfully.  The function can signal this by returning a
- * non-zero value; this many bytes will be left in the parsing buffer.
- * This is useful when using the parser combinators to create compound
- * parsers, since the leftover bytes will be passed in to the next
- * parser in the chain.
- *
- * If the callback parses successfully, it can optionally return a
- * value by assigning to the result pointer in the push_callback_t
- * object.
- *
- * If there is a parse error while processing these bytes, the
- * function should return PUSH_PARSE_ERROR.  If the callback needs to
- * allocate some memory, but cannot, it should return
- * PUSH_MEMORY_ERROR.
- *
- * @param parser The push parser that initiated the call.
- *
- * @param callback The parser's callback object.
- *
- * @param buf Points at the start of the data that should be
- * processed.
- *
- * @param bytes_available The number of bytes that are available to be
- * processed.  The function should only read this many bytes from buf.
- *
- * @return The number of bytes left over after successfully processing
- * the data, or a push_error_code_t value if there is an error while
- * processing the data.
+ * @param continuation A pointer to a continuation object.
  */
 
-typedef ssize_t
-push_process_bytes_func_t(push_parser_t *parser,
-                          push_callback_t *callback,
-                          const void *buf,
-                          size_t bytes_available);
+#define push_continuation_set(continuation, the_func, the_user_data)    \
+    do {                                                                \
+        (continuation)->func = (the_func);                              \
+        (continuation)->user_data = (the_user_data);                    \
+    } while(0)
 
 
 /**
- * Called when a push_callback_t instance needs to be freed.  If there
- * are any additional fields in the callback object, they can be freed
- * as needed.  This function should <b>not</b> free the callback itself.
- *
- * @param callback The parser's callback object.
+ * Defines a continuation object.  Given the base name
+ * <code>foo</code>, it constructs a type called
+ * <code>push_foo_continuation_t</code>, with the appropriate
+ * <code>func</code> and <code>user_data</code> fields.
+ */
+
+#define PUSH_DEFINE_CONTINUATION(base_name)             \
+    typedef struct _push_##base_name##_continuation     \
+    {                                                   \
+        push_##base_name##_continuation_func_t  *func;  \
+        void  *user_data;                               \
+    } push_##base_name##_continuation_t
+
+
+/**
+ * A success continuation function.  Will be called by a callback when
+ * it has successfully read a value.  This includes a pointer to any
+ * remaining data that's currently available.
  */
 
 typedef void
-push_callback_free_func_t(push_callback_t *callback);
+push_success_continuation_func_t(void *user_data,
+                                 void *result,
+                                 const void *buf,
+                                 size_t bytes_remaining);
+
+PUSH_DEFINE_CONTINUATION(success);
+
+
+/**
+ * A continue continuation function.  Will be called by the parser
+ * when more data becomes available.  This function will be called
+ * with a NULL buf and 0 bytes_remaining when the end of the stream is
+ * reached.
+ */
+
+typedef void
+push_continue_continuation_func_t(void *user_data,
+                                  const void *buf,
+                                  size_t bytes_remaining);
+
+PUSH_DEFINE_CONTINUATION(continue);
+
+
+/**
+ * An incomplete continuation function.  Will be called by a callback
+ * when it has exhausted the available data.  It should provide a
+ * continue continuation that should be used to resume processing when
+ * more data becomes available.
+ */
+
+typedef void
+push_incomplete_continuation_func_t(void *user_data,
+                                    push_continue_continuation_t *cont);
+
+PUSH_DEFINE_CONTINUATION(incomplete);
+
+
+/**
+ * An error continuation function.  Will be called by a callback when
+ * it encounters a error while parsing.  This can be a parse error —
+ * indicating that the stream contains invalid data — or a fatal error
+ * — indicating that some exceptional circumstance occurred that
+ * prevents the parse from continuing.  (This might be a failed
+ * malloc, for instance.)
+ */
+
+typedef void
+push_error_continuation_func_t(void *user_data,
+                               push_error_code_t error_code,
+                               const char *error_message);
+
+PUSH_DEFINE_CONTINUATION(error);
 
 
 /**
  * @brief A callback object.
  *
- * This type encapsulates all of the functions that the push parser
- * might call, along with any additional data needed by the callback.
- * Callbacks will usually be implemented by a new type that has a
- * push_callback_t as its first element; this ensures that a pointer
- * to the more detailed type can be passed in whenever a
- * push_callback_t pointer is expected.
+ * This type encapsulates all of the functions that cooperate to
+ * implement a parser callback.  The callback must implement an
+ * “activation” function that is called to seed the callback with its
+ * input value, along with an optional initial chunk of data.  Most
+ * callbacks will also implement a “continue” continuation; this
+ * continuation is used if the callback exhausts the current chunk of
+ * data, and will be used to resume the callback when the next chunk
+ * becomes available.
+ *
+ * Most callbacks will also have a “user data” struct, which they can
+ * use to store any additional state needed during the execution of
+ * the callback.  There isn't a field in push_callback_t for this
+ * struct, though; instead, you put the user data pointer into the
+ * activation continuation, and make sure to place it in any other
+ * continuations that the callback implements.
+ *
+ * Finally, the callback will have other continuations provided to it;
+ * these should be called when the parsing is complete.  The different
+ * continuations handle the different reasons that the parsing can
+ * complete: a successful parse, an error, or an “incomplete”.  (An
+ * incomplete is when the callback runs out of data in the current
+ * chunk before finishing its parse.)  Callbacks should include the
+ * appropriate continuation objects in their user data structs, and
+ * set the pointers in the push_callback_t struct to point to these
+ * objects.  If the pointers are NULL, this indicates that the
+ * callback will never try to call that continuation.
  */
 
-struct _push_callback
+typedef struct _push_callback
 {
     /**
      * Called by the push parser when this callback is activated.
+     * There may not be data available yet; a NULL buf pointer or a 0
+     * bytes_remaining does <b>not</b> signify end-of-stream.
      */
 
-    push_activate_func_t  *activate;
+    push_success_continuation_t  activate;
 
     /**
-     * Called by the push parser when bytes are available for
-     * processing.
+     * A pointer to the success continuation that the callback will
+     * call when the parse succeeds.
      */
 
-    push_process_bytes_func_t  *process_bytes;
+    push_success_continuation_t  **success;
 
     /**
-     * Called by the push_callback_free() function to free any
-     * additional data used by this callback.
+     * A pointer to the incomplete continuation that the callback will
+     * call when the parse succeeds.
      */
 
-    push_callback_free_func_t  *free;
+    push_incomplete_continuation_t  **incomplete;
 
     /**
-     * The result of the callback.
+     * A pointer to the error continuation that the callback will
+     * call when the parse succeeds.
      */
 
-    void  *result;
+    push_error_continuation_t  **error;
 
-    /**
-     * A flag indicating that we've started freeing this callback.
-     * Often there will be cycles of pointers amongst a group of
-     * callback objects.  This flag allows each callback's free
-     * function to blindly call push_callback_free() on any other
-     * callbacks that its linked to — we will take care of ensuring
-     * that any particular callback is only freed once, even in the
-     * prescence of circular references.
-     */
-
-    bool  freeing;
-};
+} push_callback_t;
 
 
 /**
  * @brief Create a new push parser callback.
  *
- * The new callback will use the process_bytes function to process the
- * data received by the push parser.
- *
- * This function should only be used if the process_bytes function
- * doesn't need to store any additional data in the callback object.
- * In most cases, each kind of callback will define its own
- * specialized “subclass” of the push_callback_t type; for these
- * callbacks, you should call the constructor for that type, rather
- * than push_callback_new().
- *
  * @return NULL if we can't create the new callback object.
  */
 
 push_callback_t *
-push_callback_new(push_activate_func_t *activate,
-                  push_process_bytes_func_t *process_bytes);
-
-
-/**
- * @brief Initialize the push_callback_t portion of a specialized
- * callback type.
- *
- * This function shouldn't be called directly by users; it's used by
- * specialized callback initializers to make sure that the
- * push_callback_t “superclass” portion of the <code>struct</code> is
- * initialized consistently.
- */
-
-void
-push_callback_init(push_callback_t *callback,
-                   push_activate_func_t *activate,
-                   push_process_bytes_func_t *process_bytes,
-                   push_callback_free_func_t *free);
+push_callback_new();
 
 
 /**
@@ -274,89 +272,87 @@ push_callback_free(push_callback_t *callback);
 
 
 /**
- * Activates a callback.  This function doesn't prevent you from
- * activating the callback twice, so if this is important, don't do
- * it!
- *
- * @param parser The top-level parser object.
- *
- * @param callback The callback object.
- *
- * @param input The input parameter to the callback's activation
- *     function.
- *
- * @return The result of the callback's activation function.  This
- *     will be an error code if the activation failed for some reason.
- */
-
-push_error_code_t
-push_callback_activate(push_parser_t *parser,
-                       push_callback_t *callback,
-                       void *input);
-
-
-/**
- * Calls a callback's process_bytes function.
- */
-
-ssize_t
-push_callback_process_bytes(push_parser_t *parser,
-                            push_callback_t *callback,
-                            const void *buf,
-                            size_t bytes_available);
-
-
-/**
- * “Tail-calls” a child callback on behalf of a parent callback.
- * Calls the child's process_bytes function as usual; however, if it
- * succeeds, we copy its result into the result of the parent before
- * returning.
- */
-
-ssize_t
-push_callback_tail_process_bytes(push_parser_t *parser,
-                                 push_callback_t *parent,
-                                 push_callback_t *child,
-                                 const void *buf,
-                                 size_t bytes_available);
-
-
-/**
  * @brief A push parser.
  */
 
-struct _push_parser
+typedef struct _push_parser
 {
     /**
-     * The parser's callback.  Whenever data is available, it will be
-     * passed into this callback's process_bytes function.
+     * The activation function of the parser's top-level callback.
      *
      * @private
      */
 
-    push_callback_t  *callback;
+    push_success_continuation_t  *activate;
 
     /**
-     * Once we've successfully parsed a value, we need to ignore any
-     * remaining data.  This flag indicates that a previous call to
-     * push_parser_submit_bytes resulted in a successful parse, and
-     * therefore that we should ignore any data from further calls.
+     * The continue continuation that should receive the next chunk of
+     * data.  This will only be set when a callback reaches the end of
+     * an input chunk.
      */
 
-    bool  finished;
-};
+    push_continue_continuation_t  *cont;
+
+    /**
+     * The success/failure code of processing the most recent chunk of
+     * data.  This will be set by the parser's success, incomplete,
+     * and error continuations.
+     */
+
+    push_error_code_t  result_code;
+
+    /**
+     * The final result of a successful parse.  This will be set by
+     * the parser's success continuation.
+     */
+
+    void  *result;
+
+    /**
+     * A success continuation that sets the final result of the parse.
+     * This will be the success continuation for the “last” callback
+     * in the parser.
+     */
+
+    push_success_continuation_t  success;
+
+    /**
+     * An incomplete continuation that marks which callback should
+     * receive the next chunk of data that becomes available.  This
+     * will be the incomplete continuation for all of the callbacks in
+     * the parser.
+     */
+
+    push_incomplete_continuation_t  incomplete;
+
+    /**
+     * A error continuation that records information about the error.
+     * This will be the error continuation for the most callbacks in
+     * the parser — though some combinators will be able to recover
+     * from certain errors in their wrapped callbacks.
+     */
+
+    push_error_continuation_t  error;
+
+    /**
+     * A continue continuation that will ignore any remaining input.
+     * This will be used after the top-level callback finishes, so
+     * that we can silently ignore any remaining data in the stream.
+     */
+
+    push_continue_continuation_t  ignore;
+
+} push_parser_t;
 
 
 /**
  * Create a new push parser.
  *
- * @param callback The parser's initial callback.
- *
  * @return NULL if we can't create the new parser.
  */
 
 push_parser_t *
-push_parser_new(push_callback_t *callback);
+push_parser_new();
 
 
 /**
@@ -365,6 +361,17 @@ push_parser_new(push_callback_t *callback);
 
 void
 push_parser_free(push_parser_t *parser);
+
+
+/**
+ * Set the top-level callback for a parser.
+ *
+ * @param callback The parser's initial callback.
+ */
+
+void
+push_parser_set_callback(push_parser_t *parser,
+                         push_callback_t *callback);
 
 
 /**
@@ -396,8 +403,7 @@ push_parser_activate(push_parser_t *parser,
  * @return The result value of the parser's callback.
  */
 
-void *
-push_parser_result(push_parser_t *parser);
+#define push_parser_result(parser, type) ((type *) (parser)->result)
 
 
 /**

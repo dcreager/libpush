@@ -15,75 +15,83 @@
 
 
 /**
- * The push_callback_t subclass that defines a noop callback.
+ * The user data struct for a noop callback.
  */
 
 typedef struct _noop
 {
     /**
-     * The callback's “superclass” instance.
+     * The continuation that we'll call on a successful parse.
      */
 
-    push_callback_t  base;
-
-    /**
-     * A copy of the input pointer.  Once the process_bytes function
-     * is called, we copy this to our output.
-     */
-
-    void  *input;
+    push_success_continuation_t  *success;
 
 } noop_t;
 
 
-static push_error_code_t
-noop_activate(push_parser_t *parser,
-              push_callback_t *pcallback,
-              void *input)
+static void
+noop_activate(void *user_data,
+              void *result,
+              const void *buf,
+              size_t bytes_remaining)
 {
-    noop_t  *callback = (noop_t *) pcallback;
+    noop_t  *noop = (noop_t *) user_data;
 
     PUSH_DEBUG_MSG("noop: Activating.\n");
-    callback->input = input;
-
-    return PUSH_SUCCESS;
-}
-
-
-static ssize_t
-noop_process_bytes(push_parser_t *parser,
-                   push_callback_t *pcallback,
-                   const void *vbuf,
-                   size_t bytes_available)
-{
-    noop_t  *callback = (noop_t *) pcallback;
 
     /*
-     * Copy the input pointer to the output.
+     * Immediately succeed with the same input value.
      */
 
-    callback->base.result = callback->input;
+    push_continuation_call(noop->success,
+                           result,
+                           buf,
+                           bytes_remaining);
 
-    /*
-     * We don't actually parse anything, so we always succeed.
-     */
-
-    return bytes_available;
+    return;
 }
 
 
 push_callback_t *
-push_noop_new()
+push_noop_new(push_parser_t *parser)
 {
-    noop_t  *callback = (noop_t *) malloc(sizeof(noop_t));
+    noop_t  *noop = (noop_t *) malloc(sizeof(noop_t));
+    push_callback_t  *callback;
 
-    if (callback == NULL)
+    if (noop == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
-                       noop_activate,
-                       noop_process_bytes,
-                       NULL);
+    callback = push_callback_new();
+    if (callback == NULL)
+    {
+        free(noop);
+        return NULL;
+    }
 
-    return &callback->base;
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
+
+    push_continuation_set(&callback->activate,
+                          noop_activate,
+                          noop);
+
+    /*
+     * By default, we call the parser's implementations of the
+     * continuations that we call.
+     */
+
+    noop->success = &parser->success;
+
+    /*
+     * Set the pointers for the continuations that we call, so that
+     * they can be changed by combinators, if necessary.
+     */
+
+    callback->success = &noop->success;
+    callback->incomplete = NULL;
+    callback->error = NULL;
+
+    return callback;
 }
