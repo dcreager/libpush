@@ -33,7 +33,8 @@
  */
 
 push_callback_t *
-push_compose_new(push_callback_t *first,
+push_compose_new(push_parser_t *parser,
+                 push_callback_t *first,
                  push_callback_t *second);
 
 

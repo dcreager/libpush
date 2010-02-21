@@ -50,21 +50,27 @@ START_TEST(test_eof_01)
      * Here, we only present one integer, so it should pass.
      */
 
-    integer = integer_callback_new();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    integer = integer_callback_new(parser);
     fail_if(integer == NULL,
             "Could not allocate a new int callback");
 
-    eof = push_eof_new();
+    eof = push_eof_new(parser);
     fail_if(eof == NULL,
             "Could not allocate a new EOF callback");
 
-    callback = push_compose_new(integer, eof);
+    callback = push_compose_new(parser, integer, eof);
     fail_if(callback == NULL,
             "Could not allocate a new compose callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not parse data");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, 1 * sizeof(uint32_t))
@@ -74,7 +80,7 @@ START_TEST(test_eof_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 1,
                 "Int doesn't match (got %"PRIu32
@@ -99,21 +105,27 @@ START_TEST(test_parse_error_01)
      * Here, we present two integers, so we should get a parse error.
      */
 
-    integer = integer_callback_new();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    integer = integer_callback_new(parser);
     fail_if(integer == NULL,
             "Could not allocate a new int callback");
 
-    eof = push_eof_new();
+    eof = push_eof_new(parser);
     fail_if(eof == NULL,
             "Could not allocate a new EOF callback");
 
-    callback = push_compose_new(integer, eof);
+    callback = push_compose_new(parser, integer, eof);
     fail_if(callback == NULL,
             "Could not allocate a new compose callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not parse data");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, 2 * sizeof(uint32_t))

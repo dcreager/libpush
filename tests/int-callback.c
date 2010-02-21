@@ -43,6 +43,12 @@ typedef struct _integer
 
     push_continue_continuation_t  cont;
 
+    /**
+     * The parsed integer.
+     */
+
+    uint32_t  parsed_value;
+
 } integer_t;
 
 
@@ -64,14 +70,16 @@ integer_continue(void *user_data,
 
         return;
     } else {
-        uint32_t  next_integer = *((const uint32_t *) buf);
+        const uint32_t  *next_integer = (const uint32_t *) buf;
         buf += sizeof(uint32_t);
         bytes_remaining -= sizeof(uint32_t);
 
-        PUSH_DEBUG_MSG("integer: Got %"PRIu32".\n", next_integer);
+        integer->parsed_value = *next_integer;
+
+        PUSH_DEBUG_MSG("integer: Got %"PRIu32".\n", integer->parsed_value);
 
         push_continuation_call(integer->success,
-                               &next_integer,
+                               &integer->parsed_value,
                                buf,
                                bytes_remaining);
 
