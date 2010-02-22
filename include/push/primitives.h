@@ -66,12 +66,4 @@ push_callback_t *
 push_skip_new(push_parser_t *parser);
 
 
-/**
- * Create a new callback that ignores all remaining input.
- */
-
-push_callback_t *
-push_trash_new();
-
-
 #endif  /* PUSH_PRIMITIVES_H */

@@ -110,7 +110,7 @@ skip_continue(void *user_data,
      */
 
     PUSH_DEBUG_MSG("skip: %zu bytes left to skip.\n",
-                   callback->left_to_skip);
+                   skip->left_to_skip);
 
     push_continuation_call(skip->callback.incomplete,
                            &skip->cont);
