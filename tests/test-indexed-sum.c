@@ -39,135 +39,14 @@
 
 #define NUM_SUM_CALLBACKS 2
 
-typedef struct _index_callback
-{
-    push_callback_t  base;
-
-    push_callback_t  *index;
-    push_callback_t  *value;
-
-    uint32_t  sum[NUM_SUM_CALLBACKS];
-} index_callback_t;
-
-
-static push_error_code_t
-index_activate(push_parser_t *parser,
-               push_callback_t *pcallback,
-               void *input)
-{
-    index_callback_t  *callback = (index_callback_t *) pcallback;
-    uint32_t  *index;
-    uint32_t  *value;
-
-    PUSH_DEBUG_MSG("index: Activating.\n");
-
-    index = (uint32_t *) callback->index->result;
-    value = (uint32_t *) callback->value->result;
-
-    if ((*index < 0) || (*index >= NUM_SUM_CALLBACKS))
-    {
-        PUSH_DEBUG_MSG("index: Got invalid index %"PRIu32".\n",
-                       *index);
-        return PUSH_PARSE_ERROR;
-    }
-
-    callback->sum[*index] += *value;
-    PUSH_DEBUG_MSG("index: Adding %"PRIu32" to sum #%"PRIu32
-                   ", sum is now %"PRIu32".\n",
-                   *value, *index, callback->sum[*index]);
-
-    return PUSH_SUCCESS;
-}
-
-
-static ssize_t
-index_process_bytes(push_parser_t *parser,
-                    push_callback_t *pcallback,
-                    const void *buf,
-                    size_t bytes_available)
-{
-    /*
-     * We don't actually parse anything, so we always succeed.
-     */
-
-    return bytes_available;
-}
-
-
-static void
-index_free(push_callback_t *pcallback)
-{
-    index_callback_t  *callback = (index_callback_t *) pcallback;
-
-    PUSH_DEBUG_MSG("index: Freeing index callback.\n");
-    push_callback_free(callback->index);
-
-    PUSH_DEBUG_MSG("index: Freeing value callback.\n");
-    push_callback_free(callback->value);
-}
-
-
 static push_callback_t *
-index_callback_new(push_callback_t *index,
-                   push_callback_t *value)
+make_indexed_sum_callback(push_parser_t *parser)
 {
-    index_callback_t  *result =
-        (index_callback_t *) malloc(sizeof(index_callback_t));
-    int  i;
-
-    if (result == NULL)
-        return NULL;
-
-    push_callback_init(&result->base,
-                       index_activate,
-                       index_process_bytes,
-                       index_free);
-
-    result->index = index;
-    result->value = value;
-
-    result->base.result = result;
-
-    for (i = 0; i < NUM_SUM_CALLBACKS; i++)
-    {
-        result->sum[i] = 0;
-    }
-
-    return &result->base;
-}
-
-
-/*-----------------------------------------------------------------------
- * The real deal
- */
-
-static push_callback_t *
-make_index_callback()
-{
-    push_callback_t  *index;
-    push_callback_t  *value;
-    push_callback_t  *index_sum;
-    push_callback_t  *compose1;
-    push_callback_t  *compose2;
+    push_callback_t  *sum;
     push_callback_t  *fold;
 
-    index = integer_callback_new();
-    if (index == NULL) return NULL;
-
-    value = integer_callback_new();
-    if (value == NULL) return NULL;
-
-    index_sum = index_callback_new(index, value);
-    if (index_sum == NULL) return NULL;
-
-    compose1 = push_compose_new(index, value);
-    if (compose1 == NULL) return NULL;
-
-    compose2 = push_compose_new(compose1, index_sum);
-    if (compose2 == NULL) return NULL;
-
-    fold = push_fold_new(compose2);
-    if (fold == NULL) return NULL;
+    sum = indexed_sum_callback_new(parser, NUM_SUM_CALLBACKS);
+    fold = push_fold_new(parser, sum);
 
     return fold;
 }
@@ -216,17 +95,25 @@ START_TEST(test_indexed_sum_01)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    index_callback_t  *result;
+    uint32_t  sum[NUM_SUM_CALLBACKS];
+    uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_indexed_sum_01\n");
 
-    callback = make_index_callback();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = make_indexed_sum_callback(parser);
     fail_if(callback == NULL,
             "Could not allocate index callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    memset(sum, 0, sizeof(uint32_t) * NUM_SUM_CALLBACKS);
+    fail_unless(push_parser_activate(parser, &sum)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_INCOMPLETE,
@@ -235,27 +122,29 @@ START_TEST(test_indexed_sum_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (index_callback_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
-    fail_unless(result->sum[0] == 9,
+    fail_unless(result[0] == 9,
                 "Sum 0 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum[0], 9);
+                result[0], 9);
 
-    fail_unless(result->sum[1] == 6,
+    fail_unless(result[1] == 6,
                 "Sum 1 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum[1], 6);
+                result[1], 6);
 
     push_parser_free(parser);
 }
 END_TEST
 
+
 START_TEST(test_indexed_sum_02)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    index_callback_t  *result;
+    uint32_t  sum[NUM_SUM_CALLBACKS];
+    uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_indexed_sum_02\n");
 
@@ -263,13 +152,20 @@ START_TEST(test_indexed_sum_02)
      * If we submit the data twice, we should get twice the result.
      */
 
-    callback = make_index_callback();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = make_indexed_sum_callback(parser);
     fail_if(callback == NULL,
             "Could not allocate index callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    memset(sum, 0, sizeof(uint32_t) * NUM_SUM_CALLBACKS);
+    fail_unless(push_parser_activate(parser, &sum)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_INCOMPLETE,
@@ -282,17 +178,17 @@ START_TEST(test_indexed_sum_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (index_callback_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
-    fail_unless(result->sum[0] == 18,
+    fail_unless(result[0] == 18,
                 "Sum 0 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum[0], 18);
+                result[0], 18);
 
-    fail_unless(result->sum[1] == 12,
+    fail_unless(result[1] == 12,
                 "Sum 1 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum[1], 12);
+                result[1], 12);
 
     push_parser_free(parser);
 }
@@ -303,7 +199,8 @@ START_TEST(test_misaligned_data)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    index_callback_t  *result;
+    uint32_t  sum[NUM_SUM_CALLBACKS];
+    uint32_t  *result;
     size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
 
     PUSH_DEBUG_MSG("---\nStarting test_misaligned_data\n");
@@ -314,13 +211,20 @@ START_TEST(test_misaligned_data)
      * we should still get the right answer.
      */
 
-    callback = make_index_callback();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = make_indexed_sum_callback(parser);
     fail_if(callback == NULL,
             "Could not allocate index callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    memset(sum, 0, sizeof(uint32_t) * NUM_SUM_CALLBACKS);
+    fail_unless(push_parser_activate(parser, sum)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_INCOMPLETE,
@@ -335,17 +239,17 @@ START_TEST(test_misaligned_data)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (index_callback_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
-    fail_unless(result->sum[0] == 9,
+    fail_unless(result[0] == 9,
                 "Sum 0 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum[0], 9);
+                result[0], 9);
 
-    fail_unless(result->sum[1] == 6,
+    fail_unless(result[1] == 6,
                 "Sum 1 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum[1], 6);
+                result[1], 6);
 
     push_parser_free(parser);
 }
@@ -356,7 +260,8 @@ START_TEST(test_parse_error_01)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    index_callback_t  *result;
+    uint32_t  sum[NUM_SUM_CALLBACKS];
+    uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_parse_error_01\n");
 
@@ -367,13 +272,20 @@ START_TEST(test_parse_error_01)
      * pair.
      */
 
-    callback = make_index_callback();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = make_indexed_sum_callback(parser);
     fail_if(callback == NULL,
             "Could not allocate index callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    memset(sum, 0, sizeof(uint32_t) * NUM_SUM_CALLBACKS);
+    fail_unless(push_parser_activate(parser, &sum)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_02, LENGTH_02) == PUSH_SUCCESS,
@@ -382,17 +294,17 @@ START_TEST(test_parse_error_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (index_callback_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
-    fail_unless(result->sum[0] == 1,
+    fail_unless(result[0] == 1,
                 "Sum 0 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum[0], 1);
+                result[0], 1);
 
-    fail_unless(result->sum[1] == 2,
+    fail_unless(result[1] == 2,
                 "Sum 1 doesn't match (got %"PRIu32
                 ", expected %"PRIu32")",
-                result->sum[1], 2);
+                result[1], 2);
 
     push_parser_free(parser);
 }
@@ -403,6 +315,7 @@ START_TEST(test_parse_error_02)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
+    uint32_t  sum[NUM_SUM_CALLBACKS];
     size_t  FIRST_CHUNK_SIZE = /* something in the 5th integer */
         4 * sizeof(uint32_t) + 2;
 
@@ -418,13 +331,20 @@ START_TEST(test_parse_error_02)
      * fold to generate a parse error.
      */
 
-    callback = make_index_callback();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = make_indexed_sum_callback(parser);
     fail_if(callback == NULL,
             "Could not allocate index callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    memset(sum, 0, sizeof(uint32_t) * NUM_SUM_CALLBACKS);
+    fail_unless(push_parser_activate(parser, &sum)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     PUSH_DEBUG_MSG("test: Sending in first chunk.\n");
 
@@ -449,16 +369,24 @@ START_TEST(test_parse_error_03)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
+    uint32_t  sum[NUM_SUM_CALLBACKS];
 
     PUSH_DEBUG_MSG("---\nStarting test_parse_error_03\n");
 
-    callback = make_index_callback();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = make_indexed_sum_callback(parser);
     fail_if(callback == NULL,
             "Could not allocate index callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    memset(sum, 0, sizeof(uint32_t) * NUM_SUM_CALLBACKS);
+    fail_unless(push_parser_activate(parser, &sum)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_03, LENGTH_03) == PUSH_INCOMPLETE,

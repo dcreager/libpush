@@ -32,4 +32,15 @@ push_callback_t *
 sum_callback_new(push_parser_t *parser);
 
 
+/**
+ * Create a callback that parses a two uint32_ts — an index and a
+ * value.  It then adds the value to the specified element of an array
+ * of sums.  The previous array of sums is taken in as an input; it is
+ * modified in-place and used as the output.
+ */
+
+push_callback_t *
+indexed_sum_callback_new(push_parser_t *parser, uint32_t num_sums);
+
+
 #endif  /* TEST_CALLBACKS_H */
