@@ -27,11 +27,24 @@
 #define PUSH_DEBUG 0
 #endif
 
+#ifndef PUSH_CONTINUATION_DEBUG
+#define PUSH_CONTINUATION_DEBUG 0
+#endif
+
 #if PUSH_DEBUG
+
 #include <stdio.h>
 #define PUSH_DEBUG_MSG(...) fprintf(stderr, __VA_ARGS__)
+
+#if PUSH_CONTINUATION_DEBUG
+#define PUSH_CONTINUATION_DEBUG_MSG(...) fprintf(stderr, __VA_ARGS__)
+#else
+#define PUSH_CONTINUATION_DEBUG_MSG(...) /* skipping debug message */
+#endif
+
 #else
 #define PUSH_DEBUG_MSG(...) /* skipping debug message */
+#define PUSH_CONTINUATION_DEBUG_MSG(...) /* skipping debug message */
 #endif
 
 
@@ -95,8 +108,24 @@ typedef enum
  * @param continuation A pointer to a continuation object.
  */
 
+#if PUSH_CONTINUATION_DEBUG
+
+#define push_continuation_call(continuation, ...)               \
+    do {                                                        \
+        PUSH_DEBUG_MSG("continuation: Calling continuation "    \
+                       "%s[%p].\n",                             \
+                       (continuation)->name,                    \
+                       (continuation)->user_data);              \
+        (continuation)->func((continuation)->user_data,         \
+                             __VA_ARGS__);                      \
+    } while(0)
+
+#else
+
 #define push_continuation_call(continuation, ...)   \
     ((continuation)->func((continuation)->user_data, __VA_ARGS__))
+
+#endif
 
 
 /**
@@ -105,11 +134,24 @@ typedef enum
  * @param continuation A pointer to a continuation object.
  */
 
+#if PUSH_CONTINUATION_DEBUG
+
+#define push_continuation_set(continuation, the_func, the_user_data)    \
+    do {                                                                \
+        (continuation)->name = #the_func;                               \
+        (continuation)->func = (the_func);                              \
+        (continuation)->user_data = (the_user_data);                    \
+    } while(0)
+
+#else
+
 #define push_continuation_set(continuation, the_func, the_user_data)    \
     do {                                                                \
         (continuation)->func = (the_func);                              \
         (continuation)->user_data = (the_user_data);                    \
     } while(0)
+
+#endif
 
 
 /**
@@ -119,12 +161,26 @@ typedef enum
  * <code>func</code> and <code>user_data</code> fields.
  */
 
+#if PUSH_CONTINUATION_DEBUG
+
+#define PUSH_DEFINE_CONTINUATION(base_name)             \
+    typedef struct _push_##base_name##_continuation     \
+    {                                                   \
+        const char  *name;                              \
+        push_##base_name##_continuation_func_t  *func;  \
+        void  *user_data;                               \
+    } push_##base_name##_continuation_t
+
+#else
+
 #define PUSH_DEFINE_CONTINUATION(base_name)             \
     typedef struct _push_##base_name##_continuation     \
     {                                                   \
         push_##base_name##_continuation_func_t  *func;  \
         void  *user_data;                               \
     } push_##base_name##_continuation_t
+
+#endif
 
 
 /**
