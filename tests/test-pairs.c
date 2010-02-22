@@ -29,7 +29,7 @@
 
 typedef struct _inc
 {
-    push_success_continuation_t  *success;
+    push_callback_t  callback;
     int  result;
 } inc_t;
 
@@ -51,7 +51,7 @@ inc_activate(void *user_data,
     PUSH_DEBUG_MSG("inc: Incrementing value.  Result is %d.\n",
                    inc->result);
 
-    push_continuation_call(inc->success,
+    push_continuation_call(inc->callback.success,
                            &inc->result,
                            buf, bytes_remaining);
 
@@ -63,44 +63,14 @@ static push_callback_t *
 inc_callback_new(push_parser_t *parser)
 {
     inc_t  *inc = (inc_t *) malloc(sizeof(inc_t));
-    push_callback_t  *callback;
 
     if (inc == NULL)
         return NULL;
 
-    callback = push_callback_new();
-    if (callback == NULL)
-    {
-        free(inc);
-        return NULL;
-    }
+    push_callback_init(&inc->callback, parser,
+                       inc_activate, inc);
 
-    /*
-     * Fill in the continuation objects for the continuations that we
-     * implement.
-     */
-
-    push_continuation_set(&callback->activate,
-                          inc_activate,
-                          inc);
-
-    /*
-     * By default, we call the parser's implementations of the
-     * continuations that we call.
-     */
-
-    inc->success = &parser->success;
-
-    /*
-     * Set the pointers for the continuations that we call, so that
-     * they can be changed by combinators, if necessary.
-     */
-
-    callback->success = &inc->success;
-    callback->incomplete = NULL;
-    callback->error = NULL;
-
-    return callback;
+    return &inc->callback;
 }
 
 

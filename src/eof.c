@@ -19,23 +19,10 @@
 typedef struct _eof
 {
     /**
-     * The continuation that we'll call on a successful parse.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_success_continuation_t  *success;
-
-    /**
-     * The continuation that we'll call if we run out of data in the
-     * current chunk.
-     */
-
-    push_incomplete_continuation_t  *incomplete;
-
-    /**
-     * The continuation that we'll call if we encounter an error.
-     */
-
-    push_error_continuation_t  *error;
+    push_callback_t  callback;
 
     /**
      * The continue continuation that will resume the EOF parser.
@@ -73,7 +60,7 @@ eof_activate(void *user_data,
         PUSH_DEBUG_MSG("eof: Expected EOF, but got %zu bytes.\n",
                        bytes_remaining);
 
-        push_continuation_call(eof->error,
+        push_continuation_call(eof->callback.error,
                                PUSH_PARSE_ERROR,
                                "Expected EOF, but got data");
 
@@ -84,7 +71,7 @@ eof_activate(void *user_data,
      * Otherwise, we need to register a continue continuation.
      */
 
-    push_continuation_call(eof->incomplete,
+    push_continuation_call(eof->callback.incomplete,
                            &eof->cont);
 }
 
@@ -105,7 +92,7 @@ eof_continue(void *user_data,
         PUSH_DEBUG_MSG("eof: Expected EOF, but got %zu bytes.\n",
                        bytes_remaining);
 
-        push_continuation_call(eof->error,
+        push_continuation_call(eof->callback.error,
                                PUSH_PARSE_ERROR,
                                "Expected EOF, but got data");
 
@@ -113,7 +100,7 @@ eof_continue(void *user_data,
     } else {
         PUSH_DEBUG_MSG("eof: Reached expected EOF.\n");
 
-        push_continuation_call(eof->success,
+        push_continuation_call(eof->callback.success,
                                eof->input,
                                buf, bytes_remaining);
 
@@ -126,48 +113,21 @@ push_callback_t *
 push_eof_new(push_parser_t *parser)
 {
     eof_t  *eof = (eof_t *) malloc(sizeof(eof_t));
-    push_callback_t  *callback;
 
     if (eof == NULL)
         return NULL;
 
-    callback = push_callback_new();
-    if (callback == NULL)
-    {
-        free(eof);
-        return NULL;
-    }
+    push_callback_init(&eof->callback, parser,
+                       eof_activate, eof);
 
     /*
      * Fill in the continuation objects for the continuations that we
      * implement.
      */
 
-    push_continuation_set(&callback->activate,
-                          eof_activate,
-                          eof);
-
     push_continuation_set(&eof->cont,
                           eof_continue,
                           eof);
 
-    /*
-     * By default, we call the parser's implementations of the
-     * continuations that we call.
-     */
-
-    eof->success = &parser->success;
-    eof->incomplete = &parser->incomplete;
-    eof->error = &parser->error;
-
-    /*
-     * Set the pointers for the continuations that we call, so that
-     * they can be changed by combinators, if necessary.
-     */
-
-    callback->success = &eof->success;
-    callback->incomplete = &eof->incomplete;
-    callback->error = &eof->error;
-
-    return callback;
+    return &eof->callback;
 }

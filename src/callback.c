@@ -23,10 +23,39 @@
 #endif
 
 
-push_callback_t *
-push_callback_new()
+void
+_push_callback_init(push_callback_t *callback,
+                    push_parser_t *parser,
+                    const char *activate_name,
+                    push_success_continuation_func_t *activate_func,
+                    void *activate_user_data)
 {
-    return (push_callback_t *) malloc(sizeof(push_callback_t));
+    /*
+     * Fill in the callback's activate continuation object.
+     */
+
+    push_continuation_set(&callback->activate,
+                          activate_func,
+                          activate_user_data);
+
+#if PUSH_CONTINUATION_DEBUG
+    /*
+     * We have to override the name of the continuation function; the
+     * default implementation of the push_continuation_set macro will
+     * always call it “activate_func”.
+     */
+
+    callback->activate.name = activate_name;
+#endif
+
+    /*
+     * By default, we call the parser's implementations of the
+     * continuations that we call.
+     */
+
+    callback->success = &parser->success;
+    callback->incomplete = &parser->incomplete;
+    callback->error = &parser->error;
 }
 
 

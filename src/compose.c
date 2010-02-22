@@ -15,42 +15,89 @@
 #include <push/combinators.h>
 
 
+/**
+ * The user data struct for a compose callback.
+ */
+
+typedef struct _compose
+{
+    /**
+     * The push_callback_t superclass for this callback.
+     */
+
+    push_callback_t  callback;
+
+    /**
+     * The first wrapped callback in the composition.
+     */
+
+    push_callback_t  *first;
+
+    /**
+     * The second wrapped callback in the composition.
+     */
+
+    push_callback_t  *second;
+
+} compose_t;
+
+
+static void
+compose_activate(void *user_data,
+                 void *result,
+                 const void *buf,
+                 size_t bytes_remaining)
+{
+    compose_t  *compose = (compose_t *) user_data;
+
+    /*
+     * The first callback should succeed by activating the second.
+     * The second callback should succeed with our overall success
+     * continuation.  Both callbacks should incomplete and error with
+     * our overall incomplete and error continuations.
+     */
+
+    PUSH_DEBUG_MSG("compose: Activating.\n");
+
+    compose->first->success = &compose->second->activate;
+    compose->first->incomplete = compose->callback.incomplete;
+    compose->first->error = compose->callback.error;
+
+    compose->second->success = compose->callback.success;
+    compose->second->incomplete = compose->callback.incomplete;
+    compose->second->error = compose->callback.error;
+
+    /*
+     * Then just pass the input value off to the first callback.
+     */
+
+    push_continuation_call(&compose->first->activate,
+                           result,
+                           buf, bytes_remaining);
+
+    return;
+}
+
+
 push_callback_t *
 push_compose_new(push_parser_t *parser,
                  push_callback_t *first,
                  push_callback_t *second)
 {
-    push_callback_t  *callback;
+    compose_t  *compose = (compose_t *) malloc(sizeof(compose_t));
 
-    callback = push_callback_new();
-    if (callback == NULL)
+    if (compose == NULL)
         return NULL;
 
-    /*
-     * The compose is activated by activating the first wrapped
-     * callback.
-     */
-
-    callback->activate = first->activate;
+    push_callback_init(&compose->callback, parser,
+                       compose_activate, compose);
 
     /*
-     * The first wrapped callback should succeed by activating the
-     * second callback; it should fail and incomplete as it would have
-     * if it weren't wrapped in a compose.
+     * Fill in the data items.
      */
 
-    if (first->success != NULL)
-        *first->success = &second->activate;
+    compose->first = first;
+    compose->second = second;
 
-    /*
-     * The compose succeeds when the second wrapped callback succeeds.
-     * It cannot incomplete or fail on its own — only its wrapped
-     * callbacks can.
-     */
-
-    callback->success = second->success;
-    callback->incomplete = NULL;
-    callback->error = NULL;
-
-    return callback;
+    return &compose->callback;
 }

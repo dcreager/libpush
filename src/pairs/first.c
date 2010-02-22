@@ -20,10 +20,10 @@
 typedef struct _first
 {
     /**
-     * The continuation that we'll call on a successful parse.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_success_continuation_t  *success;
+    push_callback_t  callback;
 
     /**
      * The success continuation that we have the wrapped callback use.
@@ -77,6 +77,10 @@ first_activate(void *user_data,
 
     PUSH_DEBUG_MSG("first: Activating wrapped callback.\n");
 
+    first->wrapped->success = &first->wrapped_success;
+    first->wrapped->incomplete = first->callback.incomplete;
+    first->wrapped->error = first->callback.error;
+
     push_continuation_call(&first->wrapped->activate,
                            input->first,
                            buf, bytes_remaining);
@@ -97,10 +101,12 @@ first_wrapped_success(void *user_data,
      * Create the output pair from this result and our saved value.
      */
 
+    PUSH_DEBUG_MSG("first: Constructing output pair.\n");
+
     first->result.first = result;
     first->result.second = first->second;
 
-    push_continuation_call(first->success,
+    push_continuation_call(first->callback.success,
                            &first->result,
                            buf, bytes_remaining);
 
@@ -113,17 +119,12 @@ push_first_new(push_parser_t *parser,
                push_callback_t *wrapped)
 {
     first_t  *first = (first_t *) malloc(sizeof(first_t));
-    push_callback_t  *callback;
 
     if (first == NULL)
         return NULL;
 
-    callback = push_callback_new();
-    if (callback == NULL)
-    {
-        free(first);
-        return NULL;
-    }
+    push_callback_init(&first->callback, parser,
+                       first_activate, first);
 
     /*
      * Fill in the data items.
@@ -136,38 +137,9 @@ push_first_new(push_parser_t *parser,
      * implement.
      */
 
-    push_continuation_set(&callback->activate,
-                          first_activate,
-                          first);
-
     push_continuation_set(&first->wrapped_success,
                           first_wrapped_success,
                           first);
 
-    /*
-     * The wrapped callback should succeed by calling our success
-     * continuation, which will construct the correct output pair.
-     */
-
-    if (wrapped->success != NULL)
-        *wrapped->success = &first->wrapped_success;
-
-    /*
-     * By default, we call the parser's implementations of the
-     * continuations that we call.
-     */
-
-    first->success = &parser->success;
-
-    /*
-     * Set the pointers for the continuations that we call, so that
-     * they can be changed by combinators, if necessary.  We cannot
-     * incomplete or fail on our own — only our wrapped callback can.
-     */
-
-    callback->success = &first->success;
-    callback->incomplete = NULL;
-    callback->error = NULL;
-
-    return callback;
+    return &first->callback;
 }

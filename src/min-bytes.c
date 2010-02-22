@@ -22,23 +22,10 @@
 typedef struct _min_bytes
 {
     /**
-     * The continuation that we'll call on a successful parse.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_success_continuation_t  *success;
-
-    /**
-     * The continuation that we'll call if we run out of data in the
-     * current chunk.
-     */
-
-    push_incomplete_continuation_t  *incomplete;
-
-    /**
-     * The continuation that we'll call if we encounter an error.
-     */
-
-    push_error_continuation_t  *error;
+    push_callback_t  callback;
 
     /**
      * The continue continuation that will resume the min-bytes
@@ -150,8 +137,9 @@ min_bytes_first_continue(void *user_data,
          * callback should use our final continuations.
          */
 
-        *min_bytes->wrapped->success = min_bytes->success;
-        *min_bytes->wrapped->incomplete = min_bytes->incomplete;
+        min_bytes->wrapped->success = min_bytes->callback.success;
+        min_bytes->wrapped->incomplete = min_bytes->callback.incomplete;
+        min_bytes->wrapped->error = min_bytes->callback.error;
 
         push_continuation_call(&min_bytes->wrapped->activate,
                                min_bytes->input,
@@ -170,7 +158,7 @@ min_bytes_first_continue(void *user_data,
         PUSH_DEBUG_MSG("min-bytes: Reached EOF without meeting "
                        "minimum.\n");
 
-        push_continuation_call(min_bytes->error,
+        push_continuation_call(min_bytes->callback.error,
                                PUSH_PARSE_ERROR,
                                "Reached EOF without meeting minimum");
 
@@ -189,7 +177,7 @@ min_bytes_first_continue(void *user_data,
     memcpy(min_bytes->buffer, buf, bytes_remaining);
     min_bytes->bytes_buffered = bytes_remaining;
 
-    push_continuation_call(min_bytes->incomplete,
+    push_continuation_call(min_bytes->callback.incomplete,
                            &min_bytes->rest_cont);
 
     return;
@@ -217,7 +205,7 @@ min_bytes_activate(void *user_data,
          * incomplete and wait for some data.
          */
 
-        push_continuation_call(min_bytes->incomplete,
+        push_continuation_call(min_bytes->callback.incomplete,
                                &min_bytes->first_cont);
 
         return;
@@ -288,8 +276,12 @@ min_bytes_rest_continue(void *user_data,
 
         if (bytes_remaining == 0)
         {
-            *min_bytes->wrapped->success = min_bytes->success;
-            *min_bytes->wrapped->incomplete = min_bytes->incomplete;
+            min_bytes->wrapped->success =
+                min_bytes->callback.success;
+            min_bytes->wrapped->incomplete =
+                min_bytes->callback.incomplete;
+            min_bytes->wrapped->error =
+                min_bytes->callback.error;
 
         } else {
             /*
@@ -301,10 +293,12 @@ min_bytes_rest_continue(void *user_data,
             min_bytes->leftover_buf = buf;
             min_bytes->leftover_size = bytes_remaining;
 
-            *min_bytes->wrapped->success =
+            min_bytes->wrapped->success =
                 &min_bytes->leftover_success;
-            *min_bytes->wrapped->incomplete =
+            min_bytes->wrapped->incomplete =
                 &min_bytes->leftover_incomplete;
+            min_bytes->wrapped->error =
+                min_bytes->callback.error;
         }
 
         push_continuation_call(&min_bytes->wrapped->activate,
@@ -325,7 +319,7 @@ min_bytes_rest_continue(void *user_data,
         PUSH_DEBUG_MSG("min-bytes: Reached EOF without meeting "
                        "minimum.\n");
 
-        push_continuation_call(min_bytes->error,
+        push_continuation_call(min_bytes->callback.error,
                                PUSH_PARSE_ERROR,
                                "Reached EOF without meeting minimum");
 
@@ -345,7 +339,7 @@ min_bytes_rest_continue(void *user_data,
            buf, bytes_remaining);
     min_bytes->bytes_buffered = bytes_remaining;
 
-    push_continuation_call(min_bytes->incomplete,
+    push_continuation_call(min_bytes->callback.incomplete,
                            &min_bytes->rest_cont);
 
     return;
@@ -383,7 +377,7 @@ min_bytes_leftover_success(void *user_data,
                        "all %zu bytes.\n",
                        min_bytes->minimum_bytes);
 
-        push_continuation_call(min_bytes->error,
+        push_continuation_call(min_bytes->callback.error,
                                PUSH_PARSE_ERROR,
                                "Wrapped callback didn't process "
                                "full minimum.");
@@ -391,7 +385,7 @@ min_bytes_leftover_success(void *user_data,
         return;
     }
 
-    push_continuation_call(min_bytes->success,
+    push_continuation_call(min_bytes->callback.success,
                            result,
                            min_bytes->leftover_buf,
                            min_bytes->leftover_size);
@@ -422,8 +416,9 @@ min_bytes_leftover_incomplete(void *user_data,
      * callback should use our final continuations.
      */
 
-    *min_bytes->wrapped->success = min_bytes->success;
-    *min_bytes->wrapped->incomplete = min_bytes->incomplete;
+    min_bytes->wrapped->success = min_bytes->callback.success;
+    min_bytes->wrapped->incomplete = min_bytes->callback.incomplete;
+    min_bytes->wrapped->error = min_bytes->callback.error;
 
     push_continuation_call(cont,
                            min_bytes->leftover_buf,
@@ -440,7 +435,6 @@ push_min_bytes_new(push_parser_t *parser,
 {
     min_bytes_t  *min_bytes =
         (min_bytes_t *) malloc(sizeof(min_bytes_t));
-    push_callback_t  *callback;
 
     if (min_bytes == NULL)
         return NULL;
@@ -457,16 +451,11 @@ push_min_bytes_new(push_parser_t *parser,
     }
 
     /*
-     * Allocate the callback object.
+     * Initialize the callback superclass.
      */
 
-    callback = push_callback_new();
-    if (callback == NULL)
-    {
-        free(min_bytes->buffer);
-        free(min_bytes);
-        return NULL;
-    }
+    push_callback_init(&min_bytes->callback, parser,
+                       min_bytes_activate, min_bytes);
 
     /*
      * Fill in the data items.
@@ -479,10 +468,6 @@ push_min_bytes_new(push_parser_t *parser,
      * Fill in the continuation objects for the continuations that we
      * implement.
      */
-
-    push_continuation_set(&callback->activate,
-                          min_bytes_activate,
-                          min_bytes);
 
     push_continuation_set(&min_bytes->first_cont,
                           min_bytes_first_continue,
@@ -500,23 +485,5 @@ push_min_bytes_new(push_parser_t *parser,
                           min_bytes_leftover_incomplete,
                           min_bytes);
 
-    /*
-     * By default, we call the parser's implementations of the
-     * continuations that we call.
-     */
-
-    min_bytes->success = &parser->success;
-    min_bytes->incomplete = &parser->incomplete;
-    min_bytes->error = &parser->error;
-
-    /*
-     * Set the pointers for the continuations that we call, so that
-     * they can be changed by combinators, if necessary.
-     */
-
-    callback->success = &min_bytes->success;
-    callback->incomplete = &min_bytes->incomplete;
-    callback->error = &min_bytes->error;
-
-    return callback;
+    return &min_bytes->callback;
 }

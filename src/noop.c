@@ -21,10 +21,10 @@
 typedef struct _noop
 {
     /**
-     * The continuation that we'll call on a successful parse.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_success_continuation_t  *success;
+    push_callback_t  callback;
 
 } noop_t;
 
@@ -43,7 +43,7 @@ noop_activate(void *user_data,
      * Immediately succeed with the same input value.
      */
 
-    push_continuation_call(noop->success,
+    push_continuation_call(noop->callback.success,
                            result,
                            buf,
                            bytes_remaining);
@@ -56,42 +56,12 @@ push_callback_t *
 push_noop_new(push_parser_t *parser)
 {
     noop_t  *noop = (noop_t *) malloc(sizeof(noop_t));
-    push_callback_t  *callback;
 
     if (noop == NULL)
         return NULL;
 
-    callback = push_callback_new();
-    if (callback == NULL)
-    {
-        free(noop);
-        return NULL;
-    }
+    push_callback_init(&noop->callback, parser,
+                       noop_activate, noop);
 
-    /*
-     * Fill in the continuation objects for the continuations that we
-     * implement.
-     */
-
-    push_continuation_set(&callback->activate,
-                          noop_activate,
-                          noop);
-
-    /*
-     * By default, we call the parser's implementations of the
-     * continuations that we call.
-     */
-
-    noop->success = &parser->success;
-
-    /*
-     * Set the pointers for the continuations that we call, so that
-     * they can be changed by combinators, if necessary.
-     */
-
-    callback->success = &noop->success;
-    callback->incomplete = NULL;
-    callback->error = NULL;
-
-    return callback;
+    return &noop->callback;
 }

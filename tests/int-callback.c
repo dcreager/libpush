@@ -19,23 +19,10 @@
 typedef struct _integer
 {
     /**
-     * The continuation that we'll call on a successful parse.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_success_continuation_t  *success;
-
-    /**
-     * The continuation that we'll call if we run out of data in the
-     * current chunk.
-     */
-
-    push_incomplete_continuation_t  *incomplete;
-
-    /**
-     * The continuation that we'll call if we encounter an error.
-     */
-
-    push_error_continuation_t  *error;
+    push_callback_t  callback;
 
     /**
      * The continue continuation that will resume the EOF parser.
@@ -64,7 +51,7 @@ integer_continue(void *user_data,
 
     if (bytes_remaining < sizeof(uint32_t))
     {
-        push_continuation_call(integer->error,
+        push_continuation_call(integer->callback.error,
                                PUSH_PARSE_ERROR,
                                "Need more bytes to parse an integer");
 
@@ -78,7 +65,7 @@ integer_continue(void *user_data,
 
         PUSH_DEBUG_MSG("integer: Got %"PRIu32".\n", integer->parsed_value);
 
-        push_continuation_call(integer->success,
+        push_continuation_call(integer->callback.success,
                                &integer->parsed_value,
                                buf,
                                bytes_remaining);
@@ -103,7 +90,7 @@ integer_activate(void *user_data,
          * incomplete and wait for some data.
          */
 
-        push_continuation_call(integer->incomplete,
+        push_continuation_call(integer->callback.incomplete,
                                &integer->cont);
 
         return;
@@ -124,50 +111,23 @@ static push_callback_t *
 inner_integer_callback_new(push_parser_t *parser)
 {
     integer_t  *integer = (integer_t *) malloc(sizeof(integer_t));
-    push_callback_t  *callback;
 
     if (integer == NULL)
         return NULL;
 
-    callback = push_callback_new();
-    if (callback == NULL)
-    {
-        free(integer);
-        return NULL;
-    }
+    push_callback_init(&integer->callback, parser,
+                       integer_activate, integer);
 
     /*
      * Fill in the continuation objects for the continuations that we
      * implement.
      */
 
-    push_continuation_set(&callback->activate,
-                          integer_activate,
-                          integer);
-
     push_continuation_set(&integer->cont,
                           integer_continue,
                           integer);
 
-    /*
-     * By default, we call the parser's implementations of the
-     * continuations that we call.
-     */
-
-    integer->success = &parser->success;
-    integer->incomplete = &parser->incomplete;
-    integer->error = &parser->error;
-
-    /*
-     * Set the pointers for the continuations that we call, so that
-     * they can be changed by combinators, if necessary.
-     */
-
-    callback->success = &integer->success;
-    callback->incomplete = &integer->incomplete;
-    callback->error = &integer->error;
-
-    return callback;
+    return &integer->callback;
 }
 
 

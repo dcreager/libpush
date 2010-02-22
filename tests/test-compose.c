@@ -27,23 +27,10 @@
 typedef struct _sum
 {
     /**
-     * The continuation that we'll call on a successful parse.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_success_continuation_t  *success;
-
-    /**
-     * The continuation that we'll call if we run out of data in the
-     * current chunk.
-     */
-
-    push_incomplete_continuation_t  *incomplete;
-
-    /**
-     * The continuation that we'll call if we encounter an error.
-     */
-
-    push_error_continuation_t  *error;
+    push_callback_t  callback;
 
     /**
      * The continue continuation that will resume the EOF parser.
@@ -72,7 +59,7 @@ sum_continue(void *user_data,
 
     if (bytes_remaining < sizeof(uint32_t))
     {
-        push_continuation_call(sum->error,
+        push_continuation_call(sum->callback.error,
                                PUSH_PARSE_ERROR,
                                "Need more bytes to parse an integer");
 
@@ -89,7 +76,7 @@ sum_continue(void *user_data,
                        *next_integer, sum->sum);
         PUSH_DEBUG_MSG("sum: Returning %zu bytes.\n", bytes_remaining);
 
-        push_continuation_call(sum->success,
+        push_continuation_call(sum->callback.success,
                                &sum->sum,
                                buf,
                                bytes_remaining);
@@ -120,7 +107,7 @@ sum_activate(void *user_data,
          * incomplete and wait for some data.
          */
 
-        push_continuation_call(sum->incomplete,
+        push_continuation_call(sum->callback.incomplete,
                                &sum->cont);
 
         return;
@@ -141,50 +128,23 @@ static push_callback_t *
 sum_callback_new(push_parser_t *parser)
 {
     sum_t  *sum = (sum_t *) malloc(sizeof(sum_t));
-    push_callback_t  *callback;
 
     if (sum == NULL)
         return NULL;
 
-    callback = push_callback_new();
-    if (callback == NULL)
-    {
-        free(sum);
-        return NULL;
-    }
+    push_callback_init(&sum->callback, parser,
+                       sum_activate, sum);
 
     /*
      * Fill in the continuation objects for the continuations that we
      * implement.
      */
 
-    push_continuation_set(&callback->activate,
-                          sum_activate,
-                          sum);
-
     push_continuation_set(&sum->cont,
                           sum_continue,
                           sum);
 
-    /*
-     * By default, we call the parser's implementations of the
-     * continuations that we call.
-     */
-
-    sum->success = &parser->success;
-    sum->incomplete = &parser->incomplete;
-    sum->error = &parser->error;
-
-    /*
-     * Set the pointers for the continuations that we call, so that
-     * they can be changed by combinators, if necessary.
-     */
-
-    callback->success = &sum->success;
-    callback->incomplete = &sum->incomplete;
-    callback->error = &sum->error;
-
-    return callback;
+    return &sum->callback;
 }
 
 

@@ -48,6 +48,11 @@
 #endif
 
 
+/* Forward declarations */
+
+typedef struct _push_parser  push_parser_t;
+
+
 /**
  * Error codes that can be returned by a callback's process_bytes
  * function and the push_parser_submit_data() function.
@@ -290,33 +295,42 @@ typedef struct _push_callback
      * call when the parse succeeds.
      */
 
-    push_success_continuation_t  **success;
+    push_success_continuation_t  *success;
 
     /**
      * A pointer to the incomplete continuation that the callback will
      * call when the parse succeeds.
      */
 
-    push_incomplete_continuation_t  **incomplete;
+    push_incomplete_continuation_t  *incomplete;
 
     /**
      * A pointer to the error continuation that the callback will
      * call when the parse succeeds.
      */
 
-    push_error_continuation_t  **error;
+    push_error_continuation_t  *error;
 
 } push_callback_t;
 
 
 /**
- * @brief Create a new push parser callback.
+ * @brief Initializes a new push parser callback.
  *
  * @return NULL if we can't create the new callback object.
  */
 
-push_callback_t *
-push_callback_new();
+#define push_callback_init(callback, parser,                            \
+                           activate_func, activate_user_data)           \
+    (_push_callback_init((callback), (parser), #activate_func,          \
+                         (activate_func), (activate_user_data)))
+
+void
+_push_callback_init(push_callback_t *callback,
+                    push_parser_t *parser,
+                    const char *activate_name,
+                    push_success_continuation_func_t *activate_func,
+                    void *activate_user_data);
 
 
 /**
@@ -331,7 +345,7 @@ push_callback_free(push_callback_t *callback);
  * @brief A push parser.
  */
 
-typedef struct _push_parser
+struct _push_parser
 {
     /**
      * The activation function of the parser's top-level callback.
@@ -398,7 +412,7 @@ typedef struct _push_parser
 
     push_continue_continuation_t  ignore;
 
-} push_parser_t;
+};
 
 
 /**

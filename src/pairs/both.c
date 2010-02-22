@@ -25,10 +25,10 @@
 typedef struct _dup
 {
     /**
-     * The continuation that we'll call on a successful parse.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_success_continuation_t  *success;
+    push_callback_t  callback;
 
     /**
      * The outpt pair that we construct.
@@ -55,7 +55,7 @@ dup_activate(void *user_data,
     dup->result.first = result;
     dup->result.second = result;
 
-    push_continuation_call(dup->success,
+    push_continuation_call(dup->callback.success,
                            &dup->result,
                            buf, bytes_remaining);
 
@@ -67,44 +67,14 @@ push_callback_t *
 push_dup_new(push_parser_t *parser)
 {
     dup_t  *dup = (dup_t *) malloc(sizeof(dup_t));
-    push_callback_t  *callback;
 
     if (dup == NULL)
         return NULL;
 
-    callback = push_callback_new();
-    if (callback == NULL)
-    {
-        free(dup);
-        return NULL;
-    }
+    push_callback_init(&dup->callback, parser,
+                       dup_activate, dup);
 
-    /*
-     * Fill in the continuation objects for the continuations that we
-     * implement.
-     */
-
-    push_continuation_set(&callback->activate,
-                          dup_activate,
-                          dup);
-
-    /*
-     * By default, we call the parser's implementations of the
-     * continuations that we call.
-     */
-
-    dup->success = &parser->success;
-
-    /*
-     * Set the pointers for the continuations that we call, so that
-     * they can be changed by combinators, if necessary.
-     */
-
-    callback->success = &dup->success;
-    callback->incomplete = NULL;
-    callback->error = NULL;
-
-    return callback;
+    return &dup->callback;
 }
 
 
