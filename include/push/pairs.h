@@ -66,6 +66,16 @@ push_second_new(push_parser_t *parser,
 
 
 /**
+ * Create a new callback that duplicates its input.  The output will
+ * be a pair, where the first and second element are both the same as
+ * the input.
+ */
+
+push_callback_t *
+push_dup_new(push_parser_t *parser);
+
+
+/**
  * Create a new callback that takes a pair as input, and applies one
  * callback to the first element of the pair, and a different callback
  * to the second element.

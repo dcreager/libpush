@@ -63,8 +63,8 @@ dup_activate(void *user_data,
 }
 
 
-static push_callback_t *
-dup_new(push_parser_t *parser)
+push_callback_t *
+push_dup_new(push_parser_t *parser)
 {
     dup_t  *dup = (dup_t *) malloc(sizeof(dup_t));
     push_callback_t  *callback;
@@ -117,7 +117,7 @@ push_both_new(push_parser_t *parser,
     push_callback_t  *par;
     push_callback_t  *callback;
 
-    dup = dup_new(parser);
+    dup = push_dup_new(parser);
     if (dup == NULL)
         return NULL;
 
