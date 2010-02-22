@@ -86,17 +86,6 @@ typedef enum
 
     PUSH_MEMORY_ERROR = -3,
 
-    /**
-     * A special code that is used within compound callbacks to
-     * indicate that a child callback generated a parse error.  This
-     * shouldn't ever be a visible result from any of the public API
-     * functions.  It's used when a compound callback needs to detect
-     * a child's failure, and translate that into a success or failure
-     * of the outer callback.
-     */
-
-    PUSH_INNER_PARSE_ERROR = -4,
-
 } push_error_code_t;
 
 

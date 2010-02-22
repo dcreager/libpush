@@ -52,7 +52,8 @@ push_compose_new(push_parser_t *parser,
  */
 
 push_callback_t *
-push_fold_new(push_callback_t *wrapped);
+push_fold_new(push_parser_t *parser,
+              push_callback_t *wrapped);
 
 
 /**

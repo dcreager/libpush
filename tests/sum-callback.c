@@ -29,16 +29,16 @@
  * The “repeated sum” callback composes an integer callback and a sum
  * callback together.  The composed callback has the following design:
  *
- *    +------------------------------------------------+
- *    |                                                |
- *    | ignore +-----+  next int  +-------+            |
- *    |   /===>| Int |===========>|       |            |
- *    |==<     +-----+            | Inner |===========>|
- *    |   \    +------+           |  Sum  |  new sum   |
- *    |    \==>| Noop |==========>|       |            |
- *    |  old   +------+  old sum  +-------+            |
- *    |  sum                                           |
- *    +------------------------------------------------+
+ *    +------------------------------------------------------+
+ *    |                           next                       |
+ *    |           ignore +-----+   int  +-------+            |
+ *    |   +-----+   /===>| Int |=======>|       |            |
+ *    |==>| Dup |==<     +-----+        | Inner |===========>|
+ *    |   +-----+   \                   |  Sum  |  new sum   |
+ *    |              \=================>|       |            |
+ *    |                   old sum       +-------+            |
+ *    |                                                      |
+ *    +------------------------------------------------------+
  *
  * So it takes in a pair, but the callback expects the first element
  * to be NULL on input, and outputs a NULL there as well.  The first
@@ -47,96 +47,74 @@
  */
 
 
-typedef struct _inner_sum_callback
+typedef struct _inner_sum
 {
-    push_callback_t  base;
-    uint32_t  *input_int;
-    uint32_t  *input_sum;
-    uint32_t  output_sum;
-} inner_sum_callback_t;
+    push_callback_t  callback;
+    uint32_t  result;
+} inner_sum_t;
 
 
-static push_error_code_t
-inner_sum_activate(push_parser_t *parser,
-                   push_callback_t *pcallback,
-                   void *vinput)
+static void
+inner_sum_activate(void *user_data,
+                   void *result,
+                   const void *buf,
+                   size_t bytes_remaining)
 {
-    inner_sum_callback_t  *callback =
-        (inner_sum_callback_t *) pcallback;
-    push_pair_t  *input = (push_pair_t *) vinput;
-
-    callback->input_int = (uint32_t *) input->first;
-    callback->input_sum = (uint32_t *) input->second;
+    inner_sum_t  *inner_sum = (inner_sum_t *) user_data;
+    push_pair_t  *input = (push_pair_t *) result;
+    uint32_t  *input_int = (uint32_t *) input->first;
+    uint32_t  *input_sum = (uint32_t *) input->second;
 
     PUSH_DEBUG_MSG("sum: Activating callback.  "
                    "Received value %"PRIu32", sum %"PRIu32".\n",
-                   *callback->input_int,
-                   *callback->input_sum);
-    return PUSH_SUCCESS;
-}
+                   *input_int,
+                   *input_sum);
 
-
-static ssize_t
-inner_sum_process_bytes(push_parser_t *parser,
-                        push_callback_t *pcallback,
-                        const void *buf,
-                        size_t bytes_available)
-{
-    inner_sum_callback_t  *callback = (inner_sum_callback_t *) pcallback;
-
-    /*
-     * Add the two numbers together.  The result pointer does't change
-     * if we execute this callback more than once, so it was set in
-     * the constructor.
-     */
-
-    callback->output_sum = *callback->input_int + *callback->input_sum;
+    inner_sum->result = *input_int + *input_sum;
 
     PUSH_DEBUG_MSG("sum: Adding, sum is now %"PRIu32"\n",
-                   callback->output_sum);
+                   inner_sum->result);
 
-    /*
-     * We don't actually parse anything, so we always succeed.
-     */
+    push_continuation_call(inner_sum->callback.success,
+                           &inner_sum->result,
+                           buf, bytes_remaining);
 
-    return bytes_available;
+    return;
 }
 
 
 static push_callback_t *
-inner_sum_callback_new()
+inner_sum_callback_new(push_parser_t *parser)
 {
-    inner_sum_callback_t  *sum =
-        (inner_sum_callback_t *) malloc(sizeof(inner_sum_callback_t));
+    inner_sum_t  *inner_sum =
+        (inner_sum_t *) malloc(sizeof(inner_sum_t));
 
-    if (sum == NULL)
+    if (inner_sum == NULL)
         return NULL;
 
-    push_callback_init(&sum->base,
-                       inner_sum_activate,
-                       inner_sum_process_bytes,
-                       NULL);
+    push_callback_init(&inner_sum->callback, parser,
+                       inner_sum_activate, inner_sum);
 
-    sum->base.result = &sum->output_sum;
-
-    return &sum->base;
+    return &inner_sum->callback;
 }
 
 
 push_callback_t *
-sum_callback_new()
+sum_callback_new(push_parser_t *parser)
 {
+    push_callback_t  *dup;
     push_callback_t  *integer;
-    push_callback_t  *noop;
-    push_callback_t  *both;
+    push_callback_t  *first;
     push_callback_t  *inner_sum;
-    push_callback_t  *compose;
+    push_callback_t  *compose1;
+    push_callback_t  *compose2;
 
-    integer = integer_callback_new();
-    noop = push_noop_new();
-    both = push_both_new(integer, noop);
-    inner_sum = inner_sum_callback_new();
-    compose = push_compose_new(both, inner_sum);
+    dup = push_dup_new(parser);
+    integer = integer_callback_new(parser);
+    first = push_first_new(parser, integer);
+    inner_sum = inner_sum_callback_new(parser);
+    compose1 = push_compose_new(parser, dup, first);
+    compose2 = push_compose_new(parser, compose1, inner_sum);
 
-    return compose;
+    return compose2;
 }

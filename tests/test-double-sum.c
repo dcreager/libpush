@@ -33,23 +33,23 @@
  */
 
 static push_callback_t *
-make_double_sum_callback()
+make_double_sum_callback(push_parser_t *parser)
 {
     push_callback_t  *sum1;
     push_callback_t  *sum2;
     push_callback_t  *par;
     push_callback_t  *fold;
 
-    sum1 = sum_callback_new();
+    sum1 = sum_callback_new(parser);
     if (sum1 == NULL) return NULL;
 
-    sum2 = sum_callback_new();
+    sum2 = sum_callback_new(parser);
     if (sum2 == NULL) return NULL;
 
-    par = push_par_new(sum1, sum2);
+    par = push_par_new(parser, sum1, sum2);
     if (par == NULL) return NULL;
 
-    fold = push_fold_new(par);
+    fold = push_fold_new(parser, par);
     if (fold == NULL) return NULL;
 
     return fold;
@@ -82,16 +82,18 @@ START_TEST(test_double_sum_01)
 
     PUSH_DEBUG_MSG("---\nStarting test_double_sum_01\n");
 
-    callback = make_double_sum_callback();
-    fail_if(callback == NULL,
-            "Could not allocate double-sum callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    callback = make_double_sum_callback(parser);
+    fail_if(callback == NULL,
+            "Could not allocate double-sum callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &PAIR_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -101,7 +103,7 @@ START_TEST(test_double_sum_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (push_pair_t *) callback->result;
+    result = push_parser_result(parser, push_pair_t);
     sum1 = (uint32_t *) result->first;
     sum2 = (uint32_t *) result->second;
 
@@ -134,16 +136,18 @@ START_TEST(test_double_sum_02)
      * If we submit the data twice, we should get twice the result.
      */
 
-    callback = make_double_sum_callback();
-    fail_if(callback == NULL,
-            "Could not allocate double-sum callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    callback = make_double_sum_callback(parser);
+    fail_if(callback == NULL,
+            "Could not allocate double-sum callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &PAIR_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -157,7 +161,7 @@ START_TEST(test_double_sum_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (push_pair_t *) callback->result;
+    result = push_parser_result(parser, push_pair_t);
     sum1 = (uint32_t *) result->first;
     sum2 = (uint32_t *) result->second;
 
@@ -192,16 +196,18 @@ START_TEST(test_double_sum_03)
      * End result should be the same.
      */
 
-    callback = make_double_sum_callback();
-    fail_if(callback == NULL,
-            "Could not allocate double-sum callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    callback = make_double_sum_callback(parser);
+    fail_if(callback == NULL,
+            "Could not allocate double-sum callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &PAIR_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -211,7 +217,7 @@ START_TEST(test_double_sum_03)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (push_pair_t *) callback->result;
+    result = push_parser_result(parser, push_pair_t);
     sum1 = (uint32_t *) result->first;
     sum2 = (uint32_t *) result->second;
 
@@ -247,16 +253,18 @@ START_TEST(test_misaligned_data)
      * we should still get the right answer.
      */
 
-    callback = make_double_sum_callback();
-    fail_if(callback == NULL,
-            "Could not allocate double-sum callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    callback = make_double_sum_callback(parser);
+    fail_if(callback == NULL,
+            "Could not allocate double-sum callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &PAIR_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -272,7 +280,7 @@ START_TEST(test_misaligned_data)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (push_pair_t *) callback->result;
+    result = push_parser_result(parser, push_pair_t);
     sum1 = (uint32_t *) result->first;
     sum2 = (uint32_t *) result->second;
 

@@ -29,7 +29,7 @@ integer_callback_new(push_parser_t *parser);
  */
 
 push_callback_t *
-sum_callback_new();
+sum_callback_new(push_parser_t *parser);
 
 
 #endif  /* TEST_CALLBACKS_H */
