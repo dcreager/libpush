@@ -15,144 +15,171 @@
 
 
 /**
- * The push_callback_t subclass that defines a skip callback.
+ * The user data struct for a skip callback.
  */
 
 typedef struct _skip
 {
     /**
-     * The callback's “superclass” instance.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_callback_t  base;
+    push_callback_t  callback;
 
     /**
-     * The number of bytes to skip.
+     * The continue continuation for this callback.
      */
 
-    size_t  bytes_to_skip;
+    push_continue_continuation_t  cont;
 
     /**
-     * The number of bytes skipped so far.
+     * The total number of bytes to skip.
      */
 
-    size_t  bytes_skipped;
+    size_t  total_to_skip;
+
+    /**
+     * The number of bytes left to skip.
+     */
+
+    size_t  left_to_skip;
 
 } skip_t;
 
 
-static push_error_code_t
-skip_activate(push_parser_t *parser,
-              push_callback_t *pcallback,
-              void *input)
+static void
+skip_continue(void *user_data,
+              const void *buf,
+              size_t bytes_remaining)
 {
-    skip_t  *callback = (skip_t *) pcallback;
-    size_t  *bytes_to_skip = (size_t *) input;
-
-    PUSH_DEBUG_MSG("skip: Activating.  Will skip %zu bytes.\n",
-                   *bytes_to_skip);
-
-    callback->bytes_to_skip = *bytes_to_skip;
-    callback->bytes_skipped = 0;
-
-    return PUSH_SUCCESS;
-}
-
-
-static ssize_t
-skip_process_bytes(push_parser_t *parser,
-                   push_callback_t *pcallback,
-                   const void *vbuf,
-                   size_t bytes_available)
-{
-    skip_t  *callback = (skip_t *) pcallback;
-    size_t  skip_size;
-
-    if (callback->bytes_skipped > callback->bytes_to_skip)
-    {
-        /*
-         * Well, this shouldn't have happened...  We've skipped more
-         * bytes than we were asked to.  Let's call this a parse
-         * error.
-         */
-
-        PUSH_DEBUG_MSG("skip: Fatal error, we somehow skipped over "
-                       "too many bytes!\n");
-
-        return PUSH_PARSE_ERROR;
-    }
+    skip_t  *skip = (skip_t *) user_data;
+    size_t  bytes_to_skip;
 
     /*
      * If we reach EOF, then it's a parse error, since we didn't
      * receive as many bytes as we needed to skip over.
      */
 
-    if (bytes_available == 0)
+    if (bytes_remaining == 0)
     {
         PUSH_DEBUG_MSG("skip: Reached EOF still needing to skip "
                        "%zu bytes.\n",
-                       callback->bytes_to_skip - callback->bytes_skipped);
+                       skip->left_to_skip);
 
-        return PUSH_PARSE_ERROR;
+        push_continuation_call(skip->callback.error,
+                               PUSH_PARSE_ERROR,
+                               "Reached EOF before end of skip");
+
+        return;
     }
 
     /*
-     * Determine how many bytes in this chunk to skip over.
+     * Skip over the data in the current chunk.
      */
 
-    skip_size = callback->bytes_to_skip - callback->bytes_skipped;
+    bytes_to_skip =
+        (bytes_remaining > skip->left_to_skip)?
+        skip->left_to_skip:
+        bytes_remaining;
 
-    if (skip_size > bytes_available)
-        skip_size = bytes_available;
+    PUSH_DEBUG_MSG("skip: Skipping over %zu bytes.\n",
+                   bytes_to_skip);
 
-    PUSH_DEBUG_MSG("skip: Skipping over %zu bytes.\n", skip_size);
+    buf += bytes_to_skip;
+    bytes_remaining -= bytes_to_skip;
+    skip->left_to_skip -= bytes_to_skip;
 
     /*
-     * Skip over the bytes.
+     * If we've skipped over everything we need to, then fire off a
+     * success result.
      */
 
-    callback->bytes_skipped += skip_size;
-    bytes_available -= skip_size;
-
-    /*
-     * If we haven't skipped over all of the bytes yet, then we need
-     * to return the “incomplete” code.
-     */
-
-    if (callback->bytes_skipped < callback->bytes_to_skip)
+    if (skip->left_to_skip == 0)
     {
-        PUSH_DEBUG_MSG("skip: %zu bytes left to skip.\n",
-                       callback->bytes_to_skip - callback->bytes_skipped);
-        return PUSH_INCOMPLETE;
+        PUSH_DEBUG_MSG("skip: Finished skipping.\n");
+
+        push_continuation_call(skip->callback.success,
+                               NULL,
+                               buf, bytes_remaining);
+
+        return;
     }
 
     /*
-     * Otherwise return a success code, indicating how many bytes are
-     * left in this chunk.
+     * Otherwise, we return an incomplete result.
      */
 
-    PUSH_DEBUG_MSG("skip: Finished skipping; %zu bytes left.\n",
-                   bytes_available);
+    PUSH_DEBUG_MSG("skip: %zu bytes left to skip.\n",
+                   callback->left_to_skip);
 
-    return bytes_available;
+    push_continuation_call(skip->callback.incomplete,
+                           &skip->cont);
+}
+
+
+static void
+skip_activate(void *user_data,
+              void *result,
+              const void *buf,
+              size_t bytes_remaining)
+{
+    skip_t  *skip = (skip_t *) user_data;
+    size_t  *bytes_to_skip = (size_t *) result;
+
+    PUSH_DEBUG_MSG("skip: Activating.  Will skip %zu bytes.\n",
+                   *bytes_to_skip);
+
+    skip->total_to_skip = *bytes_to_skip;
+    skip->left_to_skip = *bytes_to_skip;
+
+    if (bytes_remaining == 0)
+    {
+        /*
+         * If we don't get any data when we're activated, return an
+         * incomplete and wait for some data.
+         */
+
+        push_continuation_call(skip->callback.incomplete,
+                               &skip->cont);
+
+        return;
+
+    } else {
+        /*
+         * Otherwise let the continue continuation go ahead and
+         * process this chunk of data.
+         */
+
+        skip_continue(user_data, buf, bytes_remaining);
+        return;
+    }
 }
 
 
 push_callback_t *
-push_skip_new()
+push_skip_new(push_parser_t *parser)
 {
-    skip_t  *callback = (skip_t *) malloc(sizeof(skip_t));
+    skip_t  *skip = (skip_t *) malloc(sizeof(skip_t));
 
-    if (callback == NULL)
+    if (skip == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&skip->callback, parser, skip,
                        skip_activate,
-                       skip_process_bytes,
-                       NULL);
+                       NULL, NULL, NULL);
 
-    callback->bytes_to_skip = 0;
-    callback->bytes_skipped = 0;
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
 
-    return &callback->base;
+    push_continuation_set(&skip->cont,
+                          skip_continue,
+                          skip);
+
+    return &skip->callback;
 }

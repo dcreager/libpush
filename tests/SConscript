@@ -57,7 +57,7 @@ add_test("test-indexed-sum")
 add_test("test-int")
 add_test("test-noop")
 add_test("test-pairs")
-#add_test("test-skip")
+add_test("test-skip")
 add_test("test-sum")
 
 #add_test("test-protobuf-message")

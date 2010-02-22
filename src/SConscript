@@ -22,7 +22,7 @@ libpush_files = map(File, \
      "pairs/par.c",
      "pairs/second.c",
      "parser.c",
-     #"skip.c",
+     "skip.c",
      #"trash.c",
      #"protobuf/assign-uint32.c",
      #"protobuf/assign-uint64.c",

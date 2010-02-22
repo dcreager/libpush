@@ -63,7 +63,7 @@ push_noop_new(push_parser_t *parser);
  */
 
 push_callback_t *
-push_skip_new();
+push_skip_new(push_parser_t *parser);
 
 
 /**
