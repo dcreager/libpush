@@ -16,7 +16,7 @@
 
 
 /**
- * The user data struct a min-bytes callback.
+ * The user data struct for a min-bytes callback.
  */
 
 typedef struct _min_bytes

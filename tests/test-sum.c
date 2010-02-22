@@ -28,13 +28,13 @@
  */
 
 static push_callback_t *
-make_repeated_sum()
+make_repeated_sum(push_parser_t *parser)
 {
     push_callback_t  *sum;
     push_callback_t  *fold;
 
-    sum = sum_callback_new();
-    fold = push_fold_new(sum);
+    sum = sum_callback_new(parser);
+    fold = push_fold_new(parser, sum);
 
     return fold;
 }
@@ -69,16 +69,18 @@ START_TEST(test_sum_01)
 
     PUSH_DEBUG_MSG("---\nStarting test_sum_01\n");
 
-    callback = make_repeated_sum();
-    fail_if(callback == NULL,
-            "Could not allocate a new sum callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    callback = make_repeated_sum(parser);
+    fail_if(callback == NULL,
+            "Could not allocate a new sum callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &INT_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -88,7 +90,7 @@ START_TEST(test_sum_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -112,16 +114,18 @@ START_TEST(test_sum_02)
      * If we submit the data twice, we should get twice the result.
      */
 
-    callback = make_repeated_sum();
-    fail_if(callback == NULL,
-            "Could not allocate a new sum callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    callback = make_repeated_sum(parser);
+    fail_if(callback == NULL,
+            "Could not allocate a new sum callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &INT_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -135,7 +139,7 @@ START_TEST(test_sum_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 30,
                 "Sum doesn't match (got %"PRIu32
@@ -162,16 +166,18 @@ START_TEST(test_misaligned_data)
      * we should still get the right answer.
      */
 
-    callback = make_repeated_sum();
-    fail_if(callback == NULL,
-            "Could not allocate a new sum callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    callback = make_repeated_sum(parser);
+    fail_if(callback == NULL,
+            "Could not allocate a new sum callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &INT_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -187,7 +193,7 @@ START_TEST(test_misaligned_data)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -213,16 +219,18 @@ START_TEST(test_parse_error_01)
      * and then reach EOF, we should get a parse error.
      */
 
-    callback = make_repeated_sum();
-    fail_if(callback == NULL,
-            "Could not allocate a new sum callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    callback = make_repeated_sum(parser);
+    fail_if(callback == NULL,
+            "Could not allocate a new sum callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &INT_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -251,20 +259,22 @@ START_TEST(test_max_01)
      * should get a smaller sum.
      */
 
-    sum = make_repeated_sum();
-    fail_if(sum == NULL,
-            "Could not allocate a new sum callback");
-
-    callback = push_max_bytes_new(sum, MAX_SIZE_01);
-    fail_if(callback == NULL,
-            "Could not allocate a new max-bytes callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    sum = make_repeated_sum(parser);
+    fail_if(sum == NULL,
+            "Could not allocate a new sum callback");
+
+    callback = push_max_bytes_new(parser, sum, MAX_SIZE_01);
+    fail_if(callback == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &INT_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -274,7 +284,7 @@ START_TEST(test_max_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 6,
                 "Sum doesn't match (got %"PRIu32
@@ -306,32 +316,34 @@ START_TEST(test_max_02)
      * smaller sum.
      */
 
-    sum1 = make_repeated_sum();
-    fail_if(sum1 == NULL,
-            "Could not allocate a new sum callback");
-
-    max1 = push_max_bytes_new(sum1, MAX_SIZE_02);
-    fail_if(max1 == NULL,
-            "Could not allocate a new max-bytes callback");
-
-    sum2 = make_repeated_sum();
-    fail_if(sum2 == NULL,
-            "Could not allocate a new sum callback");
-
-    max2 = push_max_bytes_new(sum2, MAX_SIZE_02);
-    fail_if(max2 == NULL,
-            "Could not allocate a new max-bytes callback");
-
-    callback = push_both_new(max1, max2);
-    fail_if(callback == NULL,
-            "Could not allocate a new both callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    sum1 = make_repeated_sum(parser);
+    fail_if(sum1 == NULL,
+            "Could not allocate a new sum callback");
+
+    max1 = push_max_bytes_new(parser, sum1, MAX_SIZE_02);
+    fail_if(max1 == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    sum2 = make_repeated_sum(parser);
+    fail_if(sum2 == NULL,
+            "Could not allocate a new sum callback");
+
+    max2 = push_max_bytes_new(parser, sum2, MAX_SIZE_02);
+    fail_if(max2 == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    callback = push_both_new(parser, max1, max2);
+    fail_if(callback == NULL,
+            "Could not allocate a new both callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &INT_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -341,7 +353,7 @@ START_TEST(test_max_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    pair = (push_pair_t *) callback->result;
+    pair = push_parser_result(parser, push_pair_t);
     result1 = (uint32_t *) pair->first;
     result2 = (uint32_t *) pair->second;
 
@@ -377,20 +389,22 @@ START_TEST(test_misaligned_max_01)
      * one chunk.
      */
 
-    sum = make_repeated_sum();
-    fail_if(sum == NULL,
-            "Could not allocate a new sum callback");
-
-    callback = push_max_bytes_new(sum, MAX_SIZE_01);
-    fail_if(callback == NULL,
-            "Could not allocate a new max-bytes callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    sum = make_repeated_sum(parser);
+    fail_if(sum == NULL,
+            "Could not allocate a new sum callback");
+
+    callback = push_max_bytes_new(parser, sum, MAX_SIZE_01);
+    fail_if(callback == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &INT_0)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -406,7 +420,7 @@ START_TEST(test_misaligned_max_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 6,
                 "Sum doesn't match (got %"PRIu32
@@ -432,20 +446,22 @@ START_TEST(test_dynamic_max_01)
      * should get a smaller sum.
      */
 
-    sum = make_repeated_sum();
-    fail_if(sum == NULL,
-            "Could not allocate a new sum callback");
-
-    callback = push_dynamic_max_bytes_new(sum);
-    fail_if(callback == NULL,
-            "Could not allocate a new max-bytes callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    sum = make_repeated_sum(parser);
+    fail_if(sum == NULL,
+            "Could not allocate a new sum callback");
+
+    callback = push_dynamic_max_bytes_new(parser, sum);
+    fail_if(callback == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &MAX_INPUT_01)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -455,7 +471,7 @@ START_TEST(test_dynamic_max_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 6,
                 "Sum doesn't match (got %"PRIu32
@@ -487,32 +503,34 @@ START_TEST(test_dynamic_max_02)
      * smaller sum.
      */
 
-    sum1 = make_repeated_sum();
-    fail_if(sum1 == NULL,
-            "Could not allocate a new sum callback");
-
-    max1 = push_dynamic_max_bytes_new(sum1);
-    fail_if(max1 == NULL,
-            "Could not allocate a new max-bytes callback");
-
-    sum2 = make_repeated_sum();
-    fail_if(sum2 == NULL,
-            "Could not allocate a new sum callback");
-
-    max2 = push_dynamic_max_bytes_new(sum2);
-    fail_if(max2 == NULL,
-            "Could not allocate a new max-bytes callback");
-
-    callback = push_both_new(max1, max2);
-    fail_if(callback == NULL,
-            "Could not allocate a new both callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    sum1 = make_repeated_sum(parser);
+    fail_if(sum1 == NULL,
+            "Could not allocate a new sum callback");
+
+    max1 = push_dynamic_max_bytes_new(parser, sum1);
+    fail_if(max1 == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    sum2 = make_repeated_sum(parser);
+    fail_if(sum2 == NULL,
+            "Could not allocate a new sum callback");
+
+    max2 = push_dynamic_max_bytes_new(parser, sum2);
+    fail_if(max2 == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    callback = push_both_new(parser, max1, max2);
+    fail_if(callback == NULL,
+            "Could not allocate a new both callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &MAX_INPUT_02)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -522,7 +540,7 @@ START_TEST(test_dynamic_max_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    pair = (push_pair_t *) callback->result;
+    pair = push_parser_result(parser, push_pair_t);
     result1 = (uint32_t *) pair->first;
     result2 = (uint32_t *) pair->second;
 
@@ -558,20 +576,22 @@ START_TEST(test_misaligned_dynamic_max_01)
      * one chunk.
      */
 
-    sum = make_repeated_sum();
-    fail_if(sum == NULL,
-            "Could not allocate a new sum callback");
-
-    callback = push_dynamic_max_bytes_new(sum);
-    fail_if(callback == NULL,
-            "Could not allocate a new max-bytes callback");
-
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
+    sum = make_repeated_sum(parser);
+    fail_if(sum == NULL,
+            "Could not allocate a new sum callback");
+
+    callback = push_dynamic_max_bytes_new(parser, sum);
+    fail_if(callback == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    push_parser_set_callback(parser, callback);
+
     fail_unless(push_parser_activate(parser, &MAX_INPUT_01)
-                == PUSH_SUCCESS,
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -587,7 +607,7 @@ START_TEST(test_misaligned_dynamic_max_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 6,
                 "Sum doesn't match (got %"PRIu32

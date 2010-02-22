@@ -17,16 +17,46 @@
 
 
 /**
- * The push_callback_t subclass that defines a max-bytes callback.
+ * The user data struct for a max-bytes callback.
  */
 
 typedef struct _max_bytes
 {
     /**
-     * The callback's “superclass” instance.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_callback_t  base;
+    push_callback_t  callback;
+
+    /**
+     * The continue continuation that will check the next chunk of
+     * data to ensure it doesn't go over the maximum.  Will pass
+     * however much data fits under the maximum to the wrapped_cont
+     * continuation.
+     */
+
+    push_continue_continuation_t  cont;
+
+    /**
+     * The incomplete continuation that the wrapped callback uses if
+     * there's still more data that we can send in.
+     */
+
+    push_incomplete_continuation_t  wrapped_incomplete;
+
+    /**
+     * The success continuation that the wrapped callback uses if the
+     * current data chunk puts us over the maximum.
+     */
+
+    push_success_continuation_t  wrapped_success;
+
+    /**
+     * The incomplete continuation that the wrapped callback uses if
+     * the current data chunk puts us over the maximum.
+     */
+
+    push_incomplete_continuation_t  wrapped_finished;
 
     /**
      * The wrapped callback.
@@ -35,253 +65,448 @@ typedef struct _max_bytes
     push_callback_t  *wrapped;
 
     /**
+     * The continue continuation that the wrapped callback gave us
+     * most recently.
+     */
+
+    push_continue_continuation_t  *wrapped_cont;
+
+    /**
      * The maximum number of bytes to pass in to the wrapped callback.
      */
 
     size_t  maximum_bytes;
 
     /**
-     * The number of bytes that still need to be passed into the
-     * wrapped callback.
+     * The number of bytes that we've already sent into the wrapped
+     * callback.
      */
 
-    size_t  bytes_remaining;
+    size_t  bytes_processed;
+
+    /**
+     * A pointer to the remainder of the data chunk for when the
+     * current chunk would exceed the maximum.
+     */
+
+    const void  *leftover_buf;
+
+    /**
+     * The size of leftover_buf.
+     */
+
+    size_t  leftover_size;
 
 } max_bytes_t;
 
 
-static push_error_code_t
-max_bytes_activate(push_parser_t *parser,
-                   push_callback_t *pcallback,
-                   void *input)
+static void
+max_bytes_activate(void *user_data,
+                   void *result,
+                   const void *buf,
+                   size_t bytes_remaining)
 {
-    max_bytes_t  *callback = (max_bytes_t *) pcallback;
+    max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
 
     PUSH_DEBUG_MSG("max-bytes: Activating.  Capping at %zu bytes.\n",
-                   callback->maximum_bytes);
-    callback->bytes_remaining = callback->maximum_bytes;
-
-    PUSH_DEBUG_MSG("max-bytes: Activating wrapped callback.\n");
-    return push_callback_activate(parser, callback->wrapped, input);
-}
-
-
-static push_error_code_t
-dynamic_max_bytes_activate(push_parser_t *parser,
-                           push_callback_t *pcallback,
-                           void *input)
-{
-    max_bytes_t  *callback = (max_bytes_t *) pcallback;
+                   max_bytes->maximum_bytes);
 
     /*
-     * Extract the threshold from the input pair.
+     * If the current data chunk fits in under the maximum, go ahead
+     * and send it into the wrapped callback.
      */
 
-    push_pair_t  *pair = (push_pair_t *) input;
-    size_t  *maximum_bytes = (size_t *) pair->first;
-
-    callback->maximum_bytes = *maximum_bytes;
-
-    PUSH_DEBUG_MSG("max-bytes: [Dynamic] Activating.  "
-                   "Capping at %zu bytes.\n",
-                   callback->maximum_bytes);
-    callback->bytes_remaining = callback->maximum_bytes;
-
-    PUSH_DEBUG_MSG("max-bytes: Activating wrapped callback.\n");
-    return push_callback_activate(parser, callback->wrapped,
-                                  pair->second);
-}
-
-
-static ssize_t
-max_bytes_process_bytes(push_parser_t *parser,
-                        push_callback_t *pcallback,
-                        const void *vbuf,
-                        size_t bytes_available)
-{
-    max_bytes_t  *callback = (max_bytes_t *) pcallback;
-    ssize_t  result;
-
-    PUSH_DEBUG_MSG("max-bytes: Processing %zu bytes.\n",
-                   bytes_available);
-
-    /*
-     * If we can still send more bytes into the callback, and there
-     * are some available in the buffer, then try to send them in.
-     */
-
-    if ((callback->bytes_remaining > 0) && (bytes_available > 0))
+    if (bytes_remaining <= max_bytes->maximum_bytes)
     {
-        size_t  bytes_to_send;
-        ssize_t  result;
+        PUSH_DEBUG_MSG("max-bytes: Activating wrapped callback "
+                       "with %zu bytes.\n",
+                       bytes_remaining);
 
         /*
-         * Don't send in too many bytes...
+         * If the callback succeeds or errors, then we do the same.
+         * If the callback incompletes, we need to remember the
+         * continuation.
          */
 
-        bytes_to_send =
-            (callback->bytes_remaining < bytes_available)?
-            callback->bytes_remaining:
-            bytes_available;
+        push_continuation_call(&max_bytes->wrapped->set_success,
+                               max_bytes->callback.success);
+
+        push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                               &max_bytes->wrapped_incomplete);
+
+        push_continuation_call(&max_bytes->wrapped->set_error,
+                               max_bytes->callback.error);
 
         /*
-         * We use a tail call so that the wrapped callback's result is
-         * our result on success.
+         * Make sure to remember how many more bytes we can send in
+         * after this chunk.
          */
 
-        PUSH_DEBUG_MSG("max-bytes: Calling wrapped callback with "
-                       "%zu bytes.\n",
-                       bytes_to_send);
+        max_bytes->bytes_processed = bytes_remaining;
 
-        result = push_callback_tail_process_bytes
-            (parser, &callback->base, callback->wrapped,
-             vbuf, bytes_to_send);
+        push_continuation_call(&max_bytes->wrapped->activate,
+                               result,
+                               buf, bytes_remaining);
 
-        /*
-         * If the wrapped callback throws an error (not including
-         * incomplete), return the error.
-         */
-
-        if ((result < 0) && (result != PUSH_INCOMPLETE))
-        {
-            PUSH_DEBUG_MSG("max-bytes: Wrapped callback failed.\n");
-            return result;
-        }
-
-        /*
-         * If the wrapped callback succeeds, we go ahead and succeed,
-         * too.
-         */
-
-        if (result >= 0)
-        {
-            size_t  bytes_processed;
-
-            bytes_processed = bytes_to_send - result;
-            vbuf += bytes_processed;
-            bytes_available -= bytes_processed;
-            callback->bytes_remaining -= bytes_processed;
-
-            PUSH_DEBUG_MSG("max-bytes: Wrapped callback succeeded "
-                           "using %zu bytes.\n",
-                           (callback->maximum_bytes -
-                            callback->bytes_remaining));
-
-            /*
-             * Don't return result directly, since there might be data
-             * in the buffer that we didn't send into the wrapped
-             * callback.  We need to include this extra data in our
-             * result.
-             */
-
-            return bytes_available;
-        }
-
-        PUSH_DEBUG_MSG("max-bytes: Wrapped callback incomplete "
-                       "after using %zu bytes.\n",
-                       bytes_to_send);
-
-        vbuf += bytes_to_send;
-        bytes_available -= bytes_to_send;
-        callback->bytes_remaining -= bytes_to_send;
-
-        if (callback->bytes_remaining > 0)
-        {
-            /*
-             * If the wrapped callback indicated that it's not done
-             * yet, and we haven't reached the threshold yet, return
-             * incomplete ourselves.
-             */
-
-            return PUSH_INCOMPLETE;
-        }
+        return;
     }
 
     /*
-     * If we fall through to here, then we're in one of three
-     * situations: (1) we received some data but had already sent in
-     * the maximum in a previous process_bytes call; (2) we received
-     * some data and just sent in the maximum now; or (3) we reached
-     * EOF.  In all three cases, we send an EOF to the wrapped
-     * callback to give it a final chance to throw a parse error.
+     * If the current chunk is bigger than the maximum, then we send
+     * in the maximum portion into the wrapped callback.  We save a
+     * pointer to the portion of the chunk that exceeds the maximum,
+     * so that we can pass it on to the next callback.
      */
 
-    PUSH_DEBUG_MSG("max-bytes: Sending EOF to wrapped callback.\n");
-
-    result = push_callback_tail_process_bytes
-        (parser, &callback->base, callback->wrapped,
-         NULL, 0);
+    max_bytes->leftover_buf =
+        buf + max_bytes->maximum_bytes;
+    max_bytes->leftover_size =
+        bytes_remaining - max_bytes->maximum_bytes;
 
     /*
-     * If we get a success code, we return bytes_available, since the
-     * EOF we're sending to the wrapped callback might not be our EOF.
-     * (If it is, we'll correctly return a 0; if not, then the EOF
-     * success will let the next callback in the chain continue
-     * processing.)
+     * If the wrapped callback succeeds, we have to catch the success
+     * and include the leftover data in the current chunk in the
+     * response.  If the wrapped callback incompletes, then we have to
+     * send it an EOF to see if it can succeed with the data that it's
+     * already received.  (We can't send it more, since we've already
+     * reached the maximum.)  If the wrapped callback errors, we
+     * error, too.
      */
 
-    if (result >= 0)
-    {
-        PUSH_DEBUG_MSG("max-bytes: Wrapped callback succeeds at EOF.  "
-                       "%zu bytes remaining.\n",
-                       bytes_available);
-        return bytes_available;
-    }
+    push_continuation_call(&max_bytes->wrapped->set_success,
+                           &max_bytes->wrapped_success);
 
-    return result;
+    push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                           &max_bytes->wrapped_finished);
+
+    push_continuation_call(&max_bytes->wrapped->set_error,
+                           max_bytes->callback.error);
+
+    PUSH_DEBUG_MSG("max-bytes: Activating wrapped callback "
+                   "with %zu bytes.\n",
+                   max_bytes->maximum_bytes);
+
+    push_continuation_call(&max_bytes->wrapped->activate,
+                           result,
+                           buf, max_bytes->maximum_bytes);
+
+    return;
 }
 
 
 static void
-max_bytes_free(push_callback_t *pcallback)
+dynamic_max_bytes_activate(void *user_data,
+                           void *result,
+                           const void *buf,
+                           size_t bytes_remaining)
 {
-    max_bytes_t  *callback = (max_bytes_t *) pcallback;
+    max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
 
-    PUSH_DEBUG_MSG("max-bytes: Freeing wrapped callback.\n");
-    push_callback_free(callback->wrapped);
+    /*
+     * Extract the threshold from the input pair, and pass off to the
+     * regular activation function.
+     */
+
+    push_pair_t  *pair = (push_pair_t *) result;
+    size_t  *maximum_bytes = (size_t *) pair->first;
+
+    max_bytes->maximum_bytes = *maximum_bytes;
+
+    max_bytes_activate(user_data, pair->second,
+                       buf, bytes_remaining);
+}
+
+
+static void
+max_bytes_cont(void *user_data,
+               const void *buf,
+               size_t bytes_remaining)
+{
+    max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
+    size_t  total_bytes =
+        max_bytes->bytes_processed + bytes_remaining;
+    size_t  bytes_to_send;
+
+    PUSH_DEBUG_MSG("max-bytes: Processing %zu bytes.\n",
+                   bytes_remaining);
+
+    /*
+     * If the current data chunk fits in under the maximum, go ahead
+     * and send it into the wrapped callback.
+     */
+
+    if (total_bytes <= max_bytes->maximum_bytes)
+    {
+        PUSH_DEBUG_MSG("max-bytes: Sending %zu bytes to "
+                       "wrapped callback.\n",
+                       bytes_remaining);
+
+        /*
+         * If the callback succeeds or errors, then we do the same.
+         * If the callback incompletes, we need to remember the
+         * continuation.
+         */
+
+        push_continuation_call(&max_bytes->wrapped->set_success,
+                               max_bytes->callback.success);
+
+        push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                               &max_bytes->wrapped_incomplete);
+
+        push_continuation_call(&max_bytes->wrapped->set_error,
+                               max_bytes->callback.error);
+
+        /*
+         * Make sure to remember how many more bytes we can send in
+         * after this chunk.
+         */
+
+        max_bytes->bytes_processed = total_bytes;
+
+        push_continuation_call(max_bytes->wrapped_cont,
+                               buf, bytes_remaining);
+
+        return;
+    }
+
+    /*
+     * If the current chunk is bigger than the maximum, then we send
+     * in the maximum portion into the wrapped callback.  We save a
+     * pointer to the portion of the chunk that exceeds the maximum,
+     * so that we can pass it on to the next callback.
+     */
+
+    bytes_to_send =
+        max_bytes->maximum_bytes - max_bytes->bytes_processed;
+
+    max_bytes->leftover_buf =
+        buf + bytes_to_send;
+    max_bytes->leftover_size =
+        bytes_remaining - bytes_to_send;
+
+    /*
+     * If the wrapped callback succeeds, we have to catch the success
+     * and include the leftover data in the current chunk in the
+     * response.  If the wrapped callback incompletes, then we have to
+     * send it an EOF to see if it can succeed with the data that it's
+     * already received.  (We can't send it more, since we've already
+     * reached the maximum.)  If the wrapped callback errors, we
+     * error, too.
+     */
+
+    push_continuation_call(&max_bytes->wrapped->set_success,
+                           &max_bytes->wrapped_success);
+
+    push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                           &max_bytes->wrapped_finished);
+
+    push_continuation_call(&max_bytes->wrapped->set_error,
+                           max_bytes->callback.error);
+
+    PUSH_DEBUG_MSG("max-bytes: Sending %zu bytes to "
+                   "wrapped callback.\n",
+                   bytes_to_send);
+
+    push_continuation_call(max_bytes->wrapped_cont,
+                           buf, bytes_to_send);
+
+    return;
+}
+
+
+static void
+max_bytes_wrapped_incomplete(void *user_data,
+                             push_continue_continuation_t *cont)
+{
+    max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
+
+    /*
+     * The wrapped callback says it needs more data, and we haven't
+     * reached the maximum yet.  Register our own continue
+     * continuation that ensures that we don't go over the maximum
+     * when we get the next chunk.
+     */
+
+    max_bytes->wrapped_cont = cont;
+
+    push_continuation_call(max_bytes->callback.incomplete,
+                           &max_bytes->cont);
+
+    return;
+}
+
+
+static void
+max_bytes_wrapped_success(void *user_data,
+                          void *result,
+                          const void *buf,
+                          size_t bytes_remaining)
+{
+    max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
+
+    /*
+     * The wrapped callback has succeeded, but the data chunk we sent
+     * in put us over the maximum.  We've saved the remainder in
+     * leftover_buf; we need to include this in our success message.
+     *
+     * The wrapped callback might not have processed the entire chunk
+     * of data that we sent it, though; technically, we should
+     * concatenate the buf we get from the wrapped callback with the
+     * leftover_buf we saved from earlier.  When we sent the data in
+     * to the callback, the two came from the same continguous region
+     * of memory.  For now, we assume that the wrapped callback hasn't
+     * fiddled with the memory on us, so we can just play with
+     * pointers to do the concantenation.
+     */
+
+    PUSH_DEBUG_MSG("max-bytes: Wrapped callback succeeded "
+                   "using %zu bytes.\n",
+                   (max_bytes->maximum_bytes - bytes_remaining));
+
+    max_bytes->leftover_buf -= bytes_remaining;
+    max_bytes->leftover_size += bytes_remaining;
+
+    PUSH_DEBUG_MSG("max-bytes: Sending %zu bytes on "
+                   "to next callback.\n",
+                   max_bytes->leftover_size);
+
+    push_continuation_call(max_bytes->callback.success,
+                           result,
+                           max_bytes->leftover_buf,
+                           max_bytes->leftover_size);
+
+    return;
+}
+
+
+static void
+max_bytes_wrapped_finished(void *user_data,
+                           push_continue_continuation_t *cont)
+{
+    max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
+
+    /*
+     * The wrapped callback says it needs more data, but we've already
+     * given it the maximum.  Let's send it an EOF; if it succeeds,
+     * then we can succeed — though we can't have the wrapped callback
+     * call our success continuation directly, since we've got that
+     * pesky leftover_buf lying around.  If the wrapped callback
+     * generates an error, we generate an error, too.
+     */
+
+    push_continuation_call(&max_bytes->wrapped->set_success,
+                           &max_bytes->wrapped_success);
+
+    push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                           &max_bytes->wrapped_finished);
+
+    push_continuation_call(&max_bytes->wrapped->set_error,
+                           max_bytes->callback.error);
+
+    PUSH_DEBUG_MSG("max-bytes: Wrapped callback incomplete, but "
+                   "we've reached maximum.  Sending EOF.\n");
+
+    push_continuation_call(cont, NULL, 0);
+
+    return;
 }
 
 
 push_callback_t *
-push_max_bytes_new(push_callback_t *wrapped,
+push_max_bytes_new(push_parser_t *parser,
+                   push_callback_t *wrapped,
                    size_t maximum_bytes)
 {
-    max_bytes_t  *callback =
+    max_bytes_t  *max_bytes =
         (max_bytes_t *) malloc(sizeof(max_bytes_t));
 
-    if (callback == NULL)
+    if (max_bytes == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
+    /*
+     * Fill in the data items.
+     */
+
+    max_bytes->wrapped = wrapped;
+    max_bytes->maximum_bytes = maximum_bytes;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&max_bytes->callback, parser, max_bytes,
                        max_bytes_activate,
-                       max_bytes_process_bytes,
-                       max_bytes_free);
+                       NULL, NULL, NULL);
 
-    callback->wrapped = wrapped;
-    callback->maximum_bytes = maximum_bytes;
-    callback->bytes_remaining = maximum_bytes;
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
 
-    return &callback->base;
+    push_continuation_set(&max_bytes->cont,
+                          max_bytes_cont,
+                          max_bytes);
+
+    push_continuation_set(&max_bytes->wrapped_incomplete,
+                          max_bytes_wrapped_incomplete,
+                          max_bytes);
+
+    push_continuation_set(&max_bytes->wrapped_success,
+                          max_bytes_wrapped_success,
+                          max_bytes);
+
+    push_continuation_set(&max_bytes->wrapped_finished,
+                          max_bytes_wrapped_finished,
+                          max_bytes);
+
+    return &max_bytes->callback;
 }
 
 
 push_callback_t *
-push_dynamic_max_bytes_new(push_callback_t *wrapped)
+push_dynamic_max_bytes_new(push_parser_t *parser,
+                           push_callback_t *wrapped)
 {
-    max_bytes_t  *callback =
+    max_bytes_t  *max_bytes =
         (max_bytes_t *) malloc(sizeof(max_bytes_t));
 
-    if (callback == NULL)
+    if (max_bytes == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
+    /*
+     * Fill in the data items.
+     */
+
+    max_bytes->wrapped = wrapped;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&max_bytes->callback, parser, max_bytes,
                        dynamic_max_bytes_activate,
-                       max_bytes_process_bytes,
-                       max_bytes_free);
+                       NULL, NULL, NULL);
 
-    callback->wrapped = wrapped;
-    callback->maximum_bytes = 0;
-    callback->bytes_remaining = 0;
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
 
-    return &callback->base;
+    push_continuation_set(&max_bytes->cont,
+                          max_bytes_cont,
+                          max_bytes);
+
+    push_continuation_set(&max_bytes->wrapped_incomplete,
+                          max_bytes_wrapped_incomplete,
+                          max_bytes);
+
+    push_continuation_set(&max_bytes->wrapped_success,
+                          max_bytes_wrapped_success,
+                          max_bytes);
+
+    push_continuation_set(&max_bytes->wrapped_finished,
+                          max_bytes_wrapped_finished,
+                          max_bytes);
+
+    return &max_bytes->callback;
 }
