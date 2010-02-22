@@ -55,6 +55,26 @@ typedef struct _first
 
 
 static void
+first_set_incomplete(void *user_data,
+                     push_incomplete_continuation_t *incomplete)
+{
+    first_t  *first = (first_t *) user_data;
+    push_continuation_call(&first->wrapped->set_incomplete,
+                           incomplete);
+}
+
+
+static void
+first_set_error(void *user_data,
+                push_error_continuation_t *error)
+{
+    first_t  *first = (first_t *) user_data;
+    push_continuation_call(&first->wrapped->set_error,
+                           error);
+}
+
+
+static void
 first_activate(void *user_data,
                void *result,
                const void *buf,
@@ -76,10 +96,6 @@ first_activate(void *user_data,
      */
 
     PUSH_DEBUG_MSG("first: Activating wrapped callback.\n");
-
-    first->wrapped->success = &first->wrapped_success;
-    first->wrapped->incomplete = first->callback.incomplete;
-    first->wrapped->error = first->callback.error;
 
     push_continuation_call(&first->wrapped->activate,
                            input->first,
@@ -123,14 +139,21 @@ push_first_new(push_parser_t *parser,
     if (first == NULL)
         return NULL;
 
-    push_callback_init(&first->callback, parser,
-                       first_activate, first);
-
     /*
      * Fill in the data items.
      */
 
     first->wrapped = wrapped;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&first->callback, parser, first,
+                       first_activate,
+                       NULL,
+                       first_set_incomplete,
+                       first_set_error);
 
     /*
      * Fill in the continuation objects for the continuations that we
@@ -140,6 +163,15 @@ push_first_new(push_parser_t *parser,
     push_continuation_set(&first->wrapped_success,
                           first_wrapped_success,
                           first);
+
+    /*
+     * The wrapped callback should succeed by calling our
+     * wrapped_succeed continuation, so that we can construct the
+     * output pair.
+     */
+
+    push_continuation_call(&wrapped->set_success,
+                           &first->wrapped_success);
 
     return &first->callback;
 }

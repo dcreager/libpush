@@ -137,9 +137,14 @@ min_bytes_first_continue(void *user_data,
          * callback should use our final continuations.
          */
 
-        min_bytes->wrapped->success = min_bytes->callback.success;
-        min_bytes->wrapped->incomplete = min_bytes->callback.incomplete;
-        min_bytes->wrapped->error = min_bytes->callback.error;
+        push_continuation_call(&min_bytes->wrapped->set_success,
+                               min_bytes->callback.success);
+
+        push_continuation_call(&min_bytes->wrapped->set_incomplete,
+                               min_bytes->callback.incomplete);
+
+        push_continuation_call(&min_bytes->wrapped->set_error,
+                               min_bytes->callback.error);
 
         push_continuation_call(&min_bytes->wrapped->activate,
                                min_bytes->input,
@@ -276,13 +281,14 @@ min_bytes_rest_continue(void *user_data,
 
         if (bytes_remaining == 0)
         {
-            min_bytes->wrapped->success =
-                min_bytes->callback.success;
-            min_bytes->wrapped->incomplete =
-                min_bytes->callback.incomplete;
-            min_bytes->wrapped->error =
-                min_bytes->callback.error;
+            push_continuation_call(&min_bytes->wrapped->set_success,
+                                   min_bytes->callback.success);
 
+            push_continuation_call(&min_bytes->wrapped->set_incomplete,
+                                   min_bytes->callback.incomplete);
+
+            push_continuation_call(&min_bytes->wrapped->set_error,
+                                   min_bytes->callback.error);
         } else {
             /*
              * Otherwise, once the wrapped callback processes the
@@ -293,12 +299,14 @@ min_bytes_rest_continue(void *user_data,
             min_bytes->leftover_buf = buf;
             min_bytes->leftover_size = bytes_remaining;
 
-            min_bytes->wrapped->success =
-                &min_bytes->leftover_success;
-            min_bytes->wrapped->incomplete =
-                &min_bytes->leftover_incomplete;
-            min_bytes->wrapped->error =
-                min_bytes->callback.error;
+            push_continuation_call(&min_bytes->wrapped->set_success,
+                                   &min_bytes->leftover_success);
+
+            push_continuation_call(&min_bytes->wrapped->set_incomplete,
+                                   &min_bytes->leftover_incomplete);
+
+            push_continuation_call(&min_bytes->wrapped->set_error,
+                                   min_bytes->callback.error);
         }
 
         push_continuation_call(&min_bytes->wrapped->activate,
@@ -416,9 +424,14 @@ min_bytes_leftover_incomplete(void *user_data,
      * callback should use our final continuations.
      */
 
-    min_bytes->wrapped->success = min_bytes->callback.success;
-    min_bytes->wrapped->incomplete = min_bytes->callback.incomplete;
-    min_bytes->wrapped->error = min_bytes->callback.error;
+    push_continuation_call(&min_bytes->wrapped->set_success,
+                           min_bytes->callback.success);
+
+    push_continuation_call(&min_bytes->wrapped->set_incomplete,
+                           min_bytes->callback.incomplete);
+
+    push_continuation_call(&min_bytes->wrapped->set_error,
+                           min_bytes->callback.error);
 
     push_continuation_call(cont,
                            min_bytes->leftover_buf,
@@ -451,18 +464,19 @@ push_min_bytes_new(push_parser_t *parser,
     }
 
     /*
-     * Initialize the callback superclass.
-     */
-
-    push_callback_init(&min_bytes->callback, parser,
-                       min_bytes_activate, min_bytes);
-
-    /*
      * Fill in the data items.
      */
 
     min_bytes->wrapped = wrapped;
     min_bytes->minimum_bytes = minimum_bytes;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&min_bytes->callback, parser, min_bytes,
+                       min_bytes_activate,
+                       NULL, NULL, NULL);
 
     /*
      * Fill in the continuation objects for the continuations that we

@@ -92,8 +92,9 @@ inner_sum_callback_new(push_parser_t *parser)
     if (inner_sum == NULL)
         return NULL;
 
-    push_callback_init(&inner_sum->callback, parser,
-                       inner_sum_activate, inner_sum);
+    push_callback_init(&inner_sum->callback, parser, inner_sum,
+                       inner_sum_activate,
+                       NULL, NULL, NULL);
 
     return &inner_sum->callback;
 }

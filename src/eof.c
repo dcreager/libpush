@@ -117,8 +117,9 @@ push_eof_new(push_parser_t *parser)
     if (eof == NULL)
         return NULL;
 
-    push_callback_init(&eof->callback, parser,
-                       eof_activate, eof);
+    push_callback_init(&eof->callback, parser, eof,
+                       eof_activate,
+                       NULL, NULL, NULL);
 
     /*
      * Fill in the continuation objects for the continuations that we

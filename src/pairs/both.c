@@ -31,7 +31,7 @@ typedef struct _dup
     push_callback_t  callback;
 
     /**
-     * The outpt pair that we construct.
+     * The output pair that we construct.
      */
 
     push_pair_t  result;
@@ -71,8 +71,9 @@ push_dup_new(push_parser_t *parser)
     if (dup == NULL)
         return NULL;
 
-    push_callback_init(&dup->callback, parser,
-                       dup_activate, dup);
+    push_callback_init(&dup->callback, parser, dup,
+                       dup_activate,
+                       NULL, NULL, NULL);
 
     return &dup->callback;
 }

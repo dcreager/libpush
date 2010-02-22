@@ -60,8 +60,9 @@ push_noop_new(push_parser_t *parser)
     if (noop == NULL)
         return NULL;
 
-    push_callback_init(&noop->callback, parser,
-                       noop_activate, noop);
+    push_callback_init(&noop->callback, parser, noop,
+                       noop_activate,
+                       NULL, NULL, NULL);
 
     return &noop->callback;
 }

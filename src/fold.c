@@ -130,9 +130,14 @@ fold_activate(void *user_data,
      * generate a parse error after that.
      */
 
-    fold->wrapped->success = &fold->callback.activate;
-    fold->wrapped->incomplete = &fold->remember_incomplete;
-    fold->wrapped->error = &fold->initial_error;
+    push_continuation_call(&fold->wrapped->set_success,
+                           &fold->callback.activate);
+
+    push_continuation_call(&fold->wrapped->set_incomplete,
+                           &fold->remember_incomplete);
+
+    push_continuation_call(&fold->wrapped->set_error,
+                           &fold->initial_error);
 
     /*
      * Before calling the wrapped callback, save this initial chunk of
@@ -179,8 +184,11 @@ fold_remember_incomplete(void *user_data,
          * error as a fold success.
          */
 
-        fold->wrapped->incomplete = fold->callback.incomplete;
-        fold->wrapped->error = &fold->later_error;
+        push_continuation_call(&fold->wrapped->set_incomplete,
+                               fold->callback.incomplete);
+
+        push_continuation_call(&fold->wrapped->set_error,
+                               &fold->later_error);
 
         /*
          * Pass on the incomplete.
@@ -335,14 +343,19 @@ push_fold_new(push_parser_t *parser,
     if (fold == NULL)
         return NULL;
 
-    push_callback_init(&fold->callback, parser,
-                       fold_activate, fold);
-
     /*
      * Fill in the data items.
      */
 
     fold->wrapped = wrapped;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&fold->callback, parser, fold,
+                       fold_activate,
+                       NULL, NULL, NULL);
 
     /*
      * Fill in the continuation objects for the continuations that we

@@ -43,39 +43,54 @@ typedef struct _compose
 
 
 static void
-compose_activate(void *user_data,
-                 void *result,
-                 const void *buf,
-                 size_t bytes_remaining)
+compose_set_success(void *user_data,
+                    push_success_continuation_t *success)
 {
     compose_t  *compose = (compose_t *) user_data;
 
     /*
-     * The first callback should succeed by activating the second.
-     * The second callback should succeed with our overall success
-     * continuation.  Both callbacks should incomplete and error with
-     * our overall incomplete and error continuations.
+     * The second wrapped callback should succeed using this new
+     * continuation.  The first callback still succeeds by activating
+     * the second.
      */
 
-    PUSH_DEBUG_MSG("compose: Activating.\n");
+    push_continuation_call(&compose->second->set_success,
+                           success);
+}
 
-    compose->first->success = &compose->second->activate;
-    compose->first->incomplete = compose->callback.incomplete;
-    compose->first->error = compose->callback.error;
 
-    compose->second->success = compose->callback.success;
-    compose->second->incomplete = compose->callback.incomplete;
-    compose->second->error = compose->callback.error;
+static void
+compose_set_incomplete(void *user_data,
+                       push_incomplete_continuation_t *incomplete)
+{
+    compose_t  *compose = (compose_t *) user_data;
 
     /*
-     * Then just pass the input value off to the first callback.
+     * Both wrapped callbacks should use this new incomplete
+     * continuation.
      */
 
-    push_continuation_call(&compose->first->activate,
-                           result,
-                           buf, bytes_remaining);
+    push_continuation_call(&compose->first->set_incomplete,
+                           incomplete);
+    push_continuation_call(&compose->second->set_incomplete,
+                           incomplete);
+}
 
-    return;
+
+static void
+compose_set_error(void *user_data,
+              push_error_continuation_t *error)
+{
+    compose_t  *compose = (compose_t *) user_data;
+
+    /*
+     * Both wrapped callbacks should use this new error continuation.
+     */
+
+    push_continuation_call(&compose->first->set_error,
+                           error);
+    push_continuation_call(&compose->second->set_error,
+                           error);
 }
 
 
@@ -89,15 +104,36 @@ push_compose_new(push_parser_t *parser,
     if (compose == NULL)
         return NULL;
 
-    push_callback_init(&compose->callback, parser,
-                       compose_activate, compose);
-
     /*
      * Fill in the data items.
      */
 
     compose->first = first;
     compose->second = second;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&compose->callback, parser, compose,
+                       NULL,
+                       compose_set_success,
+                       compose_set_incomplete,
+                       compose_set_error);
+
+    /*
+     * The compose should activate by activating the first wrapped
+     * callback.
+     */
+
+    compose->callback.activate = compose->first->activate;
+
+    /*
+     * The first callback should succeed by activating the second.
+     */
+
+    push_continuation_call(&first->set_success,
+                           &second->activate);
 
     return &compose->callback;
 }

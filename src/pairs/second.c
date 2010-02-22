@@ -55,6 +55,26 @@ typedef struct _second
 
 
 static void
+second_set_incomplete(void *user_data,
+                      push_incomplete_continuation_t *incomplete)
+{
+    second_t  *second = (second_t *) user_data;
+    push_continuation_call(&second->wrapped->set_incomplete,
+                           incomplete);
+}
+
+
+static void
+second_set_error(void *user_data,
+                 push_error_continuation_t *error)
+{
+    second_t  *second = (second_t *) user_data;
+    push_continuation_call(&second->wrapped->set_error,
+                           error);
+}
+
+
+static void
 second_activate(void *user_data,
                 void *result,
                 const void *buf,
@@ -76,10 +96,6 @@ second_activate(void *user_data,
      */
 
     PUSH_DEBUG_MSG("second: Activating wrapped callback.\n");
-
-    second->wrapped->success = &second->wrapped_success;
-    second->wrapped->incomplete = second->callback.incomplete;
-    second->wrapped->error = second->callback.error;
 
     push_continuation_call(&second->wrapped->activate,
                            input->second,
@@ -123,14 +139,21 @@ push_second_new(push_parser_t *parser,
     if (second == NULL)
         return NULL;
 
-    push_callback_init(&second->callback, parser,
-                       second_activate, second);
-
     /*
      * Fill in the data items.
      */
 
     second->wrapped = wrapped;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&second->callback, parser, second,
+                       second_activate,
+                       NULL,
+                       second_set_incomplete,
+                       second_set_error);
 
     /*
      * Fill in the continuation objects for the continuations that we
@@ -140,6 +163,15 @@ push_second_new(push_parser_t *parser,
     push_continuation_set(&second->wrapped_success,
                           second_wrapped_success,
                           second);
+
+    /*
+     * The wrapped callback should succeed by calling our
+     * wrapped_succeed continuation, so that we can construct the
+     * output pair.
+     */
+
+    push_continuation_call(&wrapped->set_success,
+                           &second->wrapped_success);
 
     return &second->callback;
 }

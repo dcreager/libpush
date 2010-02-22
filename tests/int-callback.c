@@ -115,8 +115,9 @@ inner_integer_callback_new(push_parser_t *parser)
     if (integer == NULL)
         return NULL;
 
-    push_callback_init(&integer->callback, parser,
-                       integer_activate, integer);
+    push_callback_init(&integer->callback, parser, integer,
+                       integer_activate,
+                       NULL, NULL, NULL);
 
     /*
      * Fill in the continuation objects for the continuations that we

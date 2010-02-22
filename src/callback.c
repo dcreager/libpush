@@ -23,12 +23,46 @@
 #endif
 
 
+static void
+default_set_success(void *user_data,
+                    push_success_continuation_t *success)
+{
+    push_callback_t  *callback = (push_callback_t *) user_data;
+    callback->success = success;
+}
+
+
+static void
+default_set_incomplete(void *user_data,
+                       push_incomplete_continuation_t *incomplete)
+{
+    push_callback_t  *callback = (push_callback_t *) user_data;
+    callback->incomplete = incomplete;
+}
+
+
+static void
+default_set_error(void *user_data,
+                  push_error_continuation_t *error)
+{
+    push_callback_t  *callback = (push_callback_t *) user_data;
+    callback->error = error;
+}
+
+
 void
-_push_callback_init(push_callback_t *callback,
-                    push_parser_t *parser,
-                    const char *activate_name,
-                    push_success_continuation_func_t *activate_func,
-                    void *activate_user_data)
+_push_callback_init
+(push_callback_t *callback,
+ push_parser_t *parser,
+ void *user_data,
+ const char *activate_name,
+ push_success_continuation_func_t *activate_func,
+ const char *set_success_name,
+ push_set_success_continuation_func_t *set_success_func,
+ const char *set_incomplete_name,
+ push_set_incomplete_continuation_func_t *set_incomplete_func,
+ const char *set_error_name,
+ push_set_error_continuation_func_t *set_error_func)
 {
     /*
      * Fill in the callback's activate continuation object.
@@ -36,26 +70,76 @@ _push_callback_init(push_callback_t *callback,
 
     push_continuation_set(&callback->activate,
                           activate_func,
-                          activate_user_data);
+                          user_data);
 
 #if PUSH_CONTINUATION_DEBUG
     /*
-     * We have to override the name of the continuation function; the
+     * We have to override the name of the continuation functions; the
      * default implementation of the push_continuation_set macro will
-     * always call it “activate_func”.
+     * always call it “activate_func”, etc.
      */
 
     callback->activate.name = activate_name;
 #endif
+
+
+    if (set_success_func == NULL)
+    {
+        push_continuation_set(&callback->set_success,
+                              default_set_success, callback);
+    } else {
+        push_continuation_set(&callback->set_success,
+                              set_success_func,
+                              user_data);
+
+#if PUSH_CONTINUATION_DEBUG
+        callback->set_success.name = set_success_name;
+#endif
+    }
+
+
+    if (set_incomplete_func == NULL)
+    {
+        push_continuation_set(&callback->set_incomplete,
+                              default_set_incomplete, callback);
+    } else {
+        push_continuation_set(&callback->set_incomplete,
+                              set_incomplete_func,
+                              user_data);
+
+#if PUSH_CONTINUATION_DEBUG
+        callback->set_incomplete.name = set_incomplete_name;
+#endif
+    }
+
+
+    if (set_error_func == NULL)
+    {
+        push_continuation_set(&callback->set_error,
+                              default_set_error, callback);
+    } else {
+        push_continuation_set(&callback->set_error,
+                              set_error_func,
+                              user_data);
+
+#if PUSH_CONTINUATION_DEBUG
+        callback->set_error.name = set_error_name;
+#endif
+    }
 
     /*
      * By default, we call the parser's implementations of the
      * continuations that we call.
      */
 
-    callback->success = &parser->success;
-    callback->incomplete = &parser->incomplete;
-    callback->error = &parser->error;
+    push_continuation_call(&callback->set_success,
+                           &parser->success);
+
+    push_continuation_call(&callback->set_incomplete,
+                           &parser->incomplete);
+
+    push_continuation_call(&callback->set_error,
+                           &parser->error);
 }
 
 

@@ -67,8 +67,9 @@ inc_callback_new(push_parser_t *parser)
     if (inc == NULL)
         return NULL;
 
-    push_callback_init(&inc->callback, parser,
-                       inc_activate, inc);
+    push_callback_init(&inc->callback, parser, inc,
+                       inc_activate,
+                       NULL, NULL, NULL);
 
     return &inc->callback;
 }

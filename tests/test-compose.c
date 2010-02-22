@@ -132,8 +132,9 @@ sum_callback_new(push_parser_t *parser)
     if (sum == NULL)
         return NULL;
 
-    push_callback_init(&sum->callback, parser,
-                       sum_activate, sum);
+    push_callback_init(&sum->callback, parser, sum,
+                       sum_activate,
+                       NULL, NULL, NULL);
 
     /*
      * Fill in the continuation objects for the continuations that we

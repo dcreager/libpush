@@ -239,6 +239,48 @@ PUSH_DEFINE_CONTINUATION(error);
 
 
 /**
+ * A continuation that is used to change the success continuation that
+ * a callback will use.  For the most part, this just sets a pointer
+ * in the callback's user data struct, but combinators that wrap other
+ * callbacks will need to pass the change on to them.
+ */
+
+typedef void
+push_set_success_continuation_func_t
+(void *user_data, push_success_continuation_t *success);
+
+PUSH_DEFINE_CONTINUATION(set_success);
+
+
+/**
+ * A continuation that is used to change the incomplete continuation
+ * that a callback will use.  For the most part, this just sets a
+ * pointer in the callback's user data struct, but combinators that
+ * wrap other callbacks will need to pass the change on to them.
+ */
+
+typedef void
+push_set_incomplete_continuation_func_t
+(void *user_data, push_incomplete_continuation_t *incomplete);
+
+PUSH_DEFINE_CONTINUATION(set_incomplete);
+
+
+/**
+ * A continuation that is used to change the error continuation that a
+ * callback will use.  For the most part, this just sets a pointer in
+ * the callback's user data struct, but combinators that wrap other
+ * callbacks will need to pass the change on to them.
+ */
+
+typedef void
+push_set_error_continuation_func_t
+(void *user_data, push_error_continuation_t *error);
+
+PUSH_DEFINE_CONTINUATION(set_error);
+
+
+/**
  * @brief A callback object.
  *
  * This type encapsulates all of the functions that cooperate to
@@ -280,25 +322,46 @@ typedef struct _push_callback
     push_success_continuation_t  activate;
 
     /**
-     * A pointer to the success continuation that the callback will
-     * call when the parse succeeds.
+     * The success continuation that this callback will use.
      */
 
     push_success_continuation_t  *success;
 
     /**
-     * A pointer to the incomplete continuation that the callback will
-     * call when the parse succeeds.
+     * The incomplete continuation that this callback will use.
      */
 
     push_incomplete_continuation_t  *incomplete;
 
     /**
-     * A pointer to the error continuation that the callback will
-     * call when the parse succeeds.
+     * The error continuation that this callback will use.
      */
 
     push_error_continuation_t  *error;
+
+    /**
+     * A continuation that changes the success continuation that the
+     * callback will use.  The default implementation will set the
+     * success pointer in the callback's push_callback_t object.
+     */
+
+    push_set_success_continuation_t  set_success;
+
+    /**
+     * A continuation that changes the incomplete continuation that
+     * the callback will use.  The default implementation will set the
+     * incomplete pointer in the callback's push_callback_t object.
+     */
+
+    push_set_incomplete_continuation_t  set_incomplete;
+
+    /**
+     * A continuation that changes the error continuation that the
+     * callback will use.  The default implementation will set the
+     * error pointer in the callback's push_callback_t object.
+     */
+
+    push_set_error_continuation_t  set_error;
 
 } push_callback_t;
 
@@ -309,17 +372,30 @@ typedef struct _push_callback
  * @return NULL if we can't create the new callback object.
  */
 
-#define push_callback_init(callback, parser,                            \
-                           activate_func, activate_user_data)           \
-    (_push_callback_init((callback), (parser), #activate_func,          \
-                         (activate_func), (activate_user_data)))
+#define push_callback_init(callback, parser, user_data,                 \
+                           activate_func,                               \
+                           set_success_func,                            \
+                           set_incomplete_func,                         \
+                           set_error_func)                              \
+    (_push_callback_init((callback), (parser), (user_data),             \
+                         #activate_func, (activate_func),               \
+                         #set_success_func, (set_success_func),         \
+                         #set_incomplete_func, (set_incomplete_func),   \
+                         #set_error_func, (set_error_func)))
 
 void
-_push_callback_init(push_callback_t *callback,
-                    push_parser_t *parser,
-                    const char *activate_name,
-                    push_success_continuation_func_t *activate_func,
-                    void *activate_user_data);
+_push_callback_init
+(push_callback_t *callback,
+ push_parser_t *parser,
+ void *user_data,
+ const char *activate_name,
+ push_success_continuation_func_t *activate_func,
+ const char *set_success_name,
+ push_set_success_continuation_func_t *set_success_func,
+ const char *set_incomplete_name,
+ push_set_incomplete_continuation_func_t *set_incomplete_func,
+ const char *set_error_name,
+ push_set_error_continuation_func_t *set_error_func);
 
 
 /**
