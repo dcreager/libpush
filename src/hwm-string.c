@@ -19,16 +19,22 @@
 
 
 /**
- * The push_callback_t subclass that defines an HWM-string callback.
+ * The user data struct for an HWM-string callback.
  */
 
 typedef struct _hwm_string
 {
     /**
-     * The callback's “superclass” instance.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_callback_t  base;
+    push_callback_t  callback;
+
+    /**
+     * The continue continuation for this callback.
+     */
+
+    push_continue_continuation_t  cont;
 
     /**
      * A pointer to the HWM buffer that we'll put the string into.
@@ -45,58 +51,12 @@ typedef struct _hwm_string
 } hwm_string_t;
 
 
-static push_error_code_t
-hwm_string_activate(push_parser_t *parser,
-                    push_callback_t *pcallback,
-                    void *input)
+static void
+hwm_string_continue(void *user_data,
+                    const void *buf,
+                    size_t bytes_remaining)
 {
-    hwm_string_t  *callback = (hwm_string_t *) pcallback;
-    size_t  *input_size = (size_t *) input;
-
-    PUSH_DEBUG_MSG("hwm-string: Activating.  Will read %zu bytes.\n",
-                   *input_size);
-
-    /*
-     * Initialize the callback's fields.
-     */
-
-    callback->bytes_left = *input_size;
-
-    if (!hwm_buffer_clear(callback->buf))
-    {
-        PUSH_DEBUG_MSG("hwm-string: Cannot clear HWM buffer.\n");
-        return PUSH_MEMORY_ERROR;
-    }
-
-    /*
-     * Since we know in advance how big the string will need to be,
-     * preallocate enough space for it.  Include an extra byte for the
-     * NUL terminator.
-     */
-
-    if (hwm_buffer_ensure_size(callback->buf, (*input_size) + 1))
-    {
-        PUSH_DEBUG_MSG("hwm-string: Successfully allocated %zu bytes.\n",
-                       (*input_size) + 1);
-
-        return PUSH_SUCCESS;
-
-    } else {
-        PUSH_DEBUG_MSG("hwm-string: Could not allocate %zu bytes.\n",
-                       (*input_size) + 1);
-
-        return PUSH_MEMORY_ERROR;
-    }
-}
-
-
-static ssize_t
-hwm_string_process_bytes(push_parser_t *parser,
-                         push_callback_t *pcallback,
-                         const void *vbuf,
-                         size_t bytes_available)
-{
-    hwm_string_t  *callback = (hwm_string_t *) pcallback;
+    hwm_string_t  *hwm_string = (hwm_string_t *) user_data;
     size_t  bytes_to_copy;
 
     /*
@@ -104,11 +64,11 @@ hwm_string_process_bytes(push_parser_t *parser,
      * yet.
      */
 
-    if (bytes_available == 0)
+    if (bytes_remaining == 0)
     {
-        if (callback->bytes_left == 0)
+        if (hwm_string->bytes_left == 0)
         {
-            void  *buf;
+            void  *str;
 
             /*
              * In most cases, we'll have already returned PUSH_SUCCESS
@@ -124,24 +84,37 @@ hwm_string_process_bytes(push_parser_t *parser,
              * Get a pointer to the HWM buffer's contents.
              */
 
-            buf = hwm_buffer_writable_mem(callback->buf, void);
-            if (buf == NULL)
+            str = hwm_buffer_writable_mem(hwm_string->buf, void);
+            if (str == NULL)
             {
                 PUSH_DEBUG_MSG("hwm-string: Cannot get pointer to buffer.\n");
-                return PUSH_MEMORY_ERROR;
+
+                push_continuation_call(hwm_string->callback.error,
+                                       PUSH_MEMORY_ERROR,
+                                       "Cannot get pointer to buffer");
+
+                return;
             }
 
             /*
              * Our result is a pointer to the HWM buffer's contents.
              */
 
-            callback->base.result = buf;
-            return PUSH_SUCCESS;
+            push_continuation_call(hwm_string->callback.success,
+                                   str,
+                                   buf, bytes_remaining);
+
+            return;
 
         } else {
             PUSH_DEBUG_MSG("hwm-string: EOF found before end of string.  "
                            "Parse fails.\n");
-            return PUSH_PARSE_ERROR;
+
+            push_continuation_call(hwm_string->callback.error,
+                                   PUSH_PARSE_ERROR,
+                                   "EOF found before end of string");
+
+            return;
         }
     }
 
@@ -151,9 +124,9 @@ hwm_string_process_bytes(push_parser_t *parser,
      */
 
     bytes_to_copy =
-        (bytes_available < callback->bytes_left)?
-        bytes_available:
-        callback->bytes_left;
+        (bytes_remaining < hwm_string->bytes_left)?
+        bytes_remaining:
+        hwm_string->bytes_left;
 
     PUSH_DEBUG_MSG("hwm-string: Copying %zu bytes into buffer.\n",
                    bytes_to_copy);
@@ -162,10 +135,15 @@ hwm_string_process_bytes(push_parser_t *parser,
      * Append this chunk of data to the buffer.
      */
 
-    if (!hwm_buffer_append_mem(callback->buf, vbuf, bytes_to_copy))
+    if (!hwm_buffer_append_mem(hwm_string->buf, buf, bytes_to_copy))
     {
         PUSH_DEBUG_MSG("hwm-string: Copying failed.\n");
-        return PUSH_MEMORY_ERROR;
+
+        push_continuation_call(hwm_string->callback.error,
+                               PUSH_MEMORY_ERROR,
+                               "Copying failed");
+
+        return;
     }
 
     /*
@@ -173,12 +151,13 @@ hwm_string_process_bytes(push_parser_t *parser,
      * return a success code.
      */
 
-    callback->bytes_left -= bytes_to_copy;
-    bytes_available -= bytes_to_copy;
+    hwm_string->bytes_left -= bytes_to_copy;
+    buf += bytes_to_copy;
+    bytes_remaining -= bytes_to_copy;
 
-    if (callback->bytes_left == 0)
+    if (hwm_string->bytes_left == 0)
     {
-        uint8_t  *buf;
+        uint8_t  *str;
 
         PUSH_DEBUG_MSG("hwm-string: Copying finished.  Appending "
                        "NUL terminator.\n");
@@ -187,52 +166,153 @@ hwm_string_process_bytes(push_parser_t *parser,
          * Get a pointer to the HWM buffer's contents.
          */
 
-        buf = hwm_buffer_writable_mem(callback->buf, uint8_t);
-        if (buf == NULL)
+        str = hwm_buffer_writable_mem(hwm_string->buf, uint8_t);
+        if (str == NULL)
         {
             PUSH_DEBUG_MSG("hwm-string: Cannot get pointer to buffer.\n");
-            return PUSH_MEMORY_ERROR;
+
+            push_continuation_call(hwm_string->callback.error,
+                                   PUSH_MEMORY_ERROR,
+                                   "Cannot get pointer to buffer");
+
+            return;
         }
 
         /*
          * Tack on a NUL terminator.
          */
 
-        buf[callback->buf->current_size] = '\0';
-        callback->buf->current_size++;
+        str[hwm_string->buf->current_size] = '\0';
+        hwm_string->buf->current_size++;
 
         /*
          * Our result is the pointer to the buffer contents.
          */
 
-        callback->base.result = buf;
-        return bytes_available;
+
+        push_continuation_call(hwm_string->callback.success,
+                               str,
+                               buf, bytes_remaining);
+
+        return;
     }
 
     /*
      * If there's more string to copy, return an incomplete code.
      */
 
-    return PUSH_INCOMPLETE;
+    push_continuation_call(hwm_string->callback.incomplete,
+                           &hwm_string->cont);
+}
+
+
+static void
+hwm_string_activate(void *user_data,
+                    void *result,
+                    const void *buf,
+                    size_t bytes_remaining)
+{
+    hwm_string_t  *hwm_string = (hwm_string_t *) user_data;
+    size_t  *input_size = (size_t *) result;
+
+    PUSH_DEBUG_MSG("hwm-string: Activating.  Will read %zu bytes.\n",
+                   *input_size);
+
+    /*
+     * Initialize the callback's fields.
+     */
+
+    hwm_string->bytes_left = *input_size;
+
+    if (!hwm_buffer_clear(hwm_string->buf))
+    {
+        PUSH_DEBUG_MSG("hwm-string: Cannot clear HWM buffer.\n");
+
+        push_continuation_call(hwm_string->callback.error,
+                               PUSH_MEMORY_ERROR,
+                               "Cannot clear HWM buffer");
+
+        return;
+    }
+
+    /*
+     * Since we know in advance how big the string will need to be,
+     * preallocate enough space for it.  Include an extra byte for the
+     * NUL terminator.
+     */
+
+    if (hwm_buffer_ensure_size(hwm_string->buf, (*input_size) + 1))
+    {
+        PUSH_DEBUG_MSG("hwm-string: Successfully allocated %zu bytes.\n",
+                       (*input_size) + 1);
+    } else {
+        PUSH_DEBUG_MSG("hwm-string: Could not allocate %zu bytes.\n",
+                       (*input_size) + 1);
+
+        push_continuation_call(hwm_string->callback.error,
+                               PUSH_MEMORY_ERROR,
+                               "Could not allocate HWM buffer");
+
+        return;
+    }
+
+
+    if (bytes_remaining == 0)
+    {
+        /*
+         * If we don't get any data when we're activated, return an
+         * incomplete and wait for some data.
+         */
+
+        push_continuation_call(hwm_string->callback.incomplete,
+                               &hwm_string->cont);
+
+        return;
+
+    } else {
+        /*
+         * Otherwise let the continue continuation go ahead and
+         * process this chunk of data.
+         */
+
+        hwm_string_continue(user_data, buf, bytes_remaining);
+        return;
+    }
 }
 
 
 push_callback_t *
-push_hwm_string_new(hwm_buffer_t *buf)
+push_hwm_string_new(push_parser_t *parser,
+                    hwm_buffer_t *buf)
 {
-    hwm_string_t  *callback = (hwm_string_t *)
-        malloc(sizeof(hwm_string_t));
+    hwm_string_t  *hwm_string =
+        (hwm_string_t *) malloc(sizeof(hwm_string_t));
 
-    if (callback == NULL)
+    if (hwm_string == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
+    /*
+     * Fill in the data items.
+     */
+
+    hwm_string->buf = buf;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&hwm_string->callback, parser, hwm_string,
                        hwm_string_activate,
-                       hwm_string_process_bytes,
-                       NULL);
+                       NULL, NULL, NULL);
 
-    callback->buf = buf;
-    callback->bytes_left = 0;
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
 
-    return &callback->base;
+    push_continuation_set(&hwm_string->cont,
+                          hwm_string_continue,
+                          hwm_string);
+
+    return &hwm_string->callback;
 }

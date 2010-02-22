@@ -44,7 +44,8 @@ push_eof_new(push_parser_t *parser);
  */
 
 push_callback_t *
-push_hwm_string_new(hwm_buffer_t *buf);
+push_hwm_string_new(push_parser_t *parser,
+                    hwm_buffer_t *buf);
 
 
 /**

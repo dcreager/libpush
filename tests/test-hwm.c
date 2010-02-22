@@ -44,21 +44,24 @@ START_TEST(test_hwm_string_01)
 
     PUSH_DEBUG_MSG("---\nStarting test_hwm_string_01\n");
 
-    hwm_buffer_init(&buf);
-
-    callback = push_hwm_string_new(&buf);
-    fail_if(callback == NULL,
-            "Could not allocate a new HWM-string callback");
-
     /*
      * Read five bytes, and provide 5 bytes.  This should succeed.
      */
 
-    parser = push_parser_new(callback);
+    hwm_buffer_init(&buf);
+
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &bytes_to_read) == PUSH_SUCCESS,
+    callback = push_hwm_string_new(parser, &buf);
+    fail_if(callback == NULL,
+            "Could not allocate a new HWM-string callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, &bytes_to_read)
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -68,7 +71,7 @@ START_TEST(test_hwm_string_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = callback->result;
+    result = push_parser_result(parser, void);
     fail_unless(memcmp(result, &DATA_01, bytes_to_read) == 0,
                 "Data doesn't match");
 
@@ -88,21 +91,24 @@ START_TEST(test_hwm_string_02)
 
     PUSH_DEBUG_MSG("---\nStarting test_hwm_string_02\n");
 
-    hwm_buffer_init(&buf);
-
-    callback = push_hwm_string_new(&buf);
-    fail_if(callback == NULL,
-            "Could not allocate a new HWM-string callback");
-
     /*
      * Read five bytes, and provide 7 bytes.  This should succeed.
      */
 
-    parser = push_parser_new(callback);
+    hwm_buffer_init(&buf);
+
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &bytes_to_read) == PUSH_SUCCESS,
+    callback = push_hwm_string_new(parser, &buf);
+    fail_if(callback == NULL,
+            "Could not allocate a new HWM-string callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, &bytes_to_read)
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -112,7 +118,7 @@ START_TEST(test_hwm_string_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = callback->result;
+    result = push_parser_result(parser, void);
     fail_unless(memcmp(result, &DATA_01, bytes_to_read) == 0,
                 "Data doesn't match");
 
@@ -129,23 +135,26 @@ START_TEST(test_hwm_string_03)
     hwm_buffer_t  buf;
     size_t  bytes_to_read = 5;
 
-    PUSH_DEBUG_MSG("---\nStarting test_hwm_string_03\n");
-
-    hwm_buffer_init(&buf);
-
-    callback = push_hwm_string_new(&buf);
-    fail_if(callback == NULL,
-            "Could not allocate a new HWM-string callback");
-
     /*
      * Read five bytes, and provide 3 bytes.  This should fail.
      */
 
-    parser = push_parser_new(callback);
+    PUSH_DEBUG_MSG("---\nStarting test_hwm_string_03\n");
+
+    hwm_buffer_init(&buf);
+
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &bytes_to_read) == PUSH_SUCCESS,
+    callback = push_hwm_string_new(parser, &buf);
+    fail_if(callback == NULL,
+            "Could not allocate a new HWM-string callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, &bytes_to_read)
+                == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
