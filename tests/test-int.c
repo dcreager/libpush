@@ -41,13 +41,19 @@ START_TEST(test_integer_01)
 
     PUSH_DEBUG_MSG("---\nStarting test_integer_01\n");
 
-    callback = integer_callback_new();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = integer_callback_new(parser);
     fail_if(callback == NULL,
             "Could not allocate a new integer callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not parse data");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
@@ -56,7 +62,7 @@ START_TEST(test_integer_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 1,
                 "Integer doesn't match (got %"PRIu32
@@ -81,13 +87,19 @@ START_TEST(test_integer_02)
      * since we'll ignore any later data.
      */
 
-    callback = integer_callback_new();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = integer_callback_new(parser);
     fail_if(callback == NULL,
             "Could not allocate a new integer callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not parse data");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
@@ -100,7 +112,7 @@ START_TEST(test_integer_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 1,
                 "Integer doesn't match (got %"PRIu32
@@ -126,13 +138,19 @@ START_TEST(test_integer_03)
      * integer boundaries), we should get the same result.
      */
 
-    callback = integer_callback_new();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = integer_callback_new(parser);
     fail_if(callback == NULL,
             "Could not allocate a new integer callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not parse data");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_INCOMPLETE,
@@ -147,7 +165,7 @@ START_TEST(test_integer_03)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) callback->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 1,
                 "Integer doesn't match (got %"PRIu32
@@ -175,13 +193,19 @@ START_TEST(test_parse_error_01)
      * push_min_bytes_t.
      */
 
-    callback = integer_callback_new();
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = integer_callback_new(parser);
     fail_if(callback == NULL,
             "Could not allocate a new integer callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not parse data");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_INCOMPLETE,

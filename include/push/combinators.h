@@ -63,7 +63,8 @@ push_fold_new(push_callback_t *wrapped);
  */
 
 push_callback_t *
-push_min_bytes_new(push_callback_t *wrapped,
+push_min_bytes_new(push_parser_t *parser,
+                   push_callback_t *wrapped,
                    size_t minimum_bytes);
 
 

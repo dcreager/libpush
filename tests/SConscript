@@ -48,12 +48,12 @@ def add_test(test_program):
     env.AlwaysBuild(run_test_target)
 
 
-#add_test("test-compose")
+add_test("test-compose")
 #add_test("test-double-sum")
 add_test("test-eof")
 #add_test("test-hwm")
 #add_test("test-indexed-sum")
-#add_test("test-int")
+add_test("test-int")
 add_test("test-noop")
 #add_test("test-pairs")
 #add_test("test-skip")

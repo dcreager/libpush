@@ -120,8 +120,8 @@ integer_activate(void *user_data,
 }
 
 
-push_callback_t *
-integer_callback_new(push_parser_t *parser)
+static push_callback_t *
+inner_integer_callback_new(push_parser_t *parser)
 {
     integer_t  *integer = (integer_t *) malloc(sizeof(integer_t));
     push_callback_t  *callback;
@@ -168,5 +168,26 @@ integer_callback_new(push_parser_t *parser)
     callback->error = &integer->error;
 
     return callback;
+}
+
+
+push_callback_t *
+integer_callback_new(push_parser_t *parser)
+{
+    push_callback_t  *integer = NULL;
+    push_callback_t  *min_bytes = NULL;
+
+    integer = inner_integer_callback_new(parser);
+    if (integer == NULL)
+        return NULL;
+
+    min_bytes = push_min_bytes_new(parser, integer, sizeof(uint32_t));
+    if (min_bytes == NULL)
+    {
+        push_callback_free(integer);
+        return NULL;
+    }
+
+    return min_bytes;
 }
 

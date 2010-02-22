@@ -16,16 +16,82 @@
 
 
 /**
- * The push_callback_t subclass that defines a min-bytes callback.
+ * The user data struct a min-bytes callback.
  */
 
 typedef struct _min_bytes
 {
     /**
-     * The callback's “superclass” instance.
+     * The continuation that we'll call on a successful parse.
      */
 
-    push_callback_t  base;
+    push_success_continuation_t  *success;
+
+    /**
+     * The continuation that we'll call if we run out of data in the
+     * current chunk.
+     */
+
+    push_incomplete_continuation_t  *incomplete;
+
+    /**
+     * The continuation that we'll call if we encounter an error.
+     */
+
+    push_error_continuation_t  *error;
+
+    /**
+     * The continue continuation that will resume the min-bytes
+     * parser for the first chunk of data.
+     */
+
+    push_continue_continuation_t  first_cont;
+
+    /**
+     * The continue continuation that will resume the min-bytes
+     * parser for all other chunks of data.
+     */
+
+    push_continue_continuation_t  rest_cont;
+
+    /**
+     * A success continuation for when we have to send data into the
+     * wrapped callback in two pieces.  This happen when a chunk gives
+     * us more than enough to meet the minimum, and we've buffered
+     * part of the minimum.  In that case, we send in the buffered
+     * data first (with exactly enough to meet the minimum), and the
+     * remainder of the chunk second.
+     */
+
+    push_success_continuation_t  leftover_success;
+
+
+    /**
+     * An incomplete continuation for when we have to send data into
+     * the wrapped callback in two pieces.  See leftover_success.
+     */
+
+    push_incomplete_continuation_t  leftover_incomplete;
+
+    /**
+     * A pointer to the remainder of the data chunk for when we have
+     * to send data into the wrapped callback in two pieced.  See
+     * leftover_success.
+     */
+
+    const void  *leftover_buf;
+
+    /**
+     * The size of leftover_buf.
+     */
+
+    size_t  leftover_size;
+
+    /**
+     * The input that we'll send to the wrapped callback.
+     */
+
+    void  *input;
 
     /**
      * The wrapped callback.
@@ -54,227 +120,403 @@ typedef struct _min_bytes
 } min_bytes_t;
 
 
-static push_error_code_t
-min_bytes_activate(push_parser_t *parser,
-                   push_callback_t *pcallback,
-                   void *input)
+static void
+min_bytes_first_continue(void *user_data,
+                         const void *buf,
+                         size_t bytes_remaining)
 {
-    min_bytes_t  *callback = (min_bytes_t *) pcallback;
+    min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
 
-    PUSH_DEBUG_MSG("min-bytes: Activating.\n");
-
-    PUSH_DEBUG_MSG("min-bytes: Clearing buffer.\n");
-    callback->bytes_buffered = 0;
-
-    PUSH_DEBUG_MSG("min-bytes: Activating wrapped callback.\n");
-    return push_callback_activate(parser, callback->wrapped, input);
-}
-
-
-static ssize_t
-min_bytes_process_bytes(push_parser_t *parser,
-                        push_callback_t *pcallback,
-                        const void *vbuf,
-                        size_t bytes_available)
-{
-    min_bytes_t  *callback = (min_bytes_t *) pcallback;
+    /*
+     * This continuation is called with the first chunk of data that
+     * we receive.
+     */
 
     PUSH_DEBUG_MSG("min-bytes: Processing %zu bytes.\n",
-                   bytes_available);
+                   bytes_remaining);
 
-    if (callback->bytes_buffered < callback->minimum_bytes)
+    /*
+     * If this chunk of data is large enough to satisy the minimum,
+     * just go ahead and send it to the wrapped callback.
+     */
+
+    if (bytes_remaining >= min_bytes->minimum_bytes)
     {
-        size_t  total_available;
-        size_t  bytes_to_copy;
-        ssize_t  result;
+        PUSH_DEBUG_MSG("min-bytes: First chunk of data "
+                       "is large enough.\n");
 
         /*
-         * If we reach EOF without having met the minimum number of
-         * bytes, we have a parse error.
+         * We don't have anything further to do, so the wrapped
+         * callback should use our final continuations.
          */
 
-        if (bytes_available == 0)
-        {
-            PUSH_DEBUG_MSG("min-bytes: Reached EOF without meeting "
-                           "minimum.\n");
-            return PUSH_PARSE_ERROR;
-        }
+        *min_bytes->wrapped->success = min_bytes->success;
+        *min_bytes->wrapped->incomplete = min_bytes->incomplete;
 
-        /*
-         * We haven't yet reached the minimum, but this chunk of data
-         * might do it.  The total number of bytes we have available
-         * is the sum of what we've already buffered and what we just
-         * received.
-         */
+        push_continuation_call(&min_bytes->wrapped->activate,
+                               min_bytes->input,
+                               buf, bytes_remaining);
 
-        total_available = callback->bytes_buffered + bytes_available;
-
-        /*
-         * If this chunk still isn't enough, copy it into the buffer
-         * and return an incomplete code.
-         */
-
-        if (total_available < callback->minimum_bytes)
-        {
-            PUSH_DEBUG_MSG("min-bytes: Haven't met minimum, currently "
-                           "have %zu bytes total.\n",
-                           callback->bytes_buffered + bytes_available);
-
-            memcpy(callback->buffer + callback->bytes_buffered,
-                   vbuf, bytes_available);
-            callback->bytes_buffered += bytes_available;
-
-            return PUSH_INCOMPLETE;
-        }
-
-        /*
-         * We've got enough data.  If there's nothing in the buffer,
-         * then the first chunk of data is big enough, and we can just
-         * send it into the wrapped callback directly.
-         */
-
-        if (callback->bytes_buffered == 0)
-        {
-            /*
-             * Before passing off to the wrapped callback, claim that
-             * we've “buffered” the minimum number of bytes.  (Even
-             * though we've taken a shortcut and sent them into the
-             * callback directly, rather than actually putting them
-             * into the buffer.)  This will ensure that in any
-             * subsequent calls, we skip all this buffering logic and
-             * just go straight to the wrapped callback.
-             */
-
-            PUSH_DEBUG_MSG("min-bytes: First chunk meets the minimum. "
-                           "Passing directly to wrapped callback.\n");
-
-            callback->bytes_buffered = callback->minimum_bytes;
-            return push_callback_tail_process_bytes
-                (parser, &callback->base, callback->wrapped,
-                 vbuf, bytes_available);
-        }
-
-        /*
-         * Between the current buffer and the newly received chunk,
-         * we've got enough for the wrapped callback.  Copy just
-         * enough into the buffer to meet the minimum, then send in the
-         * buffered data.
-         */
-
-        bytes_to_copy =
-            callback->minimum_bytes - callback->bytes_buffered;
-
-        PUSH_DEBUG_MSG("min-bytes: Copying %zu bytes to meet minimum.\n",
-                       bytes_to_copy);
-
-        memcpy(callback->buffer + callback->bytes_buffered,
-               vbuf, bytes_to_copy);
-        callback->bytes_buffered += bytes_available;
-
-        result = push_callback_tail_process_bytes
-            (parser, &callback->base, callback->wrapped,
-             callback->buffer, callback->minimum_bytes);
-
-        /*
-         * If the wrapped callback succeeds, but doesn't use the
-         * entire buffer, then return a parse error, since we have no
-         * way to pass the unused bytes back up to any other
-         * callbacks.
-         */
-
-        if (result > 0)
-        {
-            PUSH_DEBUG_MSG("min-bytes: Fatal -- wrapped callback "
-                           "did not use all %zu bytes.\n",
-                           callback->minimum_bytes);
-            return PUSH_PARSE_ERROR;
-        }
-
-        /*
-         * If the wrapped callback succeeds, return a success code —
-         * but first, make sure to add back in the bytes that we
-         * didn't pass into the callback.
-         */
-
-        if (result == 0)
-        {
-            PUSH_DEBUG_MSG("min-bytes: Wrapped callback succeeded using "
-                           "%zu bytes.  %zu bytes unused.\n",
-                           callback->minimum_bytes,
-                           bytes_available - bytes_to_copy);
-            return (bytes_available - bytes_to_copy);
-        }
-
-        /*
-         * If the wrapped callback fails (without being incomplete),
-         * go ahead and return that.
-         */
-
-        if (result != PUSH_INCOMPLETE)
-        {
-            return result;
-        }
-
-        /*
-         * Otherwise, we need to pass the rest of the newly received
-         * chunk (if any) back into the callback.
-         */
-
-        vbuf += bytes_to_copy;
-        bytes_available -= bytes_to_copy;
-
-        if (bytes_available == 0)
-            return PUSH_INCOMPLETE;
+        return;
     }
 
     /*
-     * If we reach here, then we've either (a) already met the minimum
-     * with previous chunks of data, or (b) we met the minimum with
-     * the first part of this chunk, and have some data left over.
-     * Either way, we need to pass the data into the wrapped callback.
+     * Otherwise, if this is EOF, then we haven't reached the minimum,
+     * which is a parse error.
      */
 
-    return push_callback_tail_process_bytes
-        (parser, &callback->base, callback->wrapped,
-         vbuf, bytes_available);
+    if (bytes_remaining == 0)
+    {
+        PUSH_DEBUG_MSG("min-bytes: Reached EOF without meeting "
+                       "minimum.\n");
+
+        push_continuation_call(min_bytes->error,
+                               PUSH_PARSE_ERROR,
+                               "Reached EOF without meeting minimum");
+
+        return;
+    }
+
+    /*
+     * Otherwise, add this chunk of data to the buffer and return
+     * incomplete.
+     */
+
+    PUSH_DEBUG_MSG("min-bytes: Haven't met minimum, currently "
+                   "have %zu bytes total.\n",
+                   bytes_remaining);
+
+    memcpy(min_bytes->buffer, buf, bytes_remaining);
+    min_bytes->bytes_buffered = bytes_remaining;
+
+    push_continuation_call(min_bytes->incomplete,
+                           &min_bytes->rest_cont);
+
+    return;
 }
 
 
 static void
-min_bytes_free(push_callback_t *pcallback)
+min_bytes_activate(void *user_data,
+                   void *result,
+                   const void *buf,
+                   size_t bytes_remaining)
 {
-    min_bytes_t  *callback = (min_bytes_t *) pcallback;
+    min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
 
-    PUSH_DEBUG_MSG("min-bytes: Freeing wrapped callback.\n");
-    push_callback_free(callback->wrapped);
+    PUSH_DEBUG_MSG("min-bytes: Activating.\n");
+    min_bytes->input = result;
+
+    PUSH_DEBUG_MSG("min-bytes: Clearing buffer.\n");
+    min_bytes->bytes_buffered = 0;
+
+    if (bytes_remaining == 0)
+    {
+        /*
+         * If we don't get any data when we're activated, return an
+         * incomplete and wait for some data.
+         */
+
+        push_continuation_call(min_bytes->incomplete,
+                               &min_bytes->first_cont);
+
+        return;
+
+    } else {
+        /*
+         * Otherwise let the continue continuation go ahead and
+         * process this chunk of data.
+         */
+
+        min_bytes_first_continue(user_data, buf, bytes_remaining);
+        return;
+    }
+}
+
+
+static void
+min_bytes_rest_continue(void *user_data,
+                        const void *buf,
+                        size_t bytes_remaining)
+{
+    min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
+    size_t  total_available =
+        min_bytes->bytes_buffered + bytes_remaining;
+
+    /*
+     * This continuation is called with the second and later chunks of
+     * data that we receive.
+     */
+
+    PUSH_DEBUG_MSG("min-bytes: Processing %zu bytes.\n",
+                   bytes_remaining);
+
+    /*
+     * If this chunk of data gives us enough to satisy the minimum,
+     * send it to the wrapped callback.
+     */
+
+    if (total_available >= min_bytes->minimum_bytes)
+    {
+        size_t  bytes_to_copy;
+
+        /*
+         * Between the current buffer and the newly received chunk,
+         * we've got enough for the wrapped callback.  Copy just
+         * enough into the buffer to meet the minimum, then send in
+         * the buffered data.
+         */
+
+        bytes_to_copy =
+            min_bytes->minimum_bytes - min_bytes->bytes_buffered;
+
+        PUSH_DEBUG_MSG("min-bytes: Copying %zu bytes to meet minimum.\n",
+                       bytes_to_copy);
+
+        memcpy(min_bytes->buffer + min_bytes->bytes_buffered,
+               buf, bytes_to_copy);
+        min_bytes->bytes_buffered += bytes_remaining;
+
+        buf += bytes_to_copy;
+        bytes_remaining -= bytes_to_copy;
+
+        /*
+         * If this chunk gives us exactly enough to meet the minimum,
+         * with nothing left over, then we can transfer control over
+         * to the wrapped callback completely.
+         */
+
+        if (bytes_remaining == 0)
+        {
+            *min_bytes->wrapped->success = min_bytes->success;
+            *min_bytes->wrapped->incomplete = min_bytes->incomplete;
+
+        } else {
+            /*
+             * Otherwise, once the wrapped callback processes the
+             * buffered data, we have to handle the rest of the chunk
+             * we just received.
+             */
+
+            min_bytes->leftover_buf = buf;
+            min_bytes->leftover_size = bytes_remaining;
+
+            *min_bytes->wrapped->success =
+                &min_bytes->leftover_success;
+            *min_bytes->wrapped->incomplete =
+                &min_bytes->leftover_incomplete;
+        }
+
+        push_continuation_call(&min_bytes->wrapped->activate,
+                               min_bytes->input,
+                               min_bytes->buffer,
+                               min_bytes->minimum_bytes);
+
+        return;
+    }
+
+    /*
+     * Otherwise, if this is EOF, then we haven't reached the minimum,
+     * which is a parse error.
+     */
+
+    if (bytes_remaining == 0)
+    {
+        PUSH_DEBUG_MSG("min-bytes: Reached EOF without meeting "
+                       "minimum.\n");
+
+        push_continuation_call(min_bytes->error,
+                               PUSH_PARSE_ERROR,
+                               "Reached EOF without meeting minimum");
+
+        return;
+    }
+
+    /*
+     * Otherwise, add this chunk of data to the buffer and return
+     * incomplete.
+     */
+
+    PUSH_DEBUG_MSG("min-bytes: Haven't met minimum, currently "
+                   "have %zu bytes total.\n",
+                   bytes_remaining);
+
+    memcpy(min_bytes->buffer + min_bytes->bytes_buffered,
+           buf, bytes_remaining);
+    min_bytes->bytes_buffered = bytes_remaining;
+
+    push_continuation_call(min_bytes->incomplete,
+                           &min_bytes->rest_cont);
+
+    return;
+}
+
+
+static void
+min_bytes_leftover_success(void *user_data,
+                           void *result,
+                           const void *buf,
+                           size_t bytes_remaining)
+{
+    min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
+
+    /*
+     * If we reach this continuation, then we sent in exactly enough
+     * data to meet the minimum, and this was enough for the wrapped
+     * callback to succeed.  There's data left over in the current
+     * chunk, which we pass back in our overall success result.
+     */
+
+    PUSH_DEBUG_MSG("min-bytes: Wrapped callback succeeded with "
+                   "%zu bytes left in chunk.\n",
+                   min_bytes->leftover_size);
+
+    /*
+     * We assume that the wrapped callback will always process at
+     * least the minimum number of bytes.  If it didn't, throw a parse
+     * error.
+     */
+
+    if (bytes_remaining != 0)
+    {
+        PUSH_DEBUG_MSG("min-bytes: Wrapped callback didn't process "
+                       "all %zu bytes.\n",
+                       min_bytes->minimum_bytes);
+
+        push_continuation_call(min_bytes->error,
+                               PUSH_PARSE_ERROR,
+                               "Wrapped callback didn't process "
+                               "full minimum.");
+
+        return;
+    }
+
+    push_continuation_call(min_bytes->success,
+                           result,
+                           min_bytes->leftover_buf,
+                           min_bytes->leftover_size);
+
+    return;
+}
+
+
+static void
+min_bytes_leftover_incomplete(void *user_data,
+                              push_continue_continuation_t *cont)
+{
+    min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
+
+    /*
+     * If we reach this continuation, then we sent in exactly enough
+     * data to meet the minimum, but the wrapped callback needs more.
+     * There's data left over in the current chunk, so we pass that in
+     * to the wrapped callback.
+     */
+
+    PUSH_DEBUG_MSG("min-bytes: Sending remaining %zu bytes in chunk "
+                   "into wrapped callback.\n",
+                   min_bytes->leftover_size);
+
+    /*
+     * We don't have anything further to do, so the wrapped
+     * callback should use our final continuations.
+     */
+
+    *min_bytes->wrapped->success = min_bytes->success;
+    *min_bytes->wrapped->incomplete = min_bytes->incomplete;
+
+    push_continuation_call(cont,
+                           min_bytes->leftover_buf,
+                           min_bytes->leftover_size);
+
+    return;
 }
 
 
 push_callback_t *
-push_min_bytes_new(push_callback_t *wrapped,
+push_min_bytes_new(push_parser_t *parser,
+                   push_callback_t *wrapped,
                    size_t minimum_bytes)
 {
-    min_bytes_t  *callback =
+    min_bytes_t  *min_bytes =
         (min_bytes_t *) malloc(sizeof(min_bytes_t));
+    push_callback_t  *callback;
 
-    if (callback == NULL)
+    if (min_bytes == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
-                       min_bytes_activate,
-                       min_bytes_process_bytes,
-                       min_bytes_free);
+    /*
+     * Try to allocate the internal buffer.
+     */
 
-    callback->buffer = malloc(minimum_bytes);
-    if (callback->buffer == NULL)
+    min_bytes->buffer = malloc(minimum_bytes);
+    if (min_bytes->buffer == NULL)
     {
-        free(callback);
+        free(min_bytes);
         return NULL;
     }
 
-    callback->wrapped = wrapped;
-    callback->minimum_bytes = minimum_bytes;
-    callback->bytes_buffered = 0;
+    /*
+     * Allocate the callback object.
+     */
 
-    return &callback->base;
+    callback = push_callback_new();
+    if (callback == NULL)
+    {
+        free(min_bytes->buffer);
+        free(min_bytes);
+        return NULL;
+    }
+
+    /*
+     * Fill in the data items.
+     */
+
+    min_bytes->wrapped = wrapped;
+    min_bytes->minimum_bytes = minimum_bytes;
+
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
+
+    push_continuation_set(&callback->activate,
+                          min_bytes_activate,
+                          min_bytes);
+
+    push_continuation_set(&min_bytes->first_cont,
+                          min_bytes_first_continue,
+                          min_bytes);
+
+    push_continuation_set(&min_bytes->rest_cont,
+                          min_bytes_rest_continue,
+                          min_bytes);
+
+    push_continuation_set(&min_bytes->leftover_success,
+                          min_bytes_leftover_success,
+                          min_bytes);
+
+    push_continuation_set(&min_bytes->leftover_incomplete,
+                          min_bytes_leftover_incomplete,
+                          min_bytes);
+
+    /*
+     * By default, we call the parser's implementations of the
+     * continuations that we call.
+     */
+
+    min_bytes->success = &parser->success;
+    min_bytes->incomplete = &parser->incomplete;
+    min_bytes->error = &parser->error;
+
+    /*
+     * Set the pointers for the continuations that we call, so that
+     * they can be changed by combinators, if necessary.
+     */
+
+    callback->success = &min_bytes->success;
+    callback->incomplete = &min_bytes->incomplete;
+    callback->error = &min_bytes->error;
+
+    return callback;
 }

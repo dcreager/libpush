@@ -24,77 +24,167 @@
  * Sum callback implementation
  */
 
-typedef struct _sum_callback
+typedef struct _sum
 {
-    push_callback_t  base;
+    /**
+     * The continuation that we'll call on a successful parse.
+     */
+
+    push_success_continuation_t  *success;
+
+    /**
+     * The continuation that we'll call if we run out of data in the
+     * current chunk.
+     */
+
+    push_incomplete_continuation_t  *incomplete;
+
+    /**
+     * The continuation that we'll call if we encounter an error.
+     */
+
+    push_error_continuation_t  *error;
+
+    /**
+     * The continue continuation that will resume the EOF parser.
+     */
+
+    push_continue_continuation_t  cont;
+
+    /**
+     * The calculated sum.
+     */
+
     uint32_t  sum;
-} sum_callback_t;
+
+} sum_t;
 
 
-static push_error_code_t
-sum_callback_activate(push_parser_t *parser,
-                      push_callback_t *pcallback,
-                      void *vinput)
+static void
+sum_continue(void *user_data,
+             const void *buf,
+             size_t bytes_remaining)
 {
-    sum_callback_t  *callback = (sum_callback_t *) pcallback;
-    uint32_t  *input = (uint32_t *) vinput;
-
-    PUSH_DEBUG_MSG("sum: Activating callback.  "
-                   "Received value %"PRIu32".\n",
-                   *input);
-    callback->sum = *input;
-    return PUSH_SUCCESS;
-}
-
-
-static ssize_t
-sum_callback_process_bytes(push_parser_t *parser,
-                           push_callback_t *pcallback,
-                           const void *buf,
-                           size_t bytes_available)
-{
-    sum_callback_t  *callback = (sum_callback_t *) pcallback;
+    sum_t  *sum = (sum_t *) user_data;
 
     PUSH_DEBUG_MSG("sum: Processing %zu bytes at %p.\n",
-                   bytes_available, buf);
+                   bytes_remaining, buf);
 
-    if (bytes_available < sizeof(uint32_t))
+    if (bytes_remaining < sizeof(uint32_t))
     {
-        return PUSH_PARSE_ERROR;
-    } else {
-        const uint32_t  *next_int = (const uint32_t *) buf;
-        buf += sizeof(uint32_t);
-        bytes_available -= sizeof(uint32_t);
+        push_continuation_call(sum->error,
+                               PUSH_PARSE_ERROR,
+                               "Need more bytes to parse an integer");
 
-        callback->sum += *next_int;
+        return;
+    } else {
+        const uint32_t  *next_integer = (const uint32_t *) buf;
+        buf += sizeof(uint32_t);
+        bytes_remaining -= sizeof(uint32_t);
+
+        sum->sum += *next_integer;
+
         PUSH_DEBUG_MSG("sum: Adding %"PRIu32".  "
                        "Sum is now %"PRIu32".\n",
-                       *next_int, callback->sum);
-        PUSH_DEBUG_MSG("sum: Returning %zu bytes.\n", bytes_available);
+                       *next_integer, sum->sum);
+        PUSH_DEBUG_MSG("sum: Returning %zu bytes.\n", bytes_remaining);
 
-        return bytes_available;
+        push_continuation_call(sum->success,
+                               &sum->sum,
+                               buf,
+                               bytes_remaining);
+
+        return;
     }
 }
 
 
-static sum_callback_t *
-sum_callback_new()
+static void
+sum_activate(void *user_data,
+             void *result,
+             const void *buf,
+             size_t bytes_remaining)
 {
-    sum_callback_t  *result =
-        (sum_callback_t *) malloc(sizeof(sum_callback_t));
+    sum_t  *sum = (sum_t *) user_data;
+    uint32_t  *input = (uint32_t *) result;
 
-    if (result == NULL)
+    PUSH_DEBUG_MSG("sum: Activating callback.  "
+                   "Received value %"PRIu32".\n",
+                   *input);
+    sum->sum = *input;
+
+    if (bytes_remaining == 0)
+    {
+        /*
+         * If we don't get any data when we're activated, return an
+         * incomplete and wait for some data.
+         */
+
+        push_continuation_call(sum->incomplete,
+                               &sum->cont);
+
+        return;
+
+    } else {
+        /*
+         * Otherwise let the continue continuation go ahead and
+         * process this chunk of data.
+         */
+
+        sum_continue(user_data, buf, bytes_remaining);
+        return;
+    }
+}
+
+
+static push_callback_t *
+sum_callback_new(push_parser_t *parser)
+{
+    sum_t  *sum = (sum_t *) malloc(sizeof(sum_t));
+    push_callback_t  *callback;
+
+    if (sum == NULL)
         return NULL;
 
-    push_callback_init(&result->base,
-                       sum_callback_activate,
-                       sum_callback_process_bytes,
-                       NULL);
+    callback = push_callback_new();
+    if (callback == NULL)
+    {
+        free(sum);
+        return NULL;
+    }
 
-    result->sum = 0;
-    result->base.result = &result->sum;
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
 
-    return result;
+    push_continuation_set(&callback->activate,
+                          sum_activate,
+                          sum);
+
+    push_continuation_set(&sum->cont,
+                          sum_continue,
+                          sum);
+
+    /*
+     * By default, we call the parser's implementations of the
+     * continuations that we call.
+     */
+
+    sum->success = &parser->success;
+    sum->incomplete = &parser->incomplete;
+    sum->error = &parser->error;
+
+    /*
+     * Set the pointers for the continuations that we call, so that
+     * they can be changed by combinators, if necessary.
+     */
+
+    callback->success = &sum->success;
+    callback->incomplete = &sum->incomplete;
+    callback->error = &sum->error;
+
+    return callback;
 }
 
 
@@ -114,21 +204,23 @@ const size_t  LENGTH_01 = 5 * sizeof(uint32_t);
 START_TEST(test_sum_01)
 {
     push_parser_t  *parser;
-    sum_callback_t  *sum1;
+    push_callback_t  *sum1;
     uint32_t  input = 0;
     uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_sum_01\n");
 
-    sum1 = sum_callback_new();
-    fail_if(sum1 == NULL,
-            "Could not allocate a new sum callback");
-
-    parser = push_parser_new(&sum1->base);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &input) == PUSH_SUCCESS,
+    sum1 = sum_callback_new(parser);
+    fail_if(sum1 == NULL,
+            "Could not allocate a new sum callback");
+
+    push_parser_set_callback(parser, sum1);
+
+    fail_unless(push_parser_activate(parser, &input) == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -138,7 +230,7 @@ START_TEST(test_sum_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) sum1->base.result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 1,
                 "Sum doesn't match (got %"PRIu32
@@ -153,31 +245,33 @@ END_TEST
 START_TEST(test_sum_02)
 {
     push_parser_t  *parser;
-    sum_callback_t  *sum1;
-    sum_callback_t  *sum2;
+    push_callback_t  *sum1;
+    push_callback_t  *sum2;
     push_callback_t  *compose;
     uint32_t  input = 0;
     uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_sum_02\n");
 
-    sum1 = sum_callback_new();
-    fail_if(sum1 == NULL,
-            "Could not allocate first sum callback");
-
-    sum2 = sum_callback_new();
-    fail_if(sum2 == NULL,
-            "Could not allocate second sum callback");
-
-    compose = push_compose_new(&sum1->base, &sum2->base);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    parser = push_parser_new(compose);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &input) == PUSH_SUCCESS,
+    sum1 = sum_callback_new(parser);
+    fail_if(sum1 == NULL,
+            "Could not allocate first sum callback");
+
+    sum2 = sum_callback_new(parser);
+    fail_if(sum2 == NULL,
+            "Could not allocate second sum callback");
+
+    compose = push_compose_new(parser, sum1, sum2);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    push_parser_set_callback(parser, compose);
+
+    fail_unless(push_parser_activate(parser, &input) == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -187,7 +281,7 @@ START_TEST(test_sum_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) compose->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 3,
                 "Sum doesn't match (got %"PRIu32
@@ -202,54 +296,56 @@ END_TEST
 START_TEST(test_sum_05)
 {
     push_parser_t  *parser;
-    sum_callback_t  *sum[5];
+    push_callback_t  *sum[5];
     push_callback_t  *compose;
     uint32_t  input = 0;
     uint32_t  *result;
 
     PUSH_DEBUG_MSG("---\nStarting test_sum_05\n");
 
-    sum[0] = sum_callback_new();
-    fail_if(sum[0] == NULL,
-            "Could not allocate first sum callback");
-
-    sum[1] = sum_callback_new();
-    fail_if(sum[1] == NULL,
-            "Could not allocate second sum callback");
-
-    sum[2] = sum_callback_new();
-    fail_if(sum[2] == NULL,
-            "Could not allocate third sum callback");
-
-    sum[3] = sum_callback_new();
-    fail_if(sum[3] == NULL,
-            "Could not allocate fourth sum callback");
-
-    sum[4] = sum_callback_new();
-    fail_if(sum[4] == NULL,
-            "Could not allocate fifth sum callback");
-
-    compose = push_compose_new(&sum[0]->base, &sum[1]->base);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    compose = push_compose_new(compose, &sum[2]->base);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    compose = push_compose_new(compose, &sum[3]->base);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    compose = push_compose_new(compose, &sum[4]->base);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    parser = push_parser_new(compose);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &input) == PUSH_SUCCESS,
+    sum[0] = sum_callback_new(parser);
+    fail_if(sum[0] == NULL,
+            "Could not allocate first sum callback");
+
+    sum[1] = sum_callback_new(parser);
+    fail_if(sum[1] == NULL,
+            "Could not allocate second sum callback");
+
+    sum[2] = sum_callback_new(parser);
+    fail_if(sum[2] == NULL,
+            "Could not allocate third sum callback");
+
+    sum[3] = sum_callback_new(parser);
+    fail_if(sum[3] == NULL,
+            "Could not allocate fourth sum callback");
+
+    sum[4] = sum_callback_new(parser);
+    fail_if(sum[4] == NULL,
+            "Could not allocate fifth sum callback");
+
+    compose = push_compose_new(parser, sum[0], sum[1]);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    compose = push_compose_new(parser, compose, sum[2]);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    compose = push_compose_new(parser, compose, sum[3]);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    compose = push_compose_new(parser, compose, sum[4]);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    push_parser_set_callback(parser, compose);
+
+    fail_unless(push_parser_activate(parser, &input) == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -259,7 +355,7 @@ START_TEST(test_sum_05)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) compose->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -274,7 +370,7 @@ END_TEST
 START_TEST(test_wrapped_sum_05)
 {
     push_parser_t  *parser;
-    sum_callback_t  *sum[5];
+    push_callback_t  *sum[5];
     push_callback_t  *wrapped[5];
     push_callback_t  *compose;
     uint32_t  input = 0;
@@ -283,67 +379,74 @@ START_TEST(test_wrapped_sum_05)
 
     PUSH_DEBUG_MSG("---\nStarting test_wrapped_sum_05\n");
 
-    sum[0] = sum_callback_new();
-    fail_if(sum[0] == NULL,
-            "Could not allocate first sum callback");
-
-    wrapped[0] = push_min_bytes_new(&sum[0]->base, sizeof(uint32_t));
-    fail_if(wrapped[0] == NULL,
-            "Could not allocate first min-bytes callback");
-
-    sum[1] = sum_callback_new();
-    fail_if(sum[1] == NULL,
-            "Could not allocate second sum callback");
-
-    wrapped[1] = push_min_bytes_new(&sum[1]->base, sizeof(uint32_t));
-    fail_if(wrapped[1] == NULL,
-            "Could not allocate second min-bytes callback");
-
-    sum[2] = sum_callback_new();
-    fail_if(sum[2] == NULL,
-            "Could not allocate third sum callback");
-
-    wrapped[2] = push_min_bytes_new(&sum[2]->base, sizeof(uint32_t));
-    fail_if(wrapped[2] == NULL,
-            "Could not allocate third min-bytes callback");
-
-    sum[3] = sum_callback_new();
-    fail_if(sum[3] == NULL,
-            "Could not allocate fourth sum callback");
-
-    wrapped[3] = push_min_bytes_new(&sum[3]->base, sizeof(uint32_t));
-    fail_if(wrapped[3] == NULL,
-            "Could not allocate fourth min-bytes callback");
-
-    sum[4] = sum_callback_new();
-    fail_if(sum[4] == NULL,
-            "Could not allocate fifth sum callback");
-
-    wrapped[4] = push_min_bytes_new(&sum[4]->base, sizeof(uint32_t));
-    fail_if(wrapped[4] == NULL,
-            "Could not allocate fifth min-bytes callback");
-
-    compose = push_compose_new(wrapped[0], wrapped[1]);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    compose = push_compose_new(compose, wrapped[2]);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    compose = push_compose_new(compose, wrapped[3]);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    compose = push_compose_new(compose, wrapped[4]);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    parser = push_parser_new(compose);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &input) == PUSH_SUCCESS,
+    sum[0] = sum_callback_new(parser);
+    fail_if(sum[0] == NULL,
+            "Could not allocate first sum callback");
+
+    wrapped[0] = push_min_bytes_new(parser, sum[0],
+                                    sizeof(uint32_t));
+    fail_if(wrapped[0] == NULL,
+            "Could not allocate first min-bytes callback");
+
+    sum[1] = sum_callback_new(parser);
+    fail_if(sum[1] == NULL,
+            "Could not allocate second sum callback");
+
+    wrapped[1] = push_min_bytes_new(parser, sum[1],
+                                    sizeof(uint32_t));
+    fail_if(wrapped[1] == NULL,
+            "Could not allocate second min-bytes callback");
+
+    sum[2] = sum_callback_new(parser);
+    fail_if(sum[2] == NULL,
+            "Could not allocate third sum callback");
+
+    wrapped[2] = push_min_bytes_new(parser, sum[2],
+                                    sizeof(uint32_t));
+    fail_if(wrapped[2] == NULL,
+            "Could not allocate third min-bytes callback");
+
+    sum[3] = sum_callback_new(parser);
+    fail_if(sum[3] == NULL,
+            "Could not allocate fourth sum callback");
+
+    wrapped[3] = push_min_bytes_new(parser, sum[3],
+                                    sizeof(uint32_t));
+    fail_if(wrapped[3] == NULL,
+            "Could not allocate fourth min-bytes callback");
+
+    sum[4] = sum_callback_new(parser);
+    fail_if(sum[4] == NULL,
+            "Could not allocate fifth sum callback");
+
+    wrapped[4] = push_min_bytes_new(parser, sum[4],
+                                    sizeof(uint32_t));
+    fail_if(wrapped[4] == NULL,
+            "Could not allocate fifth min-bytes callback");
+
+    compose = push_compose_new(parser, wrapped[0], wrapped[1]);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    compose = push_compose_new(parser, compose, wrapped[2]);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    compose = push_compose_new(parser, compose, wrapped[3]);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    compose = push_compose_new(parser, compose, wrapped[4]);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    push_parser_set_callback(parser, compose);
+
+    fail_unless(push_parser_activate(parser, &input) == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -359,7 +462,7 @@ START_TEST(test_wrapped_sum_05)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = (uint32_t *) compose->result;
+    result = push_parser_result(parser, uint32_t);
 
     fail_unless(*result == 15,
                 "Sum doesn't match (got %"PRIu32
@@ -374,8 +477,8 @@ END_TEST
 START_TEST(test_parse_error_01)
 {
     push_parser_t  *parser;
-    sum_callback_t  *sum1;
-    sum_callback_t  *sum2;
+    push_callback_t  *sum1;
+    push_callback_t  *sum2;
     push_callback_t  *compose;
     uint32_t  input = 0;
     size_t  FIRST_CHUNK_SIZE = 3; /* something not divisible by 4 */
@@ -388,23 +491,25 @@ START_TEST(test_parse_error_01)
      * and then reach EOF, we should get a parse error.
      */
 
-    sum1 = sum_callback_new();
-    fail_if(sum1 == NULL,
-            "Could not allocate first sum callback");
-
-    sum2 = sum_callback_new();
-    fail_if(sum2 == NULL,
-            "Could not allocate second sum callback");
-
-    compose = push_compose_new(&sum1->base, &sum2->base);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    parser = push_parser_new(compose);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &input) == PUSH_SUCCESS,
+    sum1 = sum_callback_new(parser);
+    fail_if(sum1 == NULL,
+            "Could not allocate first sum callback");
+
+    sum2 = sum_callback_new(parser);
+    fail_if(sum2 == NULL,
+            "Could not allocate second sum callback");
+
+    compose = push_compose_new(parser, sum1, sum2);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    push_parser_set_callback(parser, compose);
+
+    fail_unless(push_parser_activate(parser, &input) == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data
@@ -422,8 +527,8 @@ END_TEST
 START_TEST(test_parse_error_02)
 {
     push_parser_t  *parser;
-    sum_callback_t  *sum1;
-    sum_callback_t  *sum2;
+    push_callback_t  *sum1;
+    push_callback_t  *sum2;
     push_callback_t  *compose;
     uint32_t  input = 0;
     size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
@@ -436,23 +541,25 @@ START_TEST(test_parse_error_02)
      * and then reach EOF, we should get a parse error.
      */
 
-    sum1 = sum_callback_new();
-    fail_if(sum1 == NULL,
-            "Could not allocate first sum callback");
-
-    sum2 = sum_callback_new();
-    fail_if(sum2 == NULL,
-            "Could not allocate second sum callback");
-
-    compose = push_compose_new(&sum1->base, &sum2->base);
-    fail_if(compose == NULL,
-            "Could not allocate compose callback");
-
-    parser = push_parser_new(compose);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    fail_unless(push_parser_activate(parser, &input) == PUSH_SUCCESS,
+    sum1 = sum_callback_new(parser);
+    fail_if(sum1 == NULL,
+            "Could not allocate first sum callback");
+
+    sum2 = sum_callback_new(parser);
+    fail_if(sum2 == NULL,
+            "Could not allocate second sum callback");
+
+    compose = push_compose_new(parser, sum1, sum2);
+    fail_if(compose == NULL,
+            "Could not allocate compose callback");
+
+    push_parser_set_callback(parser, compose);
+
+    fail_unless(push_parser_activate(parser, &input) == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
     fail_unless(push_parser_submit_data

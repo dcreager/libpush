@@ -15,7 +15,7 @@ libpush_files = map(File, \
      #"fold.c",
      #"hwm-string.c",
      #"max-bytes.c",
-     #"min-bytes.c",
+     "min-bytes.c",
      "noop.c",
      #"pairs/both.c",
      #"pairs/first.c",
