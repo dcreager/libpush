@@ -27,62 +27,80 @@
  * Takes in an integer x as input, and outputs x+1.
  */
 
-typedef struct _inc_callback
+typedef struct _inc
 {
-    push_callback_t  base;
-    int  *input;
+    push_success_continuation_t  *success;
     int  result;
-} inc_callback_t;
+} inc_t;
 
 
-static push_error_code_t
-inc_activate(push_parser_t *parser,
-             push_callback_t *pcallback,
-             void *vinput)
+static void
+inc_activate(void *user_data,
+             void *result,
+             const void *buf,
+             size_t bytes_remaining)
 {
-    inc_callback_t  *callback = (inc_callback_t *) pcallback;
-
-    callback->input = (int *) vinput;
+    inc_t  *inc = (inc_t *) user_data;
+    int  *input = (int *) result;
 
     PUSH_DEBUG_MSG("inc: Activating.  Received value %d.\n",
-                   *callback->input);
-    return PUSH_SUCCESS;
-}
+                   *input);
 
+    inc->result = (*input) + 1;
 
-static ssize_t
-inc_process_bytes(push_parser_t *parser,
-                  push_callback_t *pcallback,
-                  const void *buf,
-                  size_t bytes_available)
-{
-    inc_callback_t  *callback = (inc_callback_t *) pcallback;
-
-    callback->result = (*callback->input) + 1;
     PUSH_DEBUG_MSG("inc: Incrementing value.  Result is %d.\n",
-                   callback->result);
+                   inc->result);
 
-    return PUSH_SUCCESS;
+    push_continuation_call(inc->success,
+                           &inc->result,
+                           buf, bytes_remaining);
+
+    return;
 }
 
 
 static push_callback_t *
-inc_callback_new()
+inc_callback_new(push_parser_t *parser)
 {
-    inc_callback_t  *callback =
-        (inc_callback_t *) malloc(sizeof(inc_callback_t));
+    inc_t  *inc = (inc_t *) malloc(sizeof(inc_t));
+    push_callback_t  *callback;
 
-    if (callback == NULL)
+    if (inc == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
-                       inc_activate,
-                       inc_process_bytes,
-                       NULL);
+    callback = push_callback_new();
+    if (callback == NULL)
+    {
+        free(inc);
+        return NULL;
+    }
 
-    callback->base.result = &callback->result;
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
 
-    return &callback->base;
+    push_continuation_set(&callback->activate,
+                          inc_activate,
+                          inc);
+
+    /*
+     * By default, we call the parser's implementations of the
+     * continuations that we call.
+     */
+
+    inc->success = &parser->success;
+
+    /*
+     * Set the pointers for the continuations that we call, so that
+     * they can be changed by combinators, if necessary.
+     */
+
+    callback->success = &inc->success;
+    callback->incomplete = NULL;
+    callback->error = NULL;
+
+    return callback;
 }
 
 
@@ -119,17 +137,19 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        inc = inc_callback_new();                                   \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        inc = inc_callback_new(parser);                             \
         fail_if(inc == NULL,                                        \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_first_new(inc);                             \
+        callback = push_first_new(parser, inc);                     \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new first callback");         \
                                                                     \
-        parser = push_parser_new(callback);                         \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, callback);                 \
                                                                     \
         fail_unless(push_parser_activate                            \
                     (parser,                                        \
@@ -139,7 +159,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (push_pair_t *) callback->result;                  \
+        result = push_parser_result(parser, push_pair_t);           \
                                                                     \
         fail_unless(int_pair_eq(result,                             \
                                 &FIRST_EXPECTED_##test_name),       \
@@ -167,17 +187,19 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        inc = inc_callback_new();                                   \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        inc = inc_callback_new(parser);                             \
         fail_if(inc == NULL,                                        \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_second_new(inc);                            \
+        callback = push_second_new(parser, inc);                    \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new second callback");        \
                                                                     \
-        parser = push_parser_new(callback);                         \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, callback);                 \
                                                                     \
         fail_unless(push_parser_activate                            \
                     (parser,                                        \
@@ -187,7 +209,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (push_pair_t *) callback->result;                  \
+        result = push_parser_result(parser, push_pair_t);           \
                                                                     \
         fail_unless(int_pair_eq(result,                             \
                                 &SECOND_EXPECTED_##test_name),      \
@@ -216,21 +238,23 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        inc1 = inc_callback_new();                                  \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        inc1 = inc_callback_new(parser);                            \
         fail_if(inc1 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        inc2 = inc_callback_new();                                  \
+        inc2 = inc_callback_new(parser);                            \
         fail_if(inc2 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_par_new(inc1, inc2);                        \
+        callback = push_par_new(parser, inc1, inc2);                \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new par callback");           \
                                                                     \
-        parser = push_parser_new(callback);                         \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, callback);                 \
                                                                     \
         fail_unless(push_parser_activate                            \
                     (parser,                                        \
@@ -240,7 +264,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (push_pair_t *) callback->result;                  \
+        result = push_parser_result(parser, push_pair_t);           \
                                                                     \
         fail_unless(int_pair_eq(result,                             \
                                 &PAR_EXPECTED_##test_name),         \
@@ -269,21 +293,23 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        inc1 = inc_callback_new();                                  \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        inc1 = inc_callback_new(parser);                            \
         fail_if(inc1 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        inc2 = inc_callback_new();                                  \
+        inc2 = inc_callback_new(parser);                            \
         fail_if(inc2 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_both_new(inc1, inc2);                       \
+        callback = push_both_new(parser, inc1, inc2);               \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new both callback");          \
                                                                     \
-        parser = push_parser_new(callback);                         \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, callback);                 \
                                                                     \
         fail_unless(push_parser_activate                            \
                     (parser,                                        \
@@ -293,7 +319,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (push_pair_t *) callback->result;                  \
+        result = push_parser_result(parser, push_pair_t);           \
                                                                     \
         fail_unless(int_pair_eq(result,                             \
                                 &BOTH_EXPECTED_##test_name),        \

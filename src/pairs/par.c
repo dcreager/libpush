@@ -15,7 +15,8 @@
 
 
 push_callback_t *
-push_par_new(push_callback_t *a,
+push_par_new(push_parser_t *parser,
+             push_callback_t *a,
              push_callback_t *b)
 {
     /*
@@ -29,18 +30,18 @@ push_par_new(push_callback_t *a,
     push_callback_t  *second;
     push_callback_t  *callback;
 
-    first = push_first_new(a);
+    first = push_first_new(parser, a);
     if (first == NULL)
         return NULL;
 
-    second = push_second_new(b);
+    second = push_second_new(parser, b);
     if (second == NULL)
     {
         push_callback_free(first);
         return NULL;
     }
 
-    callback = push_compose_new(first, second);
+    callback = push_compose_new(parser, first, second);
     if (callback == NULL)
     {
         push_callback_free(first);

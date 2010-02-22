@@ -20,10 +20,18 @@
 typedef struct _first
 {
     /**
-     * The callback's “superclass” instance.
+     * The continuation that we'll call on a successful parse.
      */
 
-    push_callback_t  base;
+    push_success_continuation_t  *success;
+
+    /**
+     * The success continuation that we have the wrapped callback use.
+     * It constructs the output pair from the wrapped callback's
+     * result.
+     */
+
+    push_success_continuation_t  wrapped_success;
 
     /**
      * The wrapped callback.
@@ -32,11 +40,10 @@ typedef struct _first
     push_callback_t  *wrapped;
 
     /**
-     * A reference to our input pair.  This lets us copy out the
-     * second element once the wrapped callback finishes.
+     * The value that we copy through the second element of the pair.
      */
 
-    push_pair_t  *input;
+    void  *second;
 
     /**
      * The pair object that we output as our result.
@@ -47,19 +54,21 @@ typedef struct _first
 } first_t;
 
 
-static push_error_code_t
-first_activate(push_parser_t *parser,
-               push_callback_t *pcallback,
-               void *input)
+static void
+first_activate(void *user_data,
+               void *result,
+               const void *buf,
+               size_t bytes_remaining)
 {
-    first_t  *callback = (first_t *) pcallback;
+    first_t  *first = (first_t *) user_data;
+    push_pair_t  *input = (push_pair_t *) result;
 
     /*
-     * Save a reference to the pair, so that we can copy the second
-     * element into our result later.
+     * Save the second element of the input pair, so that we can copy
+     * it into our result later.
      */
 
-    callback->input = (push_pair_t *) input;
+    first->second = input->second;
 
     /*
      * We activate this callback by passing the first element of the
@@ -67,70 +76,98 @@ first_activate(push_parser_t *parser,
      */
 
     PUSH_DEBUG_MSG("first: Activating wrapped callback.\n");
-    return push_callback_activate(parser, callback->wrapped,
-                                  callback->input->first);
-}
 
+    push_continuation_call(&first->wrapped->activate,
+                           input->first,
+                           buf, bytes_remaining);
 
-static ssize_t
-first_process_bytes(push_parser_t *parser,
-                    push_callback_t *pcallback,
-                    const void *vbuf,
-                    size_t bytes_available)
-{
-    first_t  *callback = (first_t *) pcallback;
-    ssize_t  result;
-
-    /*
-     * Pass off to the wrapped callback.  This isn't a tail call
-     * because we don't use the wrapped callback's result as our
-     * result.
-     */
-
-    result = push_callback_process_bytes(parser, callback->wrapped,
-                                         vbuf, bytes_available);
-
-    /*
-     * If the wrapped callback gives us a success result, create a new
-     * pair for our result.
-     */
-
-    if (result >= 0)
-    {
-        callback->result.first = callback->wrapped->result;
-        callback->result.second = callback->input->second;
-    }
-
-    return result;
+    return;
 }
 
 
 static void
-first_free(push_callback_t *pcallback)
+first_wrapped_success(void *user_data,
+                      void *result,
+                      const void *buf,
+                      size_t bytes_remaining)
 {
-    first_t  *callback = (first_t *) pcallback;
+    first_t  *first = (first_t *) user_data;
 
-    PUSH_DEBUG_MSG("first: Freeing wrapped callback.\n");
-    push_callback_free(callback->wrapped);
+    /*
+     * Create the output pair from this result and our saved value.
+     */
+
+    first->result.first = result;
+    first->result.second = first->second;
+
+    push_continuation_call(first->success,
+                           &first->result,
+                           buf, bytes_remaining);
+
+    return;
 }
 
 
 push_callback_t *
-push_first_new(push_callback_t *wrapped)
+push_first_new(push_parser_t *parser,
+               push_callback_t *wrapped)
 {
-    first_t  *callback =
-        (first_t *) malloc(sizeof(first_t));
+    first_t  *first = (first_t *) malloc(sizeof(first_t));
+    push_callback_t  *callback;
 
-    if (callback == NULL)
+    if (first == NULL)
         return NULL;
 
-    push_callback_init(&callback->base,
-                       first_activate,
-                       first_process_bytes,
-                       first_free);
+    callback = push_callback_new();
+    if (callback == NULL)
+    {
+        free(first);
+        return NULL;
+    }
 
-    callback->wrapped = wrapped;
-    callback->base.result = &callback->result;
+    /*
+     * Fill in the data items.
+     */
 
-    return &callback->base;
+    first->wrapped = wrapped;
+
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
+
+    push_continuation_set(&callback->activate,
+                          first_activate,
+                          first);
+
+    push_continuation_set(&first->wrapped_success,
+                          first_wrapped_success,
+                          first);
+
+    /*
+     * The wrapped callback should succeed by calling our success
+     * continuation, which will construct the correct output pair.
+     */
+
+    if (wrapped->success != NULL)
+        *wrapped->success = &first->wrapped_success;
+
+    /*
+     * By default, we call the parser's implementations of the
+     * continuations that we call.
+     */
+
+    first->success = &parser->success;
+
+    /*
+     * Set the pointers for the continuations that we call, so that
+     * they can be changed by combinators, if necessary.  We cannot
+     * incomplete or fail on our own — only our wrapped callback can.
+     */
+
+    callback->success = &first->success;
+    callback->incomplete = NULL;
+    callback->error = NULL;
+
+    return callback;
 }

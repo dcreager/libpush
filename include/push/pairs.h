@@ -47,7 +47,8 @@ typedef struct _push_pair
  */
 
 push_callback_t *
-push_first_new(push_callback_t *wrapped);
+push_first_new(push_parser_t *parser,
+               push_callback_t *wrapped);
 
 
 /**
@@ -60,7 +61,8 @@ push_first_new(push_callback_t *wrapped);
  */
 
 push_callback_t *
-push_second_new(push_callback_t *wrapped);
+push_second_new(push_parser_t *parser,
+                push_callback_t *wrapped);
 
 
 /**
@@ -73,7 +75,8 @@ push_second_new(push_callback_t *wrapped);
  */
 
 push_callback_t *
-push_par_new(push_callback_t *first,
+push_par_new(push_parser_t *parser,
+             push_callback_t *first,
              push_callback_t *second);
 
 
@@ -87,7 +90,8 @@ push_par_new(push_callback_t *first,
  */
 
 push_callback_t *
-push_both_new(push_callback_t *first,
+push_both_new(push_parser_t *parser,
+              push_callback_t *first,
               push_callback_t *second);
 
 

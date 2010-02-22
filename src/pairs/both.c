@@ -22,102 +22,119 @@
  *   a &&& b = arr (\a -> (a,a)) >>> (a *** b)
  */
 
-typedef struct _both
+typedef struct _dup
 {
     /**
-     * The callback's “superclass” instance.
+     * The continuation that we'll call on a successful parse.
      */
 
-    push_callback_t  base;
+    push_success_continuation_t  *success;
 
     /**
-     * The input pair that we pass in to the wrapped callback.
+     * The outpt pair that we construct.
      */
 
-    push_pair_t  input;
+    push_pair_t  result;
 
-    /**
-     * The wrapped (a *** b) callback.
-     */
-
-    push_callback_t  *wrapped;
-
-} both_t;
-
-
-static push_error_code_t
-both_activate(push_parser_t *parser,
-              push_callback_t *pcallback,
-              void *input)
-{
-    both_t  *callback = (both_t *) pcallback;
-
-    /*
-     * Duplicate the input into a pair, and pass that into the wrapped
-     * (a *** b) callback.
-     */
-
-    callback->input.first = input;
-    callback->input.second = input;
-
-    return push_callback_activate(parser, callback->wrapped,
-                                  &callback->input);
-}
-
-
-static ssize_t
-both_process_bytes(push_parser_t *parser,
-                   push_callback_t *pcallback,
-                   const void *vbuf,
-                   size_t bytes_available)
-{
-    both_t  *callback = (both_t *) pcallback;
-
-    /*
-     * Delegate to the wrapped callback for our behavior.
-     */
-
-    return push_callback_tail_process_bytes
-        (parser, &callback->base,
-         callback->wrapped,
-         vbuf, bytes_available);
-}
+} dup_t;
 
 
 static void
-both_free(push_callback_t *pcallback)
+dup_activate(void *user_data,
+             void *result,
+             const void *buf,
+             size_t bytes_remaining)
 {
-    both_t  *callback = (both_t *) pcallback;
+    dup_t  *dup = (dup_t *) user_data;
 
-    PUSH_DEBUG_MSG("both: Freeing wrapped callback.\n");
-    push_callback_free(callback->wrapped);
+    /*
+     * Duplicate the input into a pair, and immediately succeed with
+     * that result.
+     */
+
+    dup->result.first = result;
+    dup->result.second = result;
+
+    push_continuation_call(dup->success,
+                           &dup->result,
+                           buf, bytes_remaining);
+
+    return;
+}
+
+
+static push_callback_t *
+dup_new(push_parser_t *parser)
+{
+    dup_t  *dup = (dup_t *) malloc(sizeof(dup_t));
+    push_callback_t  *callback;
+
+    if (dup == NULL)
+        return NULL;
+
+    callback = push_callback_new();
+    if (callback == NULL)
+    {
+        free(dup);
+        return NULL;
+    }
+
+    /*
+     * Fill in the continuation objects for the continuations that we
+     * implement.
+     */
+
+    push_continuation_set(&callback->activate,
+                          dup_activate,
+                          dup);
+
+    /*
+     * By default, we call the parser's implementations of the
+     * continuations that we call.
+     */
+
+    dup->success = &parser->success;
+
+    /*
+     * Set the pointers for the continuations that we call, so that
+     * they can be changed by combinators, if necessary.
+     */
+
+    callback->success = &dup->success;
+    callback->incomplete = NULL;
+    callback->error = NULL;
+
+    return callback;
 }
 
 
 push_callback_t *
-push_both_new(push_callback_t *a,
+push_both_new(push_parser_t *parser,
+              push_callback_t *a,
               push_callback_t *b)
 {
-    push_callback_t  *wrapped;
-    both_t  *callback;
+    push_callback_t  *dup;
+    push_callback_t  *par;
+    push_callback_t  *callback;
 
-    wrapped = push_par_new(a, b);
-    if (wrapped == NULL)
+    dup = dup_new(parser);
+    if (dup == NULL)
         return NULL;
 
-    callback = (both_t *) malloc(sizeof(both_t));
-    if (callback == NULL)
+    par = push_par_new(parser, a, b);
+    if (par == NULL)
     {
-        push_callback_free(wrapped);
+        push_callback_free(dup);
         return NULL;
     }
 
-    push_callback_init(&callback->base,
-                       both_activate,
-                       both_process_bytes,
-                       both_free);
+    callback = push_compose_new(parser, dup, par);
+    if (callback == NULL)
+    {
+        push_callback_free(dup);
+        push_callback_free(par);
+        return NULL;
+    }
 
-    callback->wrapped = wrapped;
-
-    return &callback->base;
+    return callback;
 }
