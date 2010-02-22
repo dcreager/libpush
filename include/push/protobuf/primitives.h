@@ -41,7 +41,7 @@ push_protobuf_skip_length_prefixed_new();
  */
 
 push_callback_t *
-push_protobuf_varint32_new();
+push_protobuf_varint32_new(push_parser_t *parser);
 
 
 /**
@@ -51,7 +51,7 @@ push_protobuf_varint32_new();
  */
 
 push_callback_t *
-push_protobuf_varint64_new();
+push_protobuf_varint64_new(push_parser_t *parser);
 
 
 /**
@@ -61,7 +61,7 @@ push_protobuf_varint64_new();
  */
 
 push_callback_t *
-push_protobuf_varint_size_new();
+push_protobuf_varint_size_new(push_parser_t *parser);
 
 
 #endif  /* PUSH_PROTOBUF_PRIMITIVES_H */

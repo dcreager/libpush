@@ -63,9 +63,9 @@ add_test("test-sum")
 #add_test("test-protobuf-message")
 #add_test("test-protobuf-skip-length-prefixed")
 #add_test("test-protobuf-submessage")
-#add_test("test-protobuf-varint32")
-#add_test("test-protobuf-varint64")
-#add_test("test-protobuf-varint-size")
+add_test("test-protobuf-varint32")
+add_test("test-protobuf-varint64")
+add_test("test-protobuf-varint-size")
 
 
 # Don't build the tests by default; but clean them by default.

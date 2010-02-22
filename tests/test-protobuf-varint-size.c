@@ -79,13 +79,19 @@ const size_t  LENGTH_TRASH = 6;
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        callback = push_protobuf_varint_size_new(NULL, true);       \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        callback = push_protobuf_varint_size_new(parser);           \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
-        parser = push_parser_new(callback);                         \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, callback);                 \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
@@ -96,7 +102,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (size_t *) callback->result;                       \
+        result = push_parser_result(parser, size_t);                \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu32              \
@@ -127,13 +133,19 @@ const size_t  LENGTH_TRASH = 6;
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        callback = push_protobuf_varint_size_new(NULL, true);       \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        callback = push_protobuf_varint_size_new(parser);           \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
-        parser = push_parser_new(callback);                         \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, callback);                 \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         first_chunk_size = LENGTH_##test_name / 2;                  \
                                                                     \
@@ -153,7 +165,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (size_t *) callback->result;                       \
+        result = push_parser_result(parser, size_t);                \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu32              \
@@ -177,13 +189,19 @@ const size_t  LENGTH_TRASH = 6;
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        callback = push_protobuf_varint_size_new(NULL, true);       \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        callback = push_protobuf_varint_size_new(parser);           \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
-        parser = push_parser_new(callback);                         \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, callback);                 \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
@@ -200,7 +218,7 @@ const size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = (size_t *) callback->result;                       \
+        result = push_parser_result(parser, size_t);                \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu32              \
@@ -241,13 +259,19 @@ START_TEST(test_parse_error_03)
 
     PUSH_DEBUG_MSG("---\nStarting test case test_parse_error_03\n");
 
-    callback = push_protobuf_varint_size_new(NULL, true);
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = push_protobuf_varint_size_new(parser);
     fail_if(callback == NULL,
             "Could not allocate a new callback");
 
-    parser = push_parser_new(callback);
-    fail_if(parser == NULL,
-            "Could not allocate a new push parser");
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser,
