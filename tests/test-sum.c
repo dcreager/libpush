@@ -372,6 +372,58 @@ START_TEST(test_max_02)
 END_TEST
 
 
+START_TEST(test_max_03)
+{
+    push_parser_t  *parser;
+    push_callback_t  *sum;
+    push_callback_t  *callback;
+    uint32_t  *result;
+
+    PUSH_DEBUG_MSG("---\nStarting test_max_03\n");
+
+    /*
+     * If we use max-bytes to limit ourselves to three numbers, we
+     * should get a smaller sum, even when we only send in three
+     * numbers.
+     */
+
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    sum = make_repeated_sum(parser);
+    fail_if(sum == NULL,
+            "Could not allocate a new sum callback");
+
+    callback = push_max_bytes_new("max-bytes", parser, sum, MAX_SIZE_01);
+    fail_if(callback == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, &INT_0)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, MAX_SIZE_01) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
+    result = push_parser_result(parser, uint32_t);
+
+    fail_unless(*result == 6,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                *result, 6);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
 START_TEST(test_misaligned_max_01)
 {
     push_parser_t  *parser;
@@ -559,6 +611,58 @@ START_TEST(test_dynamic_max_02)
 END_TEST
 
 
+START_TEST(test_dynamic_max_03)
+{
+    push_parser_t  *parser;
+    push_callback_t  *sum;
+    push_callback_t  *callback;
+    uint32_t  *result;
+
+    PUSH_DEBUG_MSG("---\nStarting test_dynamic_max_03\n");
+
+    /*
+     * If we use max-bytes to limit ourselves to three numbers, we
+     * should get a smaller sum, even if we only send in three
+     * numbers.
+     */
+
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    sum = make_repeated_sum(parser);
+    fail_if(sum == NULL,
+            "Could not allocate a new sum callback");
+
+    callback = push_dynamic_max_bytes_new("max-bytes", parser, sum);
+    fail_if(callback == NULL,
+            "Could not allocate a new max-bytes callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, &MAX_INPUT_01)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, MAX_SIZE_01) == PUSH_SUCCESS,
+                "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
+    result = push_parser_result(parser, uint32_t);
+
+    fail_unless(*result == 6,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                *result, 6);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
 START_TEST(test_misaligned_dynamic_max_01)
 {
     push_parser_t  *parser;
@@ -635,9 +739,11 @@ test_suite()
     tcase_add_test(tc, test_parse_error_01);
     tcase_add_test(tc, test_max_01);
     tcase_add_test(tc, test_max_02);
+    tcase_add_test(tc, test_max_03);
     tcase_add_test(tc, test_misaligned_max_01);
     tcase_add_test(tc, test_dynamic_max_01);
     tcase_add_test(tc, test_dynamic_max_02);
+    tcase_add_test(tc, test_dynamic_max_03);
     tcase_add_test(tc, test_misaligned_dynamic_max_01);
     suite_add_tcase(s, tc);
 

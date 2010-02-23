@@ -127,14 +127,21 @@ max_bytes_activate(void *user_data,
         /*
          * If the callback succeeds or errors, then we do the same.
          * If the callback incompletes, we need to remember the
-         * continuation.
+         * continuation if we've not yet reached the maximum;
+         * otherwise, we have to try to send it an EOF.
          */
 
         push_continuation_call(&max_bytes->wrapped->set_success,
                                max_bytes->callback.success);
 
-        push_continuation_call(&max_bytes->wrapped->set_incomplete,
-                               &max_bytes->wrapped_incomplete);
+        if (bytes_remaining == max_bytes->maximum_bytes)
+        {
+            push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                                   &max_bytes->wrapped_finished);
+        } else {
+            push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                                   &max_bytes->wrapped_incomplete);
+        }
 
         push_continuation_call(&max_bytes->wrapped->set_error,
                                max_bytes->callback.error);
@@ -249,14 +256,21 @@ max_bytes_cont(void *user_data,
         /*
          * If the callback succeeds or errors, then we do the same.
          * If the callback incompletes, we need to remember the
-         * continuation.
+         * continuation if we've not yet reached the maximum;
+         * otherwise, we have to try to send it an EOF.
          */
 
         push_continuation_call(&max_bytes->wrapped->set_success,
                                max_bytes->callback.success);
 
-        push_continuation_call(&max_bytes->wrapped->set_incomplete,
-                               &max_bytes->wrapped_incomplete);
+        if (total_bytes == max_bytes->maximum_bytes)
+        {
+            push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                                   &max_bytes->wrapped_finished);
+        } else {
+            push_continuation_call(&max_bytes->wrapped->set_incomplete,
+                                   &max_bytes->wrapped_incomplete);
+        }
 
         push_continuation_call(&max_bytes->wrapped->set_error,
                                max_bytes->callback.error);
@@ -333,6 +347,10 @@ max_bytes_wrapped_incomplete(void *user_data,
      * when we get the next chunk.
      */
 
+    PUSH_DEBUG_MSG("%s: Wrapped callback incomplete, maximum "
+                   "not yet reached.\n",
+                   max_bytes->callback.name);
+
     max_bytes->wrapped_cont = cont;
 
     push_continuation_call(max_bytes->callback.incomplete,
@@ -402,6 +420,10 @@ max_bytes_wrapped_finished(void *user_data,
      * generates an error, we generate an error, too.
      */
 
+    PUSH_DEBUG_MSG("%s: Wrapped callback incomplete, but "
+                   "we've reached maximum.  Sending EOF.\n",
+                   max_bytes->callback.name);
+
     push_continuation_call(&max_bytes->wrapped->set_success,
                            &max_bytes->wrapped_success);
 
@@ -410,10 +432,6 @@ max_bytes_wrapped_finished(void *user_data,
 
     push_continuation_call(&max_bytes->wrapped->set_error,
                            max_bytes->callback.error);
-
-    PUSH_DEBUG_MSG("%s: Wrapped callback incomplete, but "
-                   "we've reached maximum.  Sending EOF.\n",
-                   max_bytes->callback.name);
 
     push_continuation_call(cont, NULL, 0);
 
