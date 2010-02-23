@@ -12,6 +12,7 @@ libpush_files = map(File, \
      "callback.c",
      "compose.c",
      "eof.c",
+     "fixed.c",
      "fold.c",
      "hwm-string.c",
      "max-bytes.c",

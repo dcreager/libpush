@@ -35,6 +35,21 @@ push_eof_new(const char *name,
 
 
 /**
+ * Create a new callback that reads in a fixed amount of data into a
+ * buffer.  This can be used to read constant-sized data structures,
+ * for instance.  The result pointer is allowed to point directly into
+ * the data chunk, so the caller should copy this into a separate
+ * buffer if the data needs to be available across multiple data
+ * chunks.
+ */
+
+push_callback_t *
+push_fixed_new(const char *name,
+               push_parser_t *parser,
+               size_t size);
+
+
+/**
  * Create a new callback that reads a string into a high-water mark
  * buffer.  This callback doesn't do anything to determine the length
  * of the string; instead, it takes in a pointer to a size_t as input,
