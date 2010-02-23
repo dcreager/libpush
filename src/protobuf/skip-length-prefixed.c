@@ -15,7 +15,7 @@
 
 
 push_callback_t *
-push_protobuf_skip_length_prefixed_new()
+push_protobuf_skip_length_prefixed_new(push_parser_t *parser)
 {
     push_callback_t  *read_size = NULL;
     push_callback_t  *skip = NULL;
@@ -25,15 +25,15 @@ push_protobuf_skip_length_prefixed_new()
      * First, create the callbacks.
      */
 
-    read_size = push_protobuf_varint_size_new();
+    read_size = push_protobuf_varint_size_new(parser);
     if (read_size == NULL)
         goto error;
 
-    skip = push_skip_new();
+    skip = push_skip_new(parser);
     if (skip == NULL)
         goto error;
 
-    compose = push_compose_new(read_size, skip);
+    compose = push_compose_new(parser, read_size, skip);
     if (compose == NULL)
         goto error;
 

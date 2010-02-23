@@ -28,7 +28,7 @@ libpush_files = map(File, \
      #"protobuf/field-map.c",
      #"protobuf/hwm-string.c",
      #"protobuf/message.c",
-     #"protobuf/skip-length-prefixed.c",
+     "protobuf/skip-length-prefixed.c",
      #"protobuf/submessage.c",
      "protobuf/varint32.c",
      "protobuf/varint64.c",

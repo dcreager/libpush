@@ -54,18 +54,24 @@ START_TEST(test_skip_01)
 
     PUSH_DEBUG_MSG("---\nStarting test_skip_01\n");
 
-    callback = push_protobuf_skip_length_prefixed_new();
-    fail_if(callback == NULL,
-            "Could not allocate a new skip callback");
-
     /*
      * Skip over five bytes, and provide 5 bytes.  This should
      * succeed.
      */
 
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
+
+    callback = push_protobuf_skip_length_prefixed_new(parser);
+    fail_if(callback == NULL,
+            "Could not allocate a new skip callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_01, LENGTH_01) == PUSH_SUCCESS,
@@ -86,18 +92,24 @@ START_TEST(test_skip_02)
 
     PUSH_DEBUG_MSG("---\nStarting test_skip_02\n");
 
-    callback = push_protobuf_skip_length_prefixed_new(NULL, true);
-    fail_if(callback == NULL,
-            "Could not allocate a new skip callback");
-
     /*
      * Skip over five bytes, and provide 7 bytes.  This should
      * succeed.
      */
 
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
+
+    callback = push_protobuf_skip_length_prefixed_new(parser);
+    fail_if(callback == NULL,
+            "Could not allocate a new skip callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_02, LENGTH_02) == PUSH_SUCCESS,
@@ -118,17 +130,23 @@ START_TEST(test_skip_03)
 
     PUSH_DEBUG_MSG("---\nStarting test_skip_03\n");
 
-    callback = push_protobuf_skip_length_prefixed_new(NULL, true);
-    fail_if(callback == NULL,
-            "Could not allocate a new skip callback");
-
     /*
      * Skip over five bytes, and provide 3 bytes.  This should fail.
      */
 
-    parser = push_parser_new(callback);
+    parser = push_parser_new();
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
+
+    callback = push_protobuf_skip_length_prefixed_new(parser);
+    fail_if(callback == NULL,
+            "Could not allocate a new skip callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, NULL)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
 
     fail_unless(push_parser_submit_data
                 (parser, &DATA_03, LENGTH_03) == PUSH_INCOMPLETE,

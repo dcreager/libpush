@@ -31,7 +31,7 @@ push_protobuf_hwm_string_new(hwm_buffer_t *buf);
  */
 
 push_callback_t *
-push_protobuf_skip_length_prefixed_new();
+push_protobuf_skip_length_prefixed_new(push_parser_t *parser);
 
 
 /**
