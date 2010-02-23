@@ -122,7 +122,10 @@ push_protobuf_field_map_get_field
  */
 
 bool
-push_protobuf_add_submessage(push_protobuf_field_map_t *field_map,
+push_protobuf_add_submessage(const char *message_name,
+                             const char *field_name,
+                             push_parser_t *parser,
+                             push_protobuf_field_map_t *field_map,
                              push_protobuf_tag_number_t field_number,
                              push_callback_t *message);
 

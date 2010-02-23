@@ -39,7 +39,8 @@ typedef struct _data
 } data_t;
 
 static push_callback_t *
-create_nested_message(nested_t *nested)
+create_nested_message(const char *name,
+                      push_parser_t *parser, nested_t *nested)
 {
     push_protobuf_field_map_t  *field_map =
         push_protobuf_field_map_new();
@@ -49,14 +50,19 @@ create_nested_message(nested_t *nested)
     if (field_map == NULL)
         return NULL;
 
+    if (name == NULL)
+        name = "nested";
+
 #define CHECK(call) { if (!(call)) return NULL; }
 
-    CHECK(push_protobuf_assign_uint64(field_map, 2, &nested->int2));
-    CHECK(push_protobuf_assign_uint64(field_map, 3, &nested->int3));
+    CHECK(push_protobuf_assign_uint64(name, ".int2", parser,
+                                      field_map, 2, &nested->int2));
+    CHECK(push_protobuf_assign_uint64(name, ".int3", parser,
+                                      field_map, 3, &nested->int3));
 
 #undef CHECK
 
-    callback = push_protobuf_message_new(field_map);
+    callback = push_protobuf_message_new(name, parser, field_map);
     if (callback == NULL)
     {
         push_protobuf_field_map_free(field_map);
@@ -67,29 +73,48 @@ create_nested_message(nested_t *nested)
 }
 
 static push_callback_t *
-create_data_message(data_t *dest)
+create_data_message(const char *name,
+                    push_parser_t *parser, data_t *dest)
 {
+    const char  *nested_name;
+
     push_protobuf_field_map_t  *field_map =
         push_protobuf_field_map_new();
 
     push_callback_t  *nested;
     push_callback_t  *callback;
 
+    /*
+     * First construct all of the names.
+     */
+
+    if (name == NULL)
+        name = "data";
+
+    nested_name = push_string_concat(name, ".nested");
+    if (nested_name == NULL) return NULL;
+
+    /*
+     * Then create the callbacks.
+     */
+
     if (field_map == NULL)
         return NULL;
 
-    nested = create_nested_message(&dest->nested);
+    nested = create_nested_message(nested_name, parser, &dest->nested);
     if (nested == NULL)
         return NULL;
 
 #define CHECK(call) { if (!(call)) return NULL; }
 
-    CHECK(push_protobuf_assign_uint32(field_map, 1, &dest->int1));
-    CHECK(push_protobuf_add_submessage(field_map, 2, nested));
+    CHECK(push_protobuf_assign_uint32(name, ".int1",
+                                      parser, field_map, 1, &dest->int1));
+    CHECK(push_protobuf_add_submessage(name, ".nested",
+                                       parser, field_map, 2, nested));
 
 #undef CHECK
 
-    callback = push_protobuf_message_new(field_map);
+    callback = push_protobuf_message_new(name, parser, field_map);
     if (callback == NULL)
     {
         push_protobuf_field_map_free(field_map);
@@ -166,13 +191,20 @@ const data_t  EXPECTED_02 =
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        message_callback = create_data_message(&actual);            \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        message_callback = create_data_message("data",              \
+                                               parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(message_callback);                 \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, message_callback);         \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
@@ -220,13 +252,20 @@ const data_t  EXPECTED_02 =
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        message_callback = create_data_message(&actual);            \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        message_callback = create_data_message("data",              \
+                                               parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(message_callback);                 \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, message_callback);         \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         first_chunk_size = LENGTH_##test_name / 2;                  \
                                                                     \
@@ -281,13 +320,20 @@ const data_t  EXPECTED_02 =
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
-        message_callback = create_data_message(&actual);            \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        message_callback = create_data_message("data",              \
+                                               parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(message_callback);                 \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, message_callback);         \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
