@@ -47,7 +47,7 @@ data_done(data_t *data)
 }
 
 static push_callback_t *
-create_data_message(data_t *dest)
+create_data_message(push_parser_t *parser, data_t *dest)
 {
     push_protobuf_field_map_t  *field_map =
         push_protobuf_field_map_new();
@@ -59,13 +59,13 @@ create_data_message(data_t *dest)
 
 #define CHECK(call) { if (!(call)) return NULL; }
 
-    CHECK(push_protobuf_assign_uint32(field_map, 1, &dest->int1));
-    CHECK(push_protobuf_assign_uint64(field_map, 2, &dest->int2));
-    CHECK(push_protobuf_add_hwm_string(field_map, 3, &dest->buf));
+    CHECK(push_protobuf_assign_uint32(parser, field_map, 1, &dest->int1));
+    CHECK(push_protobuf_assign_uint64(parser, field_map, 2, &dest->int2));
+    CHECK(push_protobuf_add_hwm_string(parser, field_map, 3, &dest->buf));
 
 #undef CHECK
 
-    callback = push_protobuf_message_new(field_map);
+    callback = push_protobuf_message_new(parser, field_map);
     if (callback == NULL)
     {
         push_protobuf_field_map_free(field_map);
@@ -175,13 +175,19 @@ const data_t  EXPECTED_04 =
                                                                     \
         data_init(&actual);                                         \
                                                                     \
-        message_callback = create_data_message(&actual);            \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        message_callback = create_data_message(parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(message_callback);                 \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, message_callback);         \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
@@ -230,13 +236,19 @@ const data_t  EXPECTED_04 =
                                                                     \
         data_init(&actual);                                         \
                                                                     \
-        message_callback = create_data_message(&actual);            \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        message_callback = create_data_message(parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(message_callback);                 \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, message_callback);         \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         first_chunk_size = LENGTH_##test_name / 2;                  \
                                                                     \
@@ -292,13 +304,19 @@ const data_t  EXPECTED_04 =
                                                                     \
         data_init(&actual);                                         \
                                                                     \
-        message_callback = create_data_message(&actual);            \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        message_callback = create_data_message(parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
                                                                     \
-        parser = push_parser_new(message_callback);                 \
-        fail_if(parser == NULL,                                     \
-                "Could not allocate a new push parser");            \
+        push_parser_set_callback(parser, message_callback);         \
+                                                                    \
+        fail_unless(push_parser_activate(parser, NULL)              \
+                    == PUSH_INCOMPLETE,                             \
+                    "Could not activate parser");                   \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \

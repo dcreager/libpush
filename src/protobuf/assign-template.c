@@ -44,10 +44,10 @@
 typedef struct STRUCT_NAME
 {
     /**
-     * The callback's “superclass” instance.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_callback_t  base;
+    push_callback_t  callback;
 
     /**
      * The input value.
@@ -64,73 +64,65 @@ typedef struct STRUCT_NAME
 } ASSIGN_T;
 
 
-static push_error_code_t
-assign_activate(push_parser_t *parser,
-                push_callback_t *pcallback,
-                void *input)
+static void
+assign_activate(void *user_data,
+                void *result,
+                const void *buf,
+                size_t bytes_remaining)
 {
-    ASSIGN_T  *callback = (ASSIGN_T *) pcallback;
+    ASSIGN_T  *assign = (ASSIGN_T *) user_data;
 
-    callback->input = (PARSED_T *) input;
+    assign->input = (PARSED_T *) result;
     PUSH_DEBUG_MSG(PRETTY_STR": Activating.  Got value "
                    "%"PRIuPARSED".\n",
-                   *callback->input);
-
-    return PUSH_SUCCESS;
-}
-
-static ssize_t
-assign_process_bytes(push_parser_t *parser,
-                     push_callback_t *pcallback,
-                     const void *vbuf,
-                     size_t bytes_available)
-{
-    ASSIGN_T  *callback = (ASSIGN_T *) pcallback;
+                   *assign->input);
 
     /*
      * Copy the value from the callback into the destination.
      */
 
     PUSH_DEBUG_MSG(PRETTY_STR": Assigning value to %p.\n",
-                   callback->dest);
-    *callback->dest = *callback->input;
+                   assign->dest);
+    *assign->dest = *assign->input;
 
-    /*
-     * We don't actually parse anything, so return success.
-     */
+    push_continuation_call(assign->callback.success,
+                           assign->input,
+                           buf, bytes_remaining);
 
-    callback->base.result = callback->input;
-    return bytes_available;
+    return;
 }
 
 
 static push_callback_t *
-assign_new(DEST_T *dest)
+assign_new(push_parser_t *parser, DEST_T *dest)
 {
-    ASSIGN_T  *result =
+    ASSIGN_T  *assign =
         (ASSIGN_T *) malloc(sizeof(ASSIGN_T));
 
-    if (result == NULL)
+    if (assign == NULL)
         return NULL;
 
     /*
-     * EOF is not allowed in place of assign — that's in between
-     * the tag and the value, which is a parse error.
+     * Fill in the data items.
      */
 
-    push_callback_init(&result->base,
+    assign->dest = dest;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&assign->callback, parser, assign,
                        assign_activate,
-                       assign_process_bytes,
-                       NULL);
+                       NULL, NULL, NULL);
 
-    result->dest = dest;
-
-    return &result->base;
+    return &assign->callback;
 }
 
 
 bool
-PUSH_PROTOBUF_ASSIGN(push_protobuf_field_map_t *field_map,
+PUSH_PROTOBUF_ASSIGN(push_parser_t *parser,
+                     push_protobuf_field_map_t *field_map,
                      push_protobuf_tag_number_t field_number,
                      DEST_T *dest)
 {
@@ -142,15 +134,15 @@ PUSH_PROTOBUF_ASSIGN(push_protobuf_field_map_t *field_map,
      * First, create the callbacks.
      */
 
-    value_callback = VALUE_CALLBACK_NEW();
+    value_callback = VALUE_CALLBACK_NEW(parser);
     if (value_callback == NULL)
         goto error;
 
-    assign_callback = assign_new(dest);
+    assign_callback = assign_new(parser, dest);
     if (assign_callback == NULL)
         goto error;
 
-    field_callback = push_compose_new(value_callback,
+    field_callback = push_compose_new(parser, value_callback,
                                       assign_callback);
     if (field_callback == NULL)
         goto error;
@@ -162,7 +154,8 @@ PUSH_PROTOBUF_ASSIGN(push_protobuf_field_map_t *field_map,
      * them.)
      */
 
-    if (!push_protobuf_field_map_add_field(field_map, field_number,
+    if (!push_protobuf_field_map_add_field(parser,
+                                           field_map, field_number,
                                            TAG_TYPE, field_callback))
     {
         push_callback_free(field_callback);

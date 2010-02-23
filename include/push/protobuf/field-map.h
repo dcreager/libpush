@@ -52,6 +52,39 @@ push_protobuf_field_map_free(push_protobuf_field_map_t *field_map);
 
 
 /**
+ * Sets the success continuation pointer for all of the callbacks in
+ * the field map.
+ */
+
+void
+push_protobuf_field_map_set_success
+(push_protobuf_field_map_t *field_map,
+ push_success_continuation_t *success);
+
+
+/**
+ * Sets the incomplete continuation pointer for all of the callbacks
+ * in the field map.
+ */
+
+void
+push_protobuf_field_map_set_incomplete
+(push_protobuf_field_map_t *field_map,
+ push_incomplete_continuation_t *incomplete);
+
+
+/**
+ * Sets the error continuation pointer for all of the callbacks in the
+ * field map.
+ */
+
+void
+push_protobuf_field_map_set_error
+(push_protobuf_field_map_t *field_map,
+ push_error_continuation_t *error);
+
+
+/**
  * Add a new field to a field map.  The value callback will be called
  * whenever we read a field with the matching field number.  This
  * value callback should also store the parsed value away somewhere,
@@ -63,10 +96,11 @@ push_protobuf_field_map_free(push_protobuf_field_map_t *field_map);
 
 bool
 push_protobuf_field_map_add_field
-    (push_protobuf_field_map_t *field_map,
-     push_protobuf_tag_number_t field_number,
-     push_protobuf_tag_type_t expected_tag_type,
-     push_callback_t *value_callback);
+(push_parser_t *parser,
+ push_protobuf_field_map_t *field_map,
+ push_protobuf_tag_number_t field_number,
+ push_protobuf_tag_type_t expected_tag_type,
+ push_callback_t *value_callback);
 
 
 /**
@@ -98,7 +132,8 @@ push_protobuf_add_submessage(push_protobuf_field_map_t *field_map,
  */
 
 bool
-push_protobuf_add_hwm_string(push_protobuf_field_map_t *field_map,
+push_protobuf_add_hwm_string(push_parser_t *parser,
+                             push_protobuf_field_map_t *field_map,
                              push_protobuf_tag_number_t field_number,
                              hwm_buffer_t *dest);
 
@@ -111,7 +146,8 @@ push_protobuf_add_hwm_string(push_protobuf_field_map_t *field_map,
  */
 
 bool
-push_protobuf_assign_uint32(push_protobuf_field_map_t *field_map,
+push_protobuf_assign_uint32(push_parser_t *parser,
+                            push_protobuf_field_map_t *field_map,
                             push_protobuf_tag_number_t field_number,
                             uint32_t *dest);
 
@@ -124,7 +160,8 @@ push_protobuf_assign_uint32(push_protobuf_field_map_t *field_map,
  */
 
 bool
-push_protobuf_assign_uint64(push_protobuf_field_map_t *field_map,
+push_protobuf_assign_uint64(push_parser_t *parser,
+                            push_protobuf_field_map_t *field_map,
                             push_protobuf_tag_number_t field_number,
                             uint64_t *dest);
 

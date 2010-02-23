@@ -97,6 +97,72 @@ push_protobuf_field_map_free(push_protobuf_field_map_t *field_map)
 }
 
 
+void
+push_protobuf_field_map_set_success
+(push_protobuf_field_map_t *field_map,
+ push_success_continuation_t *success)
+{
+    const field_map_entry_t  *entries;
+    unsigned int  i;
+
+    entries =
+        hwm_buffer_mem(&field_map->entries, field_map_entry_t);
+
+    for (i = 0;
+         i < hwm_buffer_current_list_size
+             (&field_map->entries, field_map_entry_t);
+         i++)
+    {
+        push_continuation_call(&entries[i].callback->set_success,
+                               success);
+    }
+}
+
+
+void
+push_protobuf_field_map_set_incomplete
+(push_protobuf_field_map_t *field_map,
+ push_incomplete_continuation_t *incomplete)
+{
+    const field_map_entry_t  *entries;
+    unsigned int  i;
+
+    entries =
+        hwm_buffer_mem(&field_map->entries, field_map_entry_t);
+
+    for (i = 0;
+         i < hwm_buffer_current_list_size
+             (&field_map->entries, field_map_entry_t);
+         i++)
+    {
+        push_continuation_call(&entries[i].callback->set_incomplete,
+                               incomplete);
+    }
+}
+
+
+void
+push_protobuf_field_map_set_error
+(push_protobuf_field_map_t *field_map,
+ push_error_continuation_t *error)
+{
+    const field_map_entry_t  *entries;
+    unsigned int  i;
+
+    entries =
+        hwm_buffer_mem(&field_map->entries, field_map_entry_t);
+
+    for (i = 0;
+         i < hwm_buffer_current_list_size
+             (&field_map->entries, field_map_entry_t);
+         i++)
+    {
+        push_continuation_call(&entries[i].callback->set_error,
+                               error);
+    }
+}
+
+
 push_callback_t *
 push_protobuf_field_map_get_field
     (push_protobuf_field_map_t *field_map,
@@ -145,10 +211,10 @@ push_protobuf_field_map_get_field
 typedef struct _verify_tag
 {
     /**
-     * The callback's “superclass” instance.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_callback_t  base;
+    push_callback_t  callback;
 
     /**
      * A pointer to the field tag we take in as input.
@@ -157,7 +223,7 @@ typedef struct _verify_tag
     push_protobuf_tag_t  *actual_tag;
 
     /**
-     * A link back to the field callback.
+     * The tag type that we expect to receive.
      */
 
     push_protobuf_tag_type_t  expected_tag_type;
@@ -165,35 +231,25 @@ typedef struct _verify_tag
 } verify_tag_t;
 
 
-static push_error_code_t
-verify_tag_activate(push_parser_t *parser,
-                    push_callback_t *pcallback,
-                    void *input)
+static void
+verify_tag_activate(void *user_data,
+                    void *result,
+                    const void *buf,
+                    size_t bytes_remaining)
 {
-    verify_tag_t  *callback = (verify_tag_t *) pcallback;
+    verify_tag_t  *verify_tag = (verify_tag_t *) user_data;
 
-    callback->actual_tag = (push_protobuf_tag_t *) input;
+    verify_tag->actual_tag = (push_protobuf_tag_t *) result;
+
     PUSH_DEBUG_MSG("verify-tag: Activating.  Got tag 0x%04"PRIx32"\n",
-                   *callback->actual_tag);
-
-    return PUSH_SUCCESS;
-}
-
-
-static ssize_t
-verify_tag_process_bytes(push_parser_t *parser,
-                         push_callback_t *pcallback,
-                         const void *vbuf,
-                         size_t bytes_available)
-{
-    verify_tag_t  *callback = (verify_tag_t *) pcallback;
+                   *verify_tag->actual_tag);
 
     PUSH_DEBUG_MSG("verify-tag: Got tag type %d, expecting tag type %d.\n",
-                   PUSH_PROTOBUF_GET_TAG_TYPE(*callback->actual_tag),
-                   callback->expected_tag_type);
+                   PUSH_PROTOBUF_GET_TAG_TYPE(*verify_tag->actual_tag),
+                   verify_tag->expected_tag_type);
 
-    if (PUSH_PROTOBUF_GET_TAG_TYPE(*callback->actual_tag) ==
-        callback->expected_tag_type)
+    if (PUSH_PROTOBUF_GET_TAG_TYPE(*verify_tag->actual_tag) ==
+        verify_tag->expected_tag_type)
     {
         /*
          * Tag types match, so move on to parsing the value.
@@ -201,7 +257,11 @@ verify_tag_process_bytes(push_parser_t *parser,
 
         PUSH_DEBUG_MSG("verify-tag: Tag types match.\n");
 
-        return bytes_available;
+        push_continuation_call(verify_tag->callback.success,
+                               NULL,
+                               buf, bytes_remaining);
+
+        return;
     } else {
         /*
          * Tag types don't match, we've got a parse error!
@@ -209,29 +269,41 @@ verify_tag_process_bytes(push_parser_t *parser,
 
         PUSH_DEBUG_MSG("verify-tag: Tag types don't match.\n");
 
-        return PUSH_PARSE_ERROR;
+        push_continuation_call(verify_tag->callback.error,
+                               PUSH_PARSE_ERROR,
+                               "Tag types don't match");
+
+        return;
     }
+
 }
 
 
 static push_callback_t *
-verify_tag_new(push_protobuf_tag_type_t expected_tag_type)
+verify_tag_new(push_parser_t *parser,
+               push_protobuf_tag_type_t expected_tag_type)
 {
-    verify_tag_t  *result =
+    verify_tag_t  *verify_tag =
         (verify_tag_t *) malloc(sizeof(verify_tag_t));
 
-    if (result == NULL)
+    if (verify_tag == NULL)
         return NULL;
 
-    push_callback_init(&result->base,
+    /*
+     * Fill in the data items.
+     */
+
+    verify_tag->expected_tag_type = expected_tag_type;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&verify_tag->callback, parser, verify_tag,
                        verify_tag_activate,
-                       verify_tag_process_bytes,
-                       NULL);
+                       NULL, NULL, NULL);
 
-    result->expected_tag_type = expected_tag_type;
-    result->base.result = NULL;
-
-    return &result->base;
+    return &verify_tag->callback;
 }
 
 
@@ -240,19 +312,20 @@ verify_tag_new(push_protobuf_tag_type_t expected_tag_type)
  */
 
 static push_callback_t *
-create_field_callback(push_protobuf_tag_type_t expected_tag_type,
+create_field_callback(push_parser_t *parser,
+                      push_protobuf_tag_type_t expected_tag_type,
                       push_callback_t *value_callback)
 {
     push_callback_t  *verify_tag;
     push_callback_t  *compose;
 
-    verify_tag = verify_tag_new(expected_tag_type);
+    verify_tag = verify_tag_new(parser, expected_tag_type);
     if (verify_tag == NULL)
     {
         return NULL;
     }
 
-    compose = push_compose_new(verify_tag, value_callback);
+    compose = push_compose_new(parser, verify_tag, value_callback);
     if (compose == NULL)
     {
         push_callback_free(verify_tag);
@@ -265,10 +338,11 @@ create_field_callback(push_protobuf_tag_type_t expected_tag_type,
 
 bool
 push_protobuf_field_map_add_field
-    (push_protobuf_field_map_t *field_map,
-     push_protobuf_tag_number_t field_number,
-     push_protobuf_tag_type_t expected_tag_type,
-     push_callback_t *value_callback)
+(push_parser_t *parser,
+ push_protobuf_field_map_t *field_map,
+ push_protobuf_tag_number_t field_number,
+ push_protobuf_tag_type_t expected_tag_type,
+ push_callback_t *value_callback)
 {
     field_map_entry_t  *new_entry;
     push_callback_t  *field_callback;
@@ -278,7 +352,7 @@ push_protobuf_field_map_add_field
      */
 
     field_callback =
-        create_field_callback(expected_tag_type,
+        create_field_callback(parser, expected_tag_type,
                               value_callback);
 
     if (field_callback == NULL)

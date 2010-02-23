@@ -28,7 +28,8 @@
  */
 
 push_callback_t *
-push_protobuf_message_new(push_protobuf_field_map_t *field_map);
+push_protobuf_message_new(push_parser_t *parser,
+                          push_protobuf_field_map_t *field_map);
 
 
 #endif  /* PUSH_PROTOBUF_MESSAGE_H */

@@ -33,10 +33,10 @@
 typedef struct _dispatch
 {
     /**
-     * The callback's “superclass” instance.
+     * The push_callback_t superclass for this callback.
      */
 
-    push_callback_t  base;
+    push_callback_t  callback;
 
     /**
      * A mapping of field numbers to the callback that reads the
@@ -51,27 +51,66 @@ typedef struct _dispatch
 
     push_callback_t  *skip_length_prefixed;
 
-    /**
-     * The field callback that we should dispatch to.
-     */
-
-    push_callback_t  *dispatch_callback;
-
 } dispatch_t;
 
 
-static push_error_code_t
-dispatch_activate(push_parser_t *parser,
-                  push_callback_t *pcallback,
-                  void *input)
+static void
+dispatch_set_success(void *user_data,
+                     push_success_continuation_t *success)
 {
-    dispatch_t  *callback = (dispatch_t *) pcallback;
+    dispatch_t  *dispatch = (dispatch_t *) user_data;
+
+    push_protobuf_field_map_set_success(dispatch->field_map,
+                                        success);
+
+    push_continuation_call(&dispatch->skip_length_prefixed
+                           ->set_success,
+                           success);
+}
+
+
+static void
+dispatch_set_incomplete(void *user_data,
+                        push_incomplete_continuation_t *incomplete)
+{
+    dispatch_t  *dispatch = (dispatch_t *) user_data;
+
+    push_protobuf_field_map_set_incomplete(dispatch->field_map,
+                                           incomplete);
+
+    push_continuation_call(&dispatch->skip_length_prefixed
+                           ->set_incomplete,
+                           incomplete);
+}
+
+
+static void
+dispatch_set_error(void *user_data,
+                   push_error_continuation_t *error)
+{
+    dispatch_t  *dispatch = (dispatch_t *) user_data;
+
+    push_protobuf_field_map_set_error(dispatch->field_map,
+                                      error);
+
+    push_continuation_call(&dispatch->skip_length_prefixed
+                           ->set_error,
+                           error);
+}
+
+
+static void
+dispatch_activate(void *user_data,
+                  void *result,
+                  const void *buf,
+                  size_t bytes_remaining)
+{
+    dispatch_t  *dispatch = (dispatch_t *) user_data;
     push_protobuf_tag_t  *field_tag;
     push_protobuf_tag_number_t  field_number;
     push_callback_t  *field_callback;
-    push_error_code_t  activate_result;
 
-    field_tag = (push_protobuf_tag_t *) input;
+    field_tag = (push_protobuf_tag_t *) result;
     PUSH_DEBUG_MSG("dispatch: Activating.  Got tag 0x%04"PRIx32"\n",
                    *field_tag);
 
@@ -89,7 +128,7 @@ dispatch_activate(push_parser_t *parser,
      */
 
     field_callback =
-        push_protobuf_field_map_get_field(callback->field_map,
+        push_protobuf_field_map_get_field(dispatch->field_map,
                                           field_number);
 
     if (field_callback == NULL)
@@ -100,7 +139,7 @@ dispatch_activate(push_parser_t *parser,
         switch (field_type)
         {
           case PUSH_PROTOBUF_TAG_TYPE_LENGTH_DELIMITED:
-            field_callback = callback->skip_length_prefixed;
+            field_callback = dispatch->skip_length_prefixed;
             break;
 
           default:
@@ -112,109 +151,79 @@ dispatch_activate(push_parser_t *parser,
                            "field %"PRIu32".\n",
                            field_number);
 
-            return PUSH_PARSE_ERROR;
+            push_continuation_call(dispatch->callback.error,
+                                   PUSH_PARSE_ERROR,
+                                   "No callback for field");
+
+            return;
         }
     }
 
     /*
-     * Found it!  Activate that callback, and save it so that our
-     * process_bytes function can pass off to it.
+     * Found it!  Activate that callback we just found.  The field
+     * callback is going to need to verify the wire type, so make sure
+     * to pass in the tag as input.
      */
 
     PUSH_DEBUG_MSG("dispatch: Callback %p matches.\n",
                    field_callback);
 
-    /*
-     * The field callback is going to need to verify the wire type, so
-     * make sure to pass in the tag as input.
-     */
+    push_continuation_call(&field_callback->activate,
+                           field_tag,
+                           buf, bytes_remaining);
 
-    activate_result =
-        push_callback_activate(parser, field_callback,
-                               field_tag);
+    return;
 
-    if (activate_result != PUSH_SUCCESS)
-    {
-        PUSH_DEBUG_MSG("dispatch: Could not activate field "
-                       "callback.\n");
-        return activate_result;
-    }
-
-    callback->dispatch_callback = field_callback;
-    return PUSH_SUCCESS;
-
-}
-
-
-static ssize_t
-dispatch_process_bytes(push_parser_t *parser,
-                       push_callback_t *pcallback,
-                       const void *vbuf,
-                       size_t bytes_available)
-{
-    dispatch_t  *callback = (dispatch_t *) pcallback;
-
-    /*
-     * We figured out which callback to use when we activated, so just
-     * pass off to it.  Use a tail call so that its result is our
-     * result.
-     */
-
-    return push_callback_tail_process_bytes
-        (parser, &callback->base,
-         callback->dispatch_callback,
-         vbuf, bytes_available);
-}
-
-
-static void
-dispatch_free(push_callback_t *pcallback)
-{
-    dispatch_t  *callback = (dispatch_t *) pcallback;
-
-    PUSH_DEBUG_MSG("dispatch: Freeing field map...\n");
-    push_protobuf_field_map_free(callback->field_map);
 }
 
 
 static push_callback_t *
-dispatch_new(push_protobuf_field_map_t *field_map)
+dispatch_new(push_parser_t *parser,
+             push_protobuf_field_map_t *field_map)
 {
-    dispatch_t  *result;
-    push_callback_t  *skip_length_prefixed = NULL;
+    dispatch_t  *dispatch;
+    push_callback_t  *skip_length_prefixed;
 
     /*
      * Try to create the skipper callbacks first.
      */
 
-    skip_length_prefixed = push_protobuf_skip_length_prefixed_new();
+    skip_length_prefixed =
+        push_protobuf_skip_length_prefixed_new(parser);
     if (skip_length_prefixed == NULL)
-        goto error;
+        return NULL;
 
     /*
      * Then create the dispatch callback itself.
      */
 
-    result = (dispatch_t *) malloc(sizeof(dispatch_t));
+    dispatch =
+        (dispatch_t *) malloc(sizeof(dispatch_t));
 
-    if (result == NULL)
-        goto error;
-
-    push_callback_init(&result->base,
-                       dispatch_activate,
-                       dispatch_process_bytes,
-                       dispatch_free);
-
-    result->field_map = field_map;
-    result->skip_length_prefixed = skip_length_prefixed;
-
-    return &result->base;
-
-  error:
-    if (skip_length_prefixed == NULL)
+    if (dispatch == NULL)
+    {
         push_callback_free(skip_length_prefixed);
+        return NULL;
+    }
 
-    return NULL;
+    /*
+     * Fill in the data items.
+     */
+
+    dispatch->field_map = field_map;
+    dispatch->skip_length_prefixed = skip_length_prefixed;
+
+    /*
+     * Initialize the push_callback_t instance.
+     */
+
+    push_callback_init(&dispatch->callback, parser, dispatch,
+                       dispatch_activate,
+                       dispatch_set_success,
+                       dispatch_set_incomplete,
+                       dispatch_set_error);
+
+    return &dispatch->callback;
 }
 
 
@@ -224,27 +233,28 @@ dispatch_new(push_protobuf_field_map_t *field_map)
 
 
 push_callback_t *
-push_protobuf_message_new(push_protobuf_field_map_t *field_map)
+push_protobuf_message_new(push_parser_t *parser,
+                          push_protobuf_field_map_t *field_map)
 {
     push_callback_t  *read_field_tag;
     push_callback_t  *dispatch;
     push_callback_t  *compose;
     push_callback_t  *fold;
 
-    read_field_tag = push_protobuf_varint32_new();
+    read_field_tag = push_protobuf_varint32_new(parser);
     if (read_field_tag == NULL)
     {
         return NULL;
     }
 
-    dispatch = dispatch_new(field_map);
+    dispatch = dispatch_new(parser, field_map);
     if (dispatch == NULL)
     {
         push_callback_free(read_field_tag);
         return NULL;
     }
 
-    compose = push_compose_new(read_field_tag, dispatch);
+    compose = push_compose_new(parser, read_field_tag, dispatch);
     if (compose == NULL)
     {
         push_callback_free(read_field_tag);
@@ -252,7 +262,7 @@ push_protobuf_message_new(push_protobuf_field_map_t *field_map)
         return NULL;
     }
 
-    fold = push_fold_new(compose);
+    fold = push_fold_new(parser, compose);
     if (fold == NULL)
     {
         /*

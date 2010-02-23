@@ -20,7 +20,8 @@
 
 
 push_callback_t *
-push_protobuf_hwm_string_new(hwm_buffer_t *buf)
+push_protobuf_hwm_string_new(push_parser_t *parser,
+                             hwm_buffer_t *buf)
 {
     push_callback_t  *read_size = NULL;
     push_callback_t  *read = NULL;
@@ -30,15 +31,15 @@ push_protobuf_hwm_string_new(hwm_buffer_t *buf)
      * First, create the callbacks.
      */
 
-    read_size = push_protobuf_varint_size_new();
+    read_size = push_protobuf_varint_size_new(parser);
     if (read_size == NULL)
         goto error;
 
-    read = push_hwm_string_new(buf);
+    read = push_hwm_string_new(parser, buf);
     if (read == NULL)
         goto error;
 
-    compose = push_compose_new(read_size, read);
+    compose = push_compose_new(parser, read_size, read);
     if (compose == NULL)
         goto error;
 
@@ -64,7 +65,8 @@ push_protobuf_hwm_string_new(hwm_buffer_t *buf)
 
 
 bool
-push_protobuf_add_hwm_string(push_protobuf_field_map_t *field_map,
+push_protobuf_add_hwm_string(push_parser_t *parser,
+                             push_protobuf_field_map_t *field_map,
                              push_protobuf_tag_number_t field_number,
                              hwm_buffer_t *dest)
 {
@@ -75,7 +77,7 @@ push_protobuf_add_hwm_string(push_protobuf_field_map_t *field_map,
      */
 
     field_callback =
-        push_protobuf_hwm_string_new(dest);
+        push_protobuf_hwm_string_new(parser, dest);
 
     if (field_callback == NULL)
     {
@@ -88,7 +90,7 @@ push_protobuf_add_hwm_string(push_protobuf_field_map_t *field_map,
      */
 
     if (!push_protobuf_field_map_add_field
-        (field_map, field_number,
+        (parser, field_map, field_number,
          PUSH_PROTOBUF_TAG_TYPE_LENGTH_DELIMITED,
          field_callback))
     {

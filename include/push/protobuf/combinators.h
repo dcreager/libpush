@@ -23,7 +23,8 @@
  */
 
 push_callback_t *
-push_protobuf_varint_prefixed_new(push_callback_t *wrapped);
+push_protobuf_varint_prefixed_new(push_parser_t *parser,
+                                  push_callback_t *wrapped);
 
 
 #endif  /* PUSH_PROTOBUF_COMBINATORS_H */

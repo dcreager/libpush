@@ -16,39 +16,45 @@
 
 
 push_callback_t *
-push_protobuf_varint_prefixed_new(push_callback_t *wrapped)
+push_protobuf_varint_prefixed_new(push_parser_t *parser,
+                                  push_callback_t *wrapped)
 {
-    push_callback_t  *size_callback = NULL;
-    push_callback_t  *noop_callback = NULL;
-    push_callback_t  *both_callback = NULL;
-    push_callback_t  *max_bytes_callback = NULL;
-    push_callback_t  *compose_callback = NULL;
+    push_callback_t  *dup = NULL;
+    push_callback_t  *size = NULL;
+    push_callback_t  *first = NULL;
+    push_callback_t  *max_bytes = NULL;
+    push_callback_t  *compose1 = NULL;
+    push_callback_t  *compose2 = NULL;
 
     /*
      * First, create the callbacks.
      */
 
-    size_callback = push_protobuf_varint_size_new();
-    if (size_callback == NULL)
+    dup = push_dup_new(parser);
+    if (dup == NULL)
         goto error;
 
-    noop_callback = push_noop_new();
-    if (noop_callback == NULL)
+    size = push_protobuf_varint_size_new(parser);
+    if (size == NULL)
         goto error;
 
-    both_callback = push_both_new(size_callback, noop_callback);
-    if (both_callback == NULL)
+    first = push_first_new(parser, size);
+    if (first == NULL)
         goto error;
 
-    max_bytes_callback = push_dynamic_max_bytes_new(wrapped);
-    if (max_bytes_callback == NULL)
+    compose1 = push_compose_new(parser, dup, first);
+    if (compose1 == NULL)
         goto error;
 
-    compose_callback = push_compose_new(both_callback, max_bytes_callback);
-    if (compose_callback == NULL)
+    max_bytes = push_dynamic_max_bytes_new(parser, wrapped);
+    if (max_bytes == NULL)
         goto error;
 
-    return compose_callback;
+    compose2 = push_compose_new(parser, compose1, max_bytes);
+    if (compose2 == NULL)
+        goto error;
+
+    return compose2;
 
   error:
     /*
@@ -56,20 +62,23 @@ push_protobuf_varint_prefixed_new(push_callback_t *wrapped)
      * might've created so far.
      */
 
-    if (size_callback != NULL)
-        push_callback_free(size_callback);
+    if (dup != NULL)
+        push_callback_free(dup);
 
-    if (noop_callback != NULL)
-        push_callback_free(noop_callback);
+    if (size != NULL)
+        push_callback_free(size);
 
-    if (both_callback != NULL)
-        push_callback_free(both_callback);
+    if (first != NULL)
+        push_callback_free(first);
 
-    if (max_bytes_callback != NULL)
-        push_callback_free(max_bytes_callback);
+    if (max_bytes != NULL)
+        push_callback_free(max_bytes);
 
-    if (compose_callback != NULL)
-        push_callback_free(compose_callback);
+    if (compose1 != NULL)
+        push_callback_free(compose1);
+
+    if (compose2 != NULL)
+        push_callback_free(compose2);
 
     return NULL;
 }
