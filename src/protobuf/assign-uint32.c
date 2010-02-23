@@ -10,6 +10,7 @@
 
 #include <inttypes.h>
 
+#define VALUE_STR             "varint32"
 #define PRETTY_STR            "uint32"
 #define STRUCT_NAME           _assign_uint32
 #define ASSIGN_T              assign_uint32_t

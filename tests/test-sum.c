@@ -33,8 +33,8 @@ make_repeated_sum(push_parser_t *parser)
     push_callback_t  *sum;
     push_callback_t  *fold;
 
-    sum = sum_callback_new(parser);
-    fold = push_fold_new(parser, sum);
+    sum = sum_callback_new("sum", parser);
+    fold = push_fold_new("fold", parser, sum);
 
     return fold;
 }
@@ -267,7 +267,7 @@ START_TEST(test_max_01)
     fail_if(sum == NULL,
             "Could not allocate a new sum callback");
 
-    callback = push_max_bytes_new(parser, sum, MAX_SIZE_01);
+    callback = push_max_bytes_new("max-bytes", parser, sum, MAX_SIZE_01);
     fail_if(callback == NULL,
             "Could not allocate a new max-bytes callback");
 
@@ -324,7 +324,7 @@ START_TEST(test_max_02)
     fail_if(sum1 == NULL,
             "Could not allocate a new sum callback");
 
-    max1 = push_max_bytes_new(parser, sum1, MAX_SIZE_02);
+    max1 = push_max_bytes_new("max-bytes", parser, sum1, MAX_SIZE_02);
     fail_if(max1 == NULL,
             "Could not allocate a new max-bytes callback");
 
@@ -332,11 +332,11 @@ START_TEST(test_max_02)
     fail_if(sum2 == NULL,
             "Could not allocate a new sum callback");
 
-    max2 = push_max_bytes_new(parser, sum2, MAX_SIZE_02);
+    max2 = push_max_bytes_new("max-bytes", parser, sum2, MAX_SIZE_02);
     fail_if(max2 == NULL,
             "Could not allocate a new max-bytes callback");
 
-    callback = push_both_new(parser, max1, max2);
+    callback = push_both_new("both", parser, max1, max2);
     fail_if(callback == NULL,
             "Could not allocate a new both callback");
 
@@ -397,7 +397,7 @@ START_TEST(test_misaligned_max_01)
     fail_if(sum == NULL,
             "Could not allocate a new sum callback");
 
-    callback = push_max_bytes_new(parser, sum, MAX_SIZE_01);
+    callback = push_max_bytes_new("max-bytes", parser, sum, MAX_SIZE_01);
     fail_if(callback == NULL,
             "Could not allocate a new max-bytes callback");
 
@@ -454,7 +454,7 @@ START_TEST(test_dynamic_max_01)
     fail_if(sum == NULL,
             "Could not allocate a new sum callback");
 
-    callback = push_dynamic_max_bytes_new(parser, sum);
+    callback = push_dynamic_max_bytes_new("max-bytes", parser, sum);
     fail_if(callback == NULL,
             "Could not allocate a new max-bytes callback");
 
@@ -511,7 +511,7 @@ START_TEST(test_dynamic_max_02)
     fail_if(sum1 == NULL,
             "Could not allocate a new sum callback");
 
-    max1 = push_dynamic_max_bytes_new(parser, sum1);
+    max1 = push_dynamic_max_bytes_new("max-bytes", parser, sum1);
     fail_if(max1 == NULL,
             "Could not allocate a new max-bytes callback");
 
@@ -519,11 +519,11 @@ START_TEST(test_dynamic_max_02)
     fail_if(sum2 == NULL,
             "Could not allocate a new sum callback");
 
-    max2 = push_dynamic_max_bytes_new(parser, sum2);
+    max2 = push_dynamic_max_bytes_new("max-bytes", parser, sum2);
     fail_if(max2 == NULL,
             "Could not allocate a new max-bytes callback");
 
-    callback = push_both_new(parser, max1, max2);
+    callback = push_both_new("both", parser, max1, max2);
     fail_if(callback == NULL,
             "Could not allocate a new both callback");
 
@@ -584,7 +584,7 @@ START_TEST(test_misaligned_dynamic_max_01)
     fail_if(sum == NULL,
             "Could not allocate a new sum callback");
 
-    callback = push_dynamic_max_bytes_new(parser, sum);
+    callback = push_dynamic_max_bytes_new("max-bytes", parser, sum);
     fail_if(callback == NULL,
             "Could not allocate a new max-bytes callback");
 

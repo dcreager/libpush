@@ -46,7 +46,8 @@ integer_continue(void *user_data,
 {
     integer_t  *integer = (integer_t *) user_data;
 
-    PUSH_DEBUG_MSG("integer: Processing %zu bytes at %p.\n",
+    PUSH_DEBUG_MSG("%s: Processing %zu bytes at %p.\n",
+                   integer->callback.name,
                    bytes_remaining, buf);
 
     if (bytes_remaining < sizeof(uint32_t))
@@ -63,7 +64,9 @@ integer_continue(void *user_data,
 
         integer->parsed_value = *next_integer;
 
-        PUSH_DEBUG_MSG("integer: Got %"PRIu32".\n", integer->parsed_value);
+        PUSH_DEBUG_MSG("%s: Got %"PRIu32".\n",
+                       integer->callback.name,
+                       integer->parsed_value);
 
         push_continuation_call(integer->callback.success,
                                &integer->parsed_value,
@@ -108,14 +111,19 @@ integer_activate(void *user_data,
 
 
 static push_callback_t *
-inner_integer_callback_new(push_parser_t *parser)
+inner_integer_callback_new(const char *name,
+                           push_parser_t *parser)
 {
     integer_t  *integer = (integer_t *) malloc(sizeof(integer_t));
 
     if (integer == NULL)
         return NULL;
 
-    push_callback_init(&integer->callback, parser, integer,
+    if (name == NULL)
+        name = "integer";
+
+    push_callback_init(name,
+                       &integer->callback, parser, integer,
                        integer_activate,
                        NULL, NULL, NULL);
 
@@ -133,16 +141,38 @@ inner_integer_callback_new(push_parser_t *parser)
 
 
 push_callback_t *
-integer_callback_new(push_parser_t *parser)
+integer_callback_new(const char *name,
+                     push_parser_t *parser)
 {
+    const char  *integer_name;
+    const char  *min_bytes_name;
+
     push_callback_t  *integer = NULL;
     push_callback_t  *min_bytes = NULL;
 
-    integer = inner_integer_callback_new(parser);
+    /*
+     * First construct all of the names.
+     */
+
+    if (name == NULL)
+        name = "integer";
+
+    integer_name = push_string_concat(name, ".inner");
+    if (integer_name == NULL) return NULL;
+
+    min_bytes_name = push_string_concat(name, ".min-bytes");
+    if (min_bytes_name == NULL) return NULL;
+
+    /*
+     * Then create the callbacks.
+     */
+
+    integer = inner_integer_callback_new(integer_name, parser);
     if (integer == NULL)
         return NULL;
 
-    min_bytes = push_min_bytes_new(parser, integer, sizeof(uint32_t));
+    min_bytes = push_min_bytes_new(min_bytes_name,
+                                   parser, integer, sizeof(uint32_t));
     if (min_bytes == NULL)
     {
         push_callback_free(integer);

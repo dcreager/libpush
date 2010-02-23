@@ -16,9 +16,17 @@
 
 
 push_callback_t *
-push_protobuf_varint_prefixed_new(push_parser_t *parser,
+push_protobuf_varint_prefixed_new(const char *name,
+                                  push_parser_t *parser,
                                   push_callback_t *wrapped)
 {
+    const char  *dup_name;
+    const char  *size_name;
+    const char  *first_name;
+    const char  *max_bytes_name;
+    const char  *compose1_name;
+    const char  *compose2_name;
+
     push_callback_t  *dup = NULL;
     push_callback_t  *size = NULL;
     push_callback_t  *first = NULL;
@@ -27,30 +35,58 @@ push_protobuf_varint_prefixed_new(push_parser_t *parser,
     push_callback_t  *compose2 = NULL;
 
     /*
-     * First, create the callbacks.
+     * First construct all of the names.
      */
 
-    dup = push_dup_new(parser);
+    if (name == NULL)
+        name = "varint-prefixed";
+
+    dup_name = push_string_concat(name, ".dup");
+    if (dup_name == NULL) return NULL;
+
+    size_name = push_string_concat(name, ".size");
+    if (size_name == NULL) return NULL;
+
+    first_name = push_string_concat(name, ".first");
+    if (first_name == NULL) return NULL;
+
+    max_bytes_name = push_string_concat(name, ".max");
+    if (max_bytes_name == NULL) return NULL;
+
+    compose1_name = push_string_concat(name, ".compose1");
+    if (compose1_name == NULL) return NULL;
+
+    compose2_name = push_string_concat(name, ".compose2");
+    if (compose2_name == NULL) return NULL;
+
+    /*
+     * Then create the callbacks.
+     */
+
+    dup = push_dup_new(dup_name, parser);
     if (dup == NULL)
         goto error;
 
-    size = push_protobuf_varint_size_new(parser);
+    size = push_protobuf_varint_size_new(size_name, parser);
     if (size == NULL)
         goto error;
 
-    first = push_first_new(parser, size);
+    first = push_first_new(first_name, parser, size);
     if (first == NULL)
         goto error;
 
-    compose1 = push_compose_new(parser, dup, first);
+    compose1 =
+        push_compose_new(compose1_name, parser, dup, first);
     if (compose1 == NULL)
         goto error;
 
-    max_bytes = push_dynamic_max_bytes_new(parser, wrapped);
+    max_bytes =
+        push_dynamic_max_bytes_new(max_bytes_name, parser, wrapped);
     if (max_bytes == NULL)
         goto error;
 
-    compose2 = push_compose_new(parser, compose1, max_bytes);
+    compose2 =
+        push_compose_new(compose2_name, parser, compose1, max_bytes);
     if (compose2 == NULL)
         goto error;
 

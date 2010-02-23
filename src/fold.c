@@ -119,7 +119,9 @@ fold_activate(void *user_data,
      */
 
 
-    PUSH_DEBUG_MSG("fold: Saving %p as most recent result.\n", result);
+    PUSH_DEBUG_MSG("%s: Saving %p as most recent result.\n",
+                   fold->callback.name,
+                   result);
     fold->last_result = result;
 
     /*
@@ -147,7 +149,10 @@ fold_activate(void *user_data,
     fold->first_chunk = buf;
     fold->first_size = bytes_remaining;
 
-    PUSH_DEBUG_MSG("fold: Activating wrapped callback.\n");
+    PUSH_DEBUG_MSG("%s: Activating wrapped callback "
+                   "with %zu bytes.\n",
+                   fold->callback.name,
+                   bytes_remaining);
 
     push_continuation_call(&fold->wrapped->activate,
                            result,
@@ -173,8 +178,9 @@ fold_remember_incomplete(void *user_data,
 
     if (fold->first_size > 0)
     {
-        PUSH_DEBUG_MSG("fold: Wrapped callback is incomplete.  "
-                       "It can no longer generate a parse error.\n");
+        PUSH_DEBUG_MSG("%s: Wrapped callback is incomplete.  "
+                       "It can no longer generate a parse error.\n",
+                       fold->callback.name);
 
         /*
          * The wrapped callback can now pass on its incompletes
@@ -207,8 +213,9 @@ fold_remember_incomplete(void *user_data,
      * that first_chunk field up to date.
      */
 
-    PUSH_DEBUG_MSG("fold: Wrapped callback is incomplete, "
-                   "but first data chunk is empty.\n");
+    PUSH_DEBUG_MSG("%s: Wrapped callback is incomplete, "
+                   "but first data chunk is empty.\n",
+                   fold->callback.name);
 
     fold->wrapped_cont = cont;
 
@@ -235,8 +242,9 @@ fold_continue_after_empty(void *user_data,
 
     if (bytes_remaining == 0)
     {
-        PUSH_DEBUG_MSG("fold: EOF in between iterations.  Fold is "
-                       "successful.\n");
+        PUSH_DEBUG_MSG("%s: EOF in between iterations.  Fold is "
+                       "successful.\n",
+                       fold->callback.name);
 
         push_continuation_call(fold->callback.success,
                                fold->last_result,
@@ -250,6 +258,11 @@ fold_continue_after_empty(void *user_data,
      * callback, but we need to keep the first_chunk field up to date
      * before we do so.
      */
+
+    PUSH_DEBUG_MSG("%s: Continuing wrapped callback with "
+                   "%zu bytes.\n",
+                   fold->callback.name,
+                   bytes_remaining);
 
     fold->first_chunk = buf;
     fold->first_size = bytes_remaining;
@@ -276,8 +289,9 @@ fold_initial_error(void *user_data,
 
     if (error_code == PUSH_PARSE_ERROR)
     {
-        PUSH_DEBUG_MSG("fold: Parse error.  Fold succeeds with "
-                       "previous result.\n");
+        PUSH_DEBUG_MSG("%s: Parse error.  Fold succeeds with "
+                       "previous result.\n",
+                       fold->callback.name);
 
         push_continuation_call(fold->callback.success,
                                fold->last_result,
@@ -313,8 +327,9 @@ fold_later_error(void *user_data,
 
     if (error_code == PUSH_PARSE_ERROR)
     {
-        PUSH_DEBUG_MSG("fold: Parse error after incomplete.  "
-                       "Fold results in a parse error!\n");
+        PUSH_DEBUG_MSG("%s: Parse error after incomplete.  "
+                       "Fold results in a parse error!\n",
+                       fold->callback.name);
 
         push_continuation_call(fold->callback.error,
                                PUSH_PARSE_ERROR,
@@ -335,7 +350,8 @@ fold_later_error(void *user_data,
 
 
 push_callback_t *
-push_fold_new(push_parser_t *parser,
+push_fold_new(const char *name,
+              push_parser_t *parser,
               push_callback_t *wrapped)
 {
     fold_t  *fold = (fold_t *) malloc(sizeof(fold_t));
@@ -353,7 +369,11 @@ push_fold_new(push_parser_t *parser,
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&fold->callback, parser, fold,
+    if (name == NULL)
+        name = "fold";
+
+    push_callback_init(name,
+                       &fold->callback, parser, fold,
                        fold_activate,
                        NULL, NULL, NULL);
 

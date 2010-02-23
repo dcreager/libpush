@@ -79,7 +79,7 @@ compose_set_incomplete(void *user_data,
 
 static void
 compose_set_error(void *user_data,
-              push_error_continuation_t *error)
+                  push_error_continuation_t *error)
 {
     compose_t  *compose = (compose_t *) user_data;
 
@@ -95,7 +95,8 @@ compose_set_error(void *user_data,
 
 
 push_callback_t *
-push_compose_new(push_parser_t *parser,
+push_compose_new(const char *name,
+                 push_parser_t *parser,
                  push_callback_t *first,
                  push_callback_t *second)
 {
@@ -115,7 +116,11 @@ push_compose_new(push_parser_t *parser,
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&compose->callback, parser, compose,
+    if (name == NULL)
+        name = "compose";
+
+    push_callback_init(name,
+                       &compose->callback, parser, compose,
                        NULL,
                        compose_set_success,
                        compose_set_incomplete,

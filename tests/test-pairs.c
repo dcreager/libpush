@@ -43,12 +43,14 @@ inc_activate(void *user_data,
     inc_t  *inc = (inc_t *) user_data;
     int  *input = (int *) result;
 
-    PUSH_DEBUG_MSG("inc: Activating.  Received value %d.\n",
+    PUSH_DEBUG_MSG("%s: Activating.  Received value %d.\n",
+                   inc->callback.name,
                    *input);
 
     inc->result = (*input) + 1;
 
-    PUSH_DEBUG_MSG("inc: Incrementing value.  Result is %d.\n",
+    PUSH_DEBUG_MSG("%s: Incrementing value.  Result is %d.\n",
+                   inc->callback.name,
                    inc->result);
 
     push_continuation_call(inc->callback.success,
@@ -67,7 +69,8 @@ inc_callback_new(push_parser_t *parser)
     if (inc == NULL)
         return NULL;
 
-    push_callback_init(&inc->callback, parser, inc,
+    push_callback_init("inc",
+                       &inc->callback, parser, inc,
                        inc_activate,
                        NULL, NULL, NULL);
 
@@ -116,7 +119,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_if(inc == NULL,                                        \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_first_new(parser, inc);                     \
+        callback = push_first_new(NULL, parser, inc);                \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new first callback");         \
                                                                     \
@@ -166,7 +169,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_if(inc == NULL,                                        \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_second_new(parser, inc);                    \
+        callback = push_second_new(NULL, parser, inc);              \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new second callback");        \
                                                                     \
@@ -221,7 +224,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_if(inc2 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_par_new(parser, inc1, inc2);                \
+        callback = push_par_new(NULL, parser, inc1, inc2);          \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new par callback");           \
                                                                     \
@@ -276,7 +279,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_if(inc2 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_both_new(parser, inc1, inc2);               \
+        callback = push_both_new(NULL, parser, inc1, inc2);         \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new both callback");          \
                                                                     \

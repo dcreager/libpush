@@ -83,7 +83,8 @@ const size_t  LENGTH_TRASH = 6;
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        callback = push_protobuf_varint_size_new(parser);           \
+        callback =                                                  \
+            push_protobuf_varint_size_new("varint-size", parser);   \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
@@ -137,7 +138,8 @@ const size_t  LENGTH_TRASH = 6;
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        callback = push_protobuf_varint_size_new(parser);           \
+        callback =                                                  \
+            push_protobuf_varint_size_new("varint-size", parser);   \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
@@ -193,7 +195,8 @@ const size_t  LENGTH_TRASH = 6;
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        callback = push_protobuf_varint_size_new(parser);           \
+        callback =                                                  \
+            push_protobuf_varint_size_new("varint-size", parser);   \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
@@ -263,7 +266,8 @@ START_TEST(test_parse_error_03)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_protobuf_varint_size_new(parser);
+    callback =
+        push_protobuf_varint_size_new("varint-size", parser);
     fail_if(callback == NULL,
             "Could not allocate a new callback");
 

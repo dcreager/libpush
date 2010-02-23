@@ -30,7 +30,8 @@
  */
 
 push_callback_t *
-push_eof_new(push_parser_t *parser);
+push_eof_new(const char *name,
+             push_parser_t *parser);
 
 
 /**
@@ -44,7 +45,8 @@ push_eof_new(push_parser_t *parser);
  */
 
 push_callback_t *
-push_hwm_string_new(push_parser_t *parser,
+push_hwm_string_new(const char *name,
+                    push_parser_t *parser,
                     hwm_buffer_t *buf);
 
 
@@ -54,7 +56,8 @@ push_hwm_string_new(push_parser_t *parser,
  */
 
 push_callback_t *
-push_noop_new(push_parser_t *parser);
+push_noop_new(const char *name,
+              push_parser_t *parser);
 
 
 /**
@@ -64,7 +67,8 @@ push_noop_new(push_parser_t *parser);
  */
 
 push_callback_t *
-push_skip_new(push_parser_t *parser);
+push_skip_new(const char *name,
+              push_parser_t *parser);
 
 
 #endif  /* PUSH_PRIMITIVES_H */

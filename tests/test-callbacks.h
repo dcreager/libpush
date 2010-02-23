@@ -19,7 +19,8 @@
  */
 
 push_callback_t *
-integer_callback_new(push_parser_t *parser);
+integer_callback_new(const char *name,
+                     push_parser_t *parser);
 
 
 /**
@@ -29,7 +30,8 @@ integer_callback_new(push_parser_t *parser);
  */
 
 push_callback_t *
-sum_callback_new(push_parser_t *parser);
+sum_callback_new(const char *name,
+                 push_parser_t *parser);
 
 
 /**
@@ -40,7 +42,9 @@ sum_callback_new(push_parser_t *parser);
  */
 
 push_callback_t *
-indexed_sum_callback_new(push_parser_t *parser, uint32_t num_sums);
+indexed_sum_callback_new(const char *name,
+                         push_parser_t *parser,
+                         uint32_t num_sums);
 
 
 #endif  /* TEST_CALLBACKS_H */

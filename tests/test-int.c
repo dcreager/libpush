@@ -45,7 +45,7 @@ START_TEST(test_integer_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = integer_callback_new(parser);
+    callback = integer_callback_new("integer", parser);
     fail_if(callback == NULL,
             "Could not allocate a new integer callback");
 
@@ -91,7 +91,7 @@ START_TEST(test_integer_02)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = integer_callback_new(parser);
+    callback = integer_callback_new("integer", parser);
     fail_if(callback == NULL,
             "Could not allocate a new integer callback");
 
@@ -142,7 +142,7 @@ START_TEST(test_integer_03)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = integer_callback_new(parser);
+    callback = integer_callback_new("integer", parser);
     fail_if(callback == NULL,
             "Could not allocate a new integer callback");
 
@@ -197,7 +197,7 @@ START_TEST(test_parse_error_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = integer_callback_new(parser);
+    callback = integer_callback_new("integer", parser);
     fail_if(callback == NULL,
             "Could not allocate a new integer callback");
 

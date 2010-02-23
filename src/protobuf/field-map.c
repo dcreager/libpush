@@ -241,10 +241,12 @@ verify_tag_activate(void *user_data,
 
     verify_tag->actual_tag = (push_protobuf_tag_t *) result;
 
-    PUSH_DEBUG_MSG("verify-tag: Activating.  Got tag 0x%04"PRIx32"\n",
+    PUSH_DEBUG_MSG("%s: Activating.  Got tag 0x%04"PRIx32"\n",
+                   verify_tag->callback.name,
                    *verify_tag->actual_tag);
 
-    PUSH_DEBUG_MSG("verify-tag: Got tag type %d, expecting tag type %d.\n",
+    PUSH_DEBUG_MSG("%s: Got tag type %d, expecting tag type %d.\n",
+                   verify_tag->callback.name,
                    PUSH_PROTOBUF_GET_TAG_TYPE(*verify_tag->actual_tag),
                    verify_tag->expected_tag_type);
 
@@ -255,7 +257,8 @@ verify_tag_activate(void *user_data,
          * Tag types match, so move on to parsing the value.
          */
 
-        PUSH_DEBUG_MSG("verify-tag: Tag types match.\n");
+        PUSH_DEBUG_MSG("%s: Tag types match.\n",
+                       verify_tag->callback.name);
 
         push_continuation_call(verify_tag->callback.success,
                                NULL,
@@ -267,7 +270,8 @@ verify_tag_activate(void *user_data,
          * Tag types don't match, we've got a parse error!
          */
 
-        PUSH_DEBUG_MSG("verify-tag: Tag types don't match.\n");
+        PUSH_DEBUG_MSG("%s: Tag types don't match.\n",
+                       verify_tag->callback.name);
 
         push_continuation_call(verify_tag->callback.error,
                                PUSH_PARSE_ERROR,
@@ -280,7 +284,8 @@ verify_tag_activate(void *user_data,
 
 
 static push_callback_t *
-verify_tag_new(push_parser_t *parser,
+verify_tag_new(const char *name,
+               push_parser_t *parser,
                push_protobuf_tag_type_t expected_tag_type)
 {
     verify_tag_t  *verify_tag =
@@ -299,7 +304,11 @@ verify_tag_new(push_parser_t *parser,
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&verify_tag->callback, parser, verify_tag,
+    if (name == NULL)
+        name = "verify_tag";
+
+    push_callback_init(name,
+                       &verify_tag->callback, parser, verify_tag,
                        verify_tag_activate,
                        NULL, NULL, NULL);
 
@@ -312,20 +321,43 @@ verify_tag_new(push_parser_t *parser,
  */
 
 static push_callback_t *
-create_field_callback(push_parser_t *parser,
+create_field_callback(const char *name,
+                      push_parser_t *parser,
                       push_protobuf_tag_type_t expected_tag_type,
                       push_callback_t *value_callback)
 {
+    const char  *verify_tag_name;
+    const char  *compose_name;
+
     push_callback_t  *verify_tag;
     push_callback_t  *compose;
 
-    verify_tag = verify_tag_new(parser, expected_tag_type);
+    /*
+     * First construct all of the names.
+     */
+
+    if (name == NULL)
+        name = "both";
+
+    verify_tag_name = push_string_concat(name, ".verify-tag");
+    if (verify_tag_name == NULL) return NULL;
+
+    compose_name = push_string_concat(name, ".tag-compose");
+    if (compose_name == NULL) return NULL;
+
+    /*
+     * Then create the callbacks.
+     */
+
+    verify_tag = verify_tag_new(verify_tag_name,
+                                parser, expected_tag_type);
     if (verify_tag == NULL)
     {
         return NULL;
     }
 
-    compose = push_compose_new(parser, verify_tag, value_callback);
+    compose = push_compose_new(compose_name,
+                               parser, verify_tag, value_callback);
     if (compose == NULL)
     {
         push_callback_free(verify_tag);
@@ -338,7 +370,8 @@ create_field_callback(push_parser_t *parser,
 
 bool
 push_protobuf_field_map_add_field
-(push_parser_t *parser,
+(const char *name,
+ push_parser_t *parser,
  push_protobuf_field_map_t *field_map,
  push_protobuf_tag_number_t field_number,
  push_protobuf_tag_type_t expected_tag_type,
@@ -352,7 +385,7 @@ push_protobuf_field_map_add_field
      */
 
     field_callback =
-        create_field_callback(parser, expected_tag_type,
+        create_field_callback(name, parser, expected_tag_type,
                               value_callback);
 
     if (field_callback == NULL)

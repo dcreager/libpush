@@ -10,6 +10,7 @@
 
 #include <inttypes.h>
 
+#define VALUE_STR             "varint64"
 #define PRETTY_STR            "uint64"
 #define STRUCT_NAME           _assign_uint64
 #define ASSIGN_T              assign_uint64_t

@@ -9,6 +9,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include <push/basics.h>
 
@@ -21,6 +22,28 @@
 #else
 #define PUSH_FREE_MSG(...) /* skipping debug message */
 #endif
+
+
+const char *
+push_string_concat(const char *prefix, const char *suffix)
+{
+    size_t  prefix_len;
+    size_t  suffix_len;
+
+    char  *concat_str;
+
+    prefix_len = strlen(prefix);
+    suffix_len = strlen(suffix);
+
+    concat_str = (char *) malloc(prefix_len + suffix_len + 1);
+    if (concat_str == NULL)
+        return NULL;
+
+    strncpy(concat_str, prefix, prefix_len);
+    strncpy(concat_str + prefix_len, suffix, suffix_len + 1);
+
+    return concat_str;
+}
 
 
 static void
@@ -52,8 +75,10 @@ default_set_error(void *user_data,
 
 void
 _push_callback_init
-(push_callback_t *callback,
+(const char *name,
+ push_callback_t *callback,
  push_parser_t *parser,
+ const char *user_data_name,
  void *user_data,
  const char *activate_name,
  push_success_continuation_func_t *activate_func,
@@ -64,6 +89,12 @@ _push_callback_init
  const char *set_error_name,
  push_set_error_continuation_func_t *set_error_func)
 {
+    /*
+     * Fill in the non-continuation data fields.
+     */
+
+    callback->name = name;
+
     /*
      * Fill in the callback's activate continuation object.
      */
@@ -87,6 +118,16 @@ _push_callback_init
     {
         push_continuation_set(&callback->set_success,
                               default_set_success, callback);
+
+#if PUSH_CONTINUATION_DEBUG
+        {
+            const char  *name =
+                push_string_concat(user_data_name, "_set_success");
+
+            if (name != NULL)
+                callback->set_success.name = name;
+        }
+#endif
     } else {
         push_continuation_set(&callback->set_success,
                               set_success_func,
@@ -102,6 +143,16 @@ _push_callback_init
     {
         push_continuation_set(&callback->set_incomplete,
                               default_set_incomplete, callback);
+
+#if PUSH_CONTINUATION_DEBUG
+        {
+            const char  *name =
+                push_string_concat(user_data_name, "_set_incomplete");
+
+            if (name != NULL)
+                callback->set_incomplete.name = name;
+        }
+#endif
     } else {
         push_continuation_set(&callback->set_incomplete,
                               set_incomplete_func,
@@ -117,6 +168,16 @@ _push_callback_init
     {
         push_continuation_set(&callback->set_error,
                               default_set_error, callback);
+
+#if PUSH_CONTINUATION_DEBUG
+        {
+            const char  *name =
+                push_string_concat(user_data_name, "_set_error");
+
+            if (name != NULL)
+                callback->set_error.name = name;
+        }
+#endif
     } else {
         push_continuation_set(&callback->set_error,
                               set_error_func,

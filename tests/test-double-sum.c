@@ -40,16 +40,16 @@ make_double_sum_callback(push_parser_t *parser)
     push_callback_t  *par;
     push_callback_t  *fold;
 
-    sum1 = sum_callback_new(parser);
+    sum1 = sum_callback_new("sum1", parser);
     if (sum1 == NULL) return NULL;
 
-    sum2 = sum_callback_new(parser);
+    sum2 = sum_callback_new("sum2", parser);
     if (sum2 == NULL) return NULL;
 
-    par = push_par_new(parser, sum1, sum2);
+    par = push_par_new("par", parser, sum1, sum2);
     if (par == NULL) return NULL;
 
-    fold = push_fold_new(parser, par);
+    fold = push_fold_new("fold", parser, par);
     if (fold == NULL) return NULL;
 
     return fold;

@@ -64,14 +64,19 @@ dup_activate(void *user_data,
 
 
 push_callback_t *
-push_dup_new(push_parser_t *parser)
+push_dup_new(const char *name,
+             push_parser_t *parser)
 {
     dup_t  *dup = (dup_t *) malloc(sizeof(dup_t));
 
     if (dup == NULL)
         return NULL;
 
-    push_callback_init(&dup->callback, parser, dup,
+    if (name == NULL)
+        name = "dup";
+
+    push_callback_init(name,
+                       &dup->callback, parser, dup,
                        dup_activate,
                        NULL, NULL, NULL);
 
@@ -80,26 +85,51 @@ push_dup_new(push_parser_t *parser)
 
 
 push_callback_t *
-push_both_new(push_parser_t *parser,
+push_both_new(const char *name,
+              push_parser_t *parser,
               push_callback_t *a,
               push_callback_t *b)
 {
+    const char  *dup_name;
+    const char  *par_name;
+    const char  *compose_name;
+
     push_callback_t  *dup;
     push_callback_t  *par;
     push_callback_t  *callback;
 
-    dup = push_dup_new(parser);
+    /*
+     * First construct all of the names.
+     */
+
+    if (name == NULL)
+        name = "both";
+
+    dup_name = push_string_concat(name, ".dup");
+    if (dup_name == NULL) return NULL;
+
+    par_name = push_string_concat(name, ".par");
+    if (par_name == NULL) return NULL;
+
+    compose_name = push_string_concat(name, ".compose");
+    if (compose_name == NULL) return NULL;
+
+    /*
+     * Then create the callbacks.
+     */
+
+    dup = push_dup_new(dup_name, parser);
     if (dup == NULL)
         return NULL;
 
-    par = push_par_new(parser, a, b);
+    par = push_par_new(par_name, parser, a, b);
     if (par == NULL)
     {
         push_callback_free(dup);
         return NULL;
     }
 
-    callback = push_compose_new(parser, dup, par);
+    callback = push_compose_new(compose_name, parser, dup, par);
     if (callback == NULL)
     {
         push_callback_free(dup);

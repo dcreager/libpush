@@ -62,8 +62,9 @@ skip_continue(void *user_data,
 
     if (bytes_remaining == 0)
     {
-        PUSH_DEBUG_MSG("skip: Reached EOF still needing to skip "
+        PUSH_DEBUG_MSG("%s: Reached EOF still needing to skip "
                        "%zu bytes.\n",
+                       skip->callback.name,
                        skip->left_to_skip);
 
         push_continuation_call(skip->callback.error,
@@ -82,7 +83,8 @@ skip_continue(void *user_data,
         skip->left_to_skip:
         bytes_remaining;
 
-    PUSH_DEBUG_MSG("skip: Skipping over %zu bytes.\n",
+    PUSH_DEBUG_MSG("%s: Skipping over %zu bytes.\n",
+                   skip->callback.name,
                    bytes_to_skip);
 
     buf += bytes_to_skip;
@@ -96,7 +98,8 @@ skip_continue(void *user_data,
 
     if (skip->left_to_skip == 0)
     {
-        PUSH_DEBUG_MSG("skip: Finished skipping.\n");
+        PUSH_DEBUG_MSG("%s: Finished skipping.\n",
+                       skip->callback.name);
 
         push_continuation_call(skip->callback.success,
                                NULL,
@@ -109,7 +112,8 @@ skip_continue(void *user_data,
      * Otherwise, we return an incomplete result.
      */
 
-    PUSH_DEBUG_MSG("skip: %zu bytes left to skip.\n",
+    PUSH_DEBUG_MSG("%s: %zu bytes left to skip.\n",
+                   skip->callback.name,
                    skip->left_to_skip);
 
     push_continuation_call(skip->callback.incomplete,
@@ -126,7 +130,8 @@ skip_activate(void *user_data,
     skip_t  *skip = (skip_t *) user_data;
     size_t  *bytes_to_skip = (size_t *) result;
 
-    PUSH_DEBUG_MSG("skip: Activating.  Will skip %zu bytes.\n",
+    PUSH_DEBUG_MSG("%s: Activating.  Will skip %zu bytes.\n",
+                   skip->callback.name,
                    *bytes_to_skip);
 
     skip->total_to_skip = *bytes_to_skip;
@@ -157,7 +162,8 @@ skip_activate(void *user_data,
 
 
 push_callback_t *
-push_skip_new(push_parser_t *parser)
+push_skip_new(const char *name,
+              push_parser_t *parser)
 {
     skip_t  *skip = (skip_t *) malloc(sizeof(skip_t));
 
@@ -168,7 +174,11 @@ push_skip_new(push_parser_t *parser)
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&skip->callback, parser, skip,
+    if (name == NULL)
+        name = "skip";
+
+    push_callback_init(name,
+                       &skip->callback, parser, skip,
                        skip_activate,
                        NULL, NULL, NULL);
 

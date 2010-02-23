@@ -48,15 +48,17 @@ inner_sum_activate(void *user_data,
     uint32_t  *input_int = (uint32_t *) input_ints->second;
     uint32_t  *input_sums = (uint32_t *) input->second;
 
-    PUSH_DEBUG_MSG("sum: Activating callback.  "
+    PUSH_DEBUG_MSG("%s: Activating callback.  "
                    "Received value %"PRIu32" for index "
                    "%"PRIu32".\n",
+                   inner_sum->callback.name,
                    *input_int,
                    *input_index);
 
     if ((*input_index < 0) || (*input_index >= inner_sum->num_sums))
     {
-        PUSH_DEBUG_MSG("sum: Index is out of range.\n");
+        PUSH_DEBUG_MSG("%s: Index is out of range.\n",
+                       inner_sum->callback.name);
 
         push_continuation_call(inner_sum->callback.error,
                                PUSH_PARSE_ERROR,
@@ -65,14 +67,16 @@ inner_sum_activate(void *user_data,
         return;
     }
 
-    PUSH_DEBUG_MSG("sum: Previous sum #%"PRIu32" was "
+    PUSH_DEBUG_MSG("%s: Previous sum #%"PRIu32" was "
                    "%"PRIu32".\n",
+                   inner_sum->callback.name,
                    *input_index,
                    input_sums[*input_index]);
 
     input_sums[*input_index] += *input_int;
 
-    PUSH_DEBUG_MSG("sum: Adding, sum is now %"PRIu32"\n",
+    PUSH_DEBUG_MSG("%s: Adding, sum is now %"PRIu32"\n",
+                   inner_sum->callback.name,
                    input_sums[*input_index]);
 
     push_continuation_call(inner_sum->callback.success,
@@ -84,7 +88,8 @@ inner_sum_activate(void *user_data,
 
 
 static push_callback_t *
-inner_sum_callback_new(push_parser_t *parser, uint32_t num_sums)
+inner_sum_callback_new(const char *name,
+                       push_parser_t *parser, uint32_t num_sums)
 {
     inner_sum_t  *inner_sum =
         (inner_sum_t *) malloc(sizeof(inner_sum_t));
@@ -92,7 +97,11 @@ inner_sum_callback_new(push_parser_t *parser, uint32_t num_sums)
     if (inner_sum == NULL)
         return NULL;
 
-    push_callback_init(&inner_sum->callback, parser, inner_sum,
+    if (name == NULL)
+        name = "inner-sum";
+
+    push_callback_init(name,
+                       &inner_sum->callback, parser, inner_sum,
                        inner_sum_activate,
                        NULL, NULL, NULL);
 
@@ -103,8 +112,19 @@ inner_sum_callback_new(push_parser_t *parser, uint32_t num_sums)
 
 
 push_callback_t *
-indexed_sum_callback_new(push_parser_t *parser, uint32_t num_sums)
+indexed_sum_callback_new(const char *name,
+                         push_parser_t *parser,
+                         uint32_t num_sums)
 {
+    const char  *dup_name;
+    const char  *integer_name;
+    const char  *index_name;
+    const char  *both_name;
+    const char  *first_name;
+    const char  *inner_sum_name;
+    const char  *compose1_name;
+    const char  *compose2_name;
+
     push_callback_t  *dup;
     push_callback_t  *integer;
     push_callback_t  *index;
@@ -114,17 +134,55 @@ indexed_sum_callback_new(push_parser_t *parser, uint32_t num_sums)
     push_callback_t  *compose1;
     push_callback_t  *compose2;
 
-    dup = push_dup_new(parser);
+    /*
+     * First construct all of the names.
+     */
 
-    index = integer_callback_new(parser);
-    integer = integer_callback_new(parser);
-    both = push_both_new(parser, index, integer);
+    if (name == NULL)
+        name = "indexed-sum";
 
-    first = push_first_new(parser, both);
-    inner_sum = inner_sum_callback_new(parser, num_sums);
+    dup_name = push_string_concat(name, ".dup");
+    if (dup_name == NULL) return NULL;
 
-    compose1 = push_compose_new(parser, dup, first);
-    compose2 = push_compose_new(parser, compose1, inner_sum);
+    integer_name = push_string_concat(name, ".value");
+    if (integer_name == NULL) return NULL;
+
+    index_name = push_string_concat(name, ".index");
+    if (index_name == NULL) return NULL;
+
+    both_name = push_string_concat(name, ".both");
+    if (both_name == NULL) return NULL;
+
+    first_name = push_string_concat(name, ".first");
+    if (first_name == NULL) return NULL;
+
+    inner_sum_name = push_string_concat(name, ".sum");
+    if (inner_sum_name == NULL) return NULL;
+
+    compose1_name = push_string_concat(name, ".compose1");
+    if (compose1_name == NULL) return NULL;
+
+    compose2_name = push_string_concat(name, ".compose2");
+    if (compose2_name == NULL) return NULL;
+
+    /*
+     * Then create the callbacks.
+     */
+
+    dup = push_dup_new(dup_name, parser);
+
+    index = integer_callback_new(index_name, parser);
+    integer = integer_callback_new(integer_name, parser);
+    both = push_both_new(both_name, parser, index, integer);
+
+    first = push_first_new(first_name, parser, both);
+    inner_sum = inner_sum_callback_new(inner_sum_name,
+                                       parser, num_sums);
+
+    compose1 = push_compose_new(compose1_name,
+                                parser, dup, first);
+    compose2 = push_compose_new(compose2_name,
+                                parser, compose1, inner_sum);
 
     return compose2;
 }

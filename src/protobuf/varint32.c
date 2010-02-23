@@ -72,7 +72,8 @@ varint32_rest_continue(void *user_data,
 
     if (bytes_remaining == 0)
     {
-        PUSH_DEBUG_MSG("varint32: Reached EOF before end of varint.\n");
+        PUSH_DEBUG_MSG("%s: Reached EOF before end of varint.\n",
+                       varint32->callback.name);
 
         push_continuation_call(varint32->callback.error,
                                PUSH_PARSE_ERROR,
@@ -88,14 +89,16 @@ varint32_rest_continue(void *user_data,
 
     uint8_t  shift = 7 * varint32->bytes_processed;
 
-    PUSH_DEBUG_MSG("varint32: Using slow path on %zu bytes.\n",
+    PUSH_DEBUG_MSG("%s: Using slow path on %zu bytes.\n",
+                   varint32->callback.name,
                    bytes_remaining);
 
     while (bytes_remaining > 0)
     {
         if (varint32->bytes_processed > PUSH_PROTOBUF_MAX_VARINT_LENGTH)
         {
-            PUSH_DEBUG_MSG("varint32: More than %u bytes in value.\n",
+            PUSH_DEBUG_MSG("%s: More than %u bytes in value.\n",
+                           varint32->callback.name,
                            PUSH_PROTOBUF_MAX_VARINT_LENGTH);
 
             push_continuation_call(varint32->callback.error,
@@ -105,10 +108,13 @@ varint32_rest_continue(void *user_data,
             return;
         }
 
-        PUSH_DEBUG_MSG("varint32: Reading byte %zu, shifting by %"PRIu8"\n",
+        PUSH_DEBUG_MSG("%s: Reading byte %zu, shifting by %"PRIu8"\n",
+                       varint32->callback.name,
                        varint32->bytes_processed, shift);
 
-        PUSH_DEBUG_MSG("varint32:   byte = 0x%02"PRIx8"\n", *ibuf);
+        PUSH_DEBUG_MSG("%s:   byte = 0x%02"PRIx8"\n",
+                       varint32->callback.name,
+                       *ibuf);
 
         varint32->value |= (*ibuf & 0x7F) << shift;
         shift += 7;
@@ -123,8 +129,9 @@ varint32_rest_continue(void *user_data,
              * This byte ends the varint.
              */
 
-            PUSH_DEBUG_MSG("varint32: Read value %"PRIu32
+            PUSH_DEBUG_MSG("%s: Read value %"PRIu32
                            ", using %zu bytes\n",
+                           varint32->callback.name,
                            varint32->value, varint32->bytes_processed);
 
             push_continuation_call(varint32->callback.success,
@@ -163,7 +170,8 @@ varint32_first_continue(void *user_data,
 
     if (bytes_remaining == 0)
     {
-        PUSH_DEBUG_MSG("varint32: Reached EOF before end of varint.\n");
+        PUSH_DEBUG_MSG("%s: Reached EOF before end of varint.\n",
+                       varint32->callback.name);
 
         push_continuation_call(varint32->callback.error,
                                PUSH_PARSE_ERROR,
@@ -185,11 +193,13 @@ varint32_first_continue(void *user_data,
 
     if (*ibuf < 0x80)
     {
-        PUSH_DEBUG_MSG("varint32: Using super-fast path\n");
+        PUSH_DEBUG_MSG("%s: Using super-fast path\n",
+                       varint32->callback.name);
 
         varint32->value = *ibuf;
 
-        PUSH_DEBUG_MSG("varint32: Read value %"PRIu32", using 1 byte\n",
+        PUSH_DEBUG_MSG("%s: Read value %"PRIu32", using 1 byte\n",
+                       varint32->callback.name,
                        varint32->value);
 
         buf++;
@@ -216,7 +226,8 @@ varint32_first_continue(void *user_data,
         uint8_t  b;
         int  i;
 
-        PUSH_DEBUG_MSG("varint32: Using fast path\n");
+        PUSH_DEBUG_MSG("%s: Using fast path\n",
+                       varint32->callback.name);
 
         /*
          * Fast path: we know there are enough bytes in the buffer, so
@@ -234,7 +245,8 @@ varint32_first_continue(void *user_data,
             b = *(ptr++); if (!(b & 0x80)) goto done;
         }
 
-        PUSH_DEBUG_MSG("varint32: More than %u bytes in value.\n",
+        PUSH_DEBUG_MSG("%s: More than %u bytes in value.\n",
+                       varint32->callback.name,
                        PUSH_PROTOBUF_MAX_VARINT_LENGTH);
 
         push_continuation_call(varint32->callback.error,
@@ -244,7 +256,8 @@ varint32_first_continue(void *user_data,
         return;
 
       done:
-        PUSH_DEBUG_MSG("varint32: Read value %"PRIu32", using %zd bytes\n",
+        PUSH_DEBUG_MSG("%s: Read value %"PRIu32", using %zd bytes\n",
+                       varint32->callback.name,
                        result, (ptr - ibuf));
 
         buf += (ptr - ibuf);
@@ -274,6 +287,10 @@ varint32_activate(void *user_data,
                   size_t bytes_remaining)
 {
     varint32_t  *varint32 = (varint32_t *) user_data;
+
+    PUSH_DEBUG_MSG("%s: Activating with %zu bytes.\n",
+                   varint32->callback.name,
+                   bytes_remaining);
 
     /*
      * Initialize the fields that store the current value.
@@ -307,7 +324,8 @@ varint32_activate(void *user_data,
 
 
 push_callback_t *
-push_protobuf_varint32_new(push_parser_t *parser)
+push_protobuf_varint32_new(const char *name,
+                           push_parser_t *parser)
 {
     varint32_t  *varint32 =
         (varint32_t *) malloc(sizeof(varint32_t));
@@ -319,7 +337,11 @@ push_protobuf_varint32_new(push_parser_t *parser)
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&varint32->callback, parser, varint32,
+    if (name == NULL)
+        name = "varint32";
+
+    push_callback_init(name,
+                       &varint32->callback, parser, varint32,
                        varint32_activate,
                        NULL, NULL, NULL);
 
@@ -348,9 +370,10 @@ push_protobuf_varint32_new(push_parser_t *parser)
 #if SIZE_MAX == UINT32_MAX
 
 push_callback_t *
-push_protobuf_varint_size_new(push_parser_t *parser)
+push_protobuf_varint_size_new(const char *name,
+                              push_parser_t *parser)
 {
-    return push_protobuf_varint32_new(parser);
+    return push_protobuf_varint32_new(name, parser);
 }
 
 #endif

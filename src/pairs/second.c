@@ -95,7 +95,8 @@ second_activate(void *user_data,
      * input pair into our wrapped callback.
      */
 
-    PUSH_DEBUG_MSG("second: Activating wrapped callback.\n");
+    PUSH_DEBUG_MSG("%s: Activating wrapped callback.\n",
+                   second->callback.name);
 
     push_continuation_call(&second->wrapped->activate,
                            input->second,
@@ -117,7 +118,8 @@ second_wrapped_success(void *user_data,
      * Create the output pair from this result and our saved value.
      */
 
-    PUSH_DEBUG_MSG("second: Constructing output pair.\n");
+    PUSH_DEBUG_MSG("%s: Constructing output pair.\n",
+                   second->callback.name);
 
     second->result.first = second->first;
     second->result.second = result;
@@ -131,7 +133,8 @@ second_wrapped_success(void *user_data,
 
 
 push_callback_t *
-push_second_new(push_parser_t *parser,
+push_second_new(const char *name,
+                push_parser_t *parser,
                 push_callback_t *wrapped)
 {
     second_t  *second = (second_t *) malloc(sizeof(second_t));
@@ -149,7 +152,11 @@ push_second_new(push_parser_t *parser,
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&second->callback, parser, second,
+    if (name == NULL)
+        name = "second";
+
+    push_callback_init(name,
+                       &second->callback, parser, second,
                        second_activate,
                        NULL,
                        second_set_incomplete,

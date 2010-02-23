@@ -96,7 +96,8 @@ push_protobuf_field_map_set_error
 
 bool
 push_protobuf_field_map_add_field
-(push_parser_t *parser,
+(const char *field_name,
+ push_parser_t *parser,
  push_protobuf_field_map_t *field_map,
  push_protobuf_tag_number_t field_number,
  push_protobuf_tag_type_t expected_tag_type,
@@ -132,7 +133,9 @@ push_protobuf_add_submessage(push_protobuf_field_map_t *field_map,
  */
 
 bool
-push_protobuf_add_hwm_string(push_parser_t *parser,
+push_protobuf_add_hwm_string(const char *message_name,
+                             const char *field_name,
+                             push_parser_t *parser,
                              push_protobuf_field_map_t *field_map,
                              push_protobuf_tag_number_t field_number,
                              hwm_buffer_t *dest);
@@ -146,7 +149,9 @@ push_protobuf_add_hwm_string(push_parser_t *parser,
  */
 
 bool
-push_protobuf_assign_uint32(push_parser_t *parser,
+push_protobuf_assign_uint32(const char *message_name,
+                            const char *field_name,
+                            push_parser_t *parser,
                             push_protobuf_field_map_t *field_map,
                             push_protobuf_tag_number_t field_number,
                             uint32_t *dest);
@@ -160,7 +165,9 @@ push_protobuf_assign_uint32(push_parser_t *parser,
  */
 
 bool
-push_protobuf_assign_uint64(push_parser_t *parser,
+push_protobuf_assign_uint64(const char *message_name,
+                            const char *field_name,
+                            push_parser_t *parser,
                             push_protobuf_field_map_t *field_map,
                             push_protobuf_tag_number_t field_number,
                             uint64_t *dest);

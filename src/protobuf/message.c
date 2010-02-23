@@ -111,7 +111,8 @@ dispatch_activate(void *user_data,
     push_callback_t  *field_callback;
 
     field_tag = (push_protobuf_tag_t *) result;
-    PUSH_DEBUG_MSG("dispatch: Activating.  Got tag 0x%04"PRIx32"\n",
+    PUSH_DEBUG_MSG("%s: Activating.  Got tag 0x%04"PRIx32"\n",
+                   dispatch->callback.name,
                    *field_tag);
 
     /*
@@ -120,7 +121,8 @@ dispatch_activate(void *user_data,
 
     field_number = PUSH_PROTOBUF_GET_TAG_NUMBER(*field_tag);
 
-    PUSH_DEBUG_MSG("dispatch: Dispatching field %"PRIu32".\n",
+    PUSH_DEBUG_MSG("%s: Dispatching field %"PRIu32".\n",
+                   dispatch->callback.name,
                    field_number);
 
     /*
@@ -147,8 +149,9 @@ dispatch_activate(void *user_data,
              * TODO: Add skippers for the other field types.
              */
 
-            PUSH_DEBUG_MSG("dispatch: No field callback for "
+            PUSH_DEBUG_MSG("%s: No field callback for "
                            "field %"PRIu32".\n",
+                           dispatch->callback.name,
                            field_number);
 
             push_continuation_call(dispatch->callback.error,
@@ -165,7 +168,8 @@ dispatch_activate(void *user_data,
      * to pass in the tag as input.
      */
 
-    PUSH_DEBUG_MSG("dispatch: Callback %p matches.\n",
+    PUSH_DEBUG_MSG("%s: Callback %p matches.\n",
+                   dispatch->callback.name,
                    field_callback);
 
     push_continuation_call(&field_callback->activate,
@@ -178,18 +182,34 @@ dispatch_activate(void *user_data,
 
 
 static push_callback_t *
-dispatch_new(push_parser_t *parser,
+dispatch_new(const char *name,
+             push_parser_t *parser,
              push_protobuf_field_map_t *field_map)
 {
+    const char  *dispatch_name;
+    const char  *skip_length_prefixed_name;
+
     dispatch_t  *dispatch;
     push_callback_t  *skip_length_prefixed;
 
     /*
-     * Try to create the skipper callbacks first.
+     * First construct all of the names.
+     */
+
+    dispatch_name = push_string_concat(name, ".dispatch");
+    if (dispatch_name == NULL) return NULL;
+
+    skip_length_prefixed_name =
+        push_string_concat(name, ".skip-length-prefixed");
+    if (skip_length_prefixed_name == NULL) return NULL;
+
+    /*
+     * Then try to create the skipper callbacks.
      */
 
     skip_length_prefixed =
-        push_protobuf_skip_length_prefixed_new(parser);
+        push_protobuf_skip_length_prefixed_new
+        (skip_length_prefixed_name, parser);
     if (skip_length_prefixed == NULL)
         return NULL;
 
@@ -217,7 +237,8 @@ dispatch_new(push_parser_t *parser,
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&dispatch->callback, parser, dispatch,
+    push_callback_init(dispatch_name,
+                       &dispatch->callback, parser, dispatch,
                        dispatch_activate,
                        dispatch_set_success,
                        dispatch_set_incomplete,
@@ -233,28 +254,55 @@ dispatch_new(push_parser_t *parser,
 
 
 push_callback_t *
-push_protobuf_message_new(push_parser_t *parser,
+push_protobuf_message_new(const char *name,
+                          push_parser_t *parser,
                           push_protobuf_field_map_t *field_map)
 {
+    const char  *read_field_tag_name;
+    const char  *compose_name;
+    const char  *fold_name;
+
     push_callback_t  *read_field_tag;
     push_callback_t  *dispatch;
     push_callback_t  *compose;
     push_callback_t  *fold;
 
-    read_field_tag = push_protobuf_varint32_new(parser);
+    /*
+     * First construct all of the names.
+     */
+    
+    if (name == NULL)
+        name = "message";
+
+    read_field_tag_name = push_string_concat(name, ".tag");
+    if (read_field_tag_name == NULL) return NULL;
+
+    compose_name = push_string_concat(name, ".compose");
+    if (compose_name == NULL) return NULL;
+
+    fold_name = push_string_concat(name, ".fold");
+    if (fold_name == NULL) return NULL;
+
+    /*
+     * Then create the callbacks.
+     */
+
+    read_field_tag =
+        push_protobuf_varint32_new(read_field_tag_name, parser);
     if (read_field_tag == NULL)
     {
         return NULL;
     }
 
-    dispatch = dispatch_new(parser, field_map);
+    dispatch = dispatch_new(name, parser, field_map);
     if (dispatch == NULL)
     {
         push_callback_free(read_field_tag);
         return NULL;
     }
 
-    compose = push_compose_new(parser, read_field_tag, dispatch);
+    compose = push_compose_new(compose_name,
+                               parser, read_field_tag, dispatch);
     if (compose == NULL)
     {
         push_callback_free(read_field_tag);
@@ -262,7 +310,7 @@ push_protobuf_message_new(push_parser_t *parser,
         return NULL;
     }
 
-    fold = push_fold_new(parser, compose);
+    fold = push_fold_new(fold_name, parser, compose);
     if (fold == NULL)
     {
         /*

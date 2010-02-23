@@ -48,7 +48,8 @@ eof_activate(void *user_data,
 {
     eof_t  *eof = (eof_t *) user_data;
 
-    PUSH_DEBUG_MSG("eof: Activating.\n");
+    PUSH_DEBUG_MSG("%s: Activating.\n",
+                   eof->callback.name);
     eof->input = result;
 
     /*
@@ -57,7 +58,8 @@ eof_activate(void *user_data,
 
     if (bytes_remaining > 0)
     {
-        PUSH_DEBUG_MSG("eof: Expected EOF, but got %zu bytes.\n",
+        PUSH_DEBUG_MSG("%s: Expected EOF, but got %zu bytes.\n",
+                       eof->callback.name,
                        bytes_remaining);
 
         push_continuation_call(eof->callback.error,
@@ -89,7 +91,8 @@ eof_continue(void *user_data,
 
     if (bytes_remaining > 0)
     {
-        PUSH_DEBUG_MSG("eof: Expected EOF, but got %zu bytes.\n",
+        PUSH_DEBUG_MSG("%s: Expected EOF, but got %zu bytes.\n",
+                       eof->callback.name,
                        bytes_remaining);
 
         push_continuation_call(eof->callback.error,
@@ -98,7 +101,8 @@ eof_continue(void *user_data,
 
         return;
     } else {
-        PUSH_DEBUG_MSG("eof: Reached expected EOF.\n");
+        PUSH_DEBUG_MSG("%s: Reached expected EOF.\n",
+                       eof->callback.name);
 
         push_continuation_call(eof->callback.success,
                                eof->input,
@@ -110,14 +114,19 @@ eof_continue(void *user_data,
 
 
 push_callback_t *
-push_eof_new(push_parser_t *parser)
+push_eof_new(const char *name,
+             push_parser_t *parser)
 {
     eof_t  *eof = (eof_t *) malloc(sizeof(eof_t));
 
     if (eof == NULL)
         return NULL;
 
-    push_callback_init(&eof->callback, parser, eof,
+    if (name == NULL)
+        name = "eof";
+
+    push_callback_init(name,
+                       &eof->callback, parser, eof,
                        eof_activate,
                        NULL, NULL, NULL);
 

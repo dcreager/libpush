@@ -50,7 +50,7 @@ START_TEST(test_skip_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_skip_new(parser);
+    callback = push_skip_new("skip", parser);
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 
@@ -89,7 +89,7 @@ START_TEST(test_skip_02)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_skip_new(parser);
+    callback = push_skip_new("skip", parser);
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 
@@ -127,7 +127,7 @@ START_TEST(test_skip_03)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_skip_new(parser);
+    callback = push_skip_new("skip", parser);
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 

@@ -45,8 +45,8 @@ make_indexed_sum_callback(push_parser_t *parser)
     push_callback_t  *sum;
     push_callback_t  *fold;
 
-    sum = indexed_sum_callback_new(parser, NUM_SUM_CALLBACKS);
-    fold = push_fold_new(parser, sum);
+    sum = indexed_sum_callback_new("indexed", parser, NUM_SUM_CALLBACKS);
+    fold = push_fold_new("fold", parser, sum);
 
     return fold;
 }

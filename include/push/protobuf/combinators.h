@@ -23,7 +23,8 @@
  */
 
 push_callback_t *
-push_protobuf_varint_prefixed_new(push_parser_t *parser,
+push_protobuf_varint_prefixed_new(const char *name,
+                                  push_parser_t *parser,
                                   push_callback_t *wrapped);
 
 

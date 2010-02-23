@@ -73,15 +73,17 @@ assign_activate(void *user_data,
     ASSIGN_T  *assign = (ASSIGN_T *) user_data;
 
     assign->input = (PARSED_T *) result;
-    PUSH_DEBUG_MSG(PRETTY_STR": Activating.  Got value "
+    PUSH_DEBUG_MSG("%s: Activating.  Got value "
                    "%"PRIuPARSED".\n",
+                   assign->callback.name,
                    *assign->input);
 
     /*
      * Copy the value from the callback into the destination.
      */
 
-    PUSH_DEBUG_MSG(PRETTY_STR": Assigning value to %p.\n",
+    PUSH_DEBUG_MSG("%s: Assigning value to %p.\n",
+                   assign->callback.name,
                    assign->dest);
     *assign->dest = *assign->input;
 
@@ -94,7 +96,8 @@ assign_activate(void *user_data,
 
 
 static push_callback_t *
-assign_new(push_parser_t *parser, DEST_T *dest)
+assign_new(const char *name,
+           push_parser_t *parser, DEST_T *dest)
 {
     ASSIGN_T  *assign =
         (ASSIGN_T *) malloc(sizeof(ASSIGN_T));
@@ -112,7 +115,11 @@ assign_new(push_parser_t *parser, DEST_T *dest)
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&assign->callback, parser, assign,
+    if (name == NULL)
+        name = PRETTY_STR;
+
+    push_callback_init(name,
+                       &assign->callback, parser, assign,
                        assign_activate,
                        NULL, NULL, NULL);
 
@@ -121,28 +128,58 @@ assign_new(push_parser_t *parser, DEST_T *dest)
 
 
 bool
-PUSH_PROTOBUF_ASSIGN(push_parser_t *parser,
+PUSH_PROTOBUF_ASSIGN(const char *message_name,
+                     const char *field_name,
+                     push_parser_t *parser,
                      push_protobuf_field_map_t *field_map,
                      push_protobuf_tag_number_t field_number,
                      DEST_T *dest)
 {
+    const char  *full_field_name;
+    const char  *value_name;
+    const char  *assign_name;
+    const char  *compose_name;
+
     push_callback_t  *value_callback = NULL;
     push_callback_t  *assign_callback = NULL;
     push_callback_t  *field_callback = NULL;
 
     /*
-     * First, create the callbacks.
+     * First construct all of the names.
      */
 
-    value_callback = VALUE_CALLBACK_NEW(parser);
+    if (message_name == NULL)
+        message_name = "message";
+
+    if (field_name == NULL)
+        field_name = ".assign";
+
+    full_field_name = push_string_concat(message_name, field_name);
+    if (full_field_name == NULL) return NULL;
+
+    value_name = push_string_concat(full_field_name, "." VALUE_STR);
+    if (value_name == NULL) return NULL;
+
+    assign_name = push_string_concat(full_field_name, "." PRETTY_STR);
+    if (assign_name == NULL) return NULL;
+
+    compose_name = push_string_concat(full_field_name, ".compose");
+    if (compose_name == NULL) return NULL;
+
+    /*
+     * Then create the callbacks.
+     */
+
+    value_callback = VALUE_CALLBACK_NEW(value_name, parser);
     if (value_callback == NULL)
         goto error;
 
-    assign_callback = assign_new(parser, dest);
+    assign_callback = assign_new(assign_name, parser, dest);
     if (assign_callback == NULL)
         goto error;
 
-    field_callback = push_compose_new(parser, value_callback,
+    field_callback = push_compose_new(compose_name,
+                                      parser, value_callback,
                                       assign_callback);
     if (field_callback == NULL)
         goto error;
@@ -154,7 +191,8 @@ PUSH_PROTOBUF_ASSIGN(push_parser_t *parser,
      * them.)
      */
 
-    if (!push_protobuf_field_map_add_field(parser,
+    if (!push_protobuf_field_map_add_field(full_field_name,
+                                           parser,
                                            field_map, field_number,
                                            TAG_TYPE, field_callback))
     {

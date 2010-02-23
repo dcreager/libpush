@@ -119,7 +119,8 @@ min_bytes_first_continue(void *user_data,
      * we receive.
      */
 
-    PUSH_DEBUG_MSG("min-bytes: Processing %zu bytes.\n",
+    PUSH_DEBUG_MSG("%s: Processing %zu bytes.\n",
+                   min_bytes->callback.name,
                    bytes_remaining);
 
     /*
@@ -129,8 +130,9 @@ min_bytes_first_continue(void *user_data,
 
     if (bytes_remaining >= min_bytes->minimum_bytes)
     {
-        PUSH_DEBUG_MSG("min-bytes: First chunk of data "
-                       "is large enough.\n");
+        PUSH_DEBUG_MSG("%s: First chunk of data "
+                       "is large enough.\n",
+                       min_bytes->callback.name);
 
         /*
          * We don't have anything further to do, so the wrapped
@@ -160,8 +162,9 @@ min_bytes_first_continue(void *user_data,
 
     if (bytes_remaining == 0)
     {
-        PUSH_DEBUG_MSG("min-bytes: Reached EOF without meeting "
-                       "minimum.\n");
+        PUSH_DEBUG_MSG("%s: Reached EOF without meeting "
+                       "minimum.\n",
+                       min_bytes->callback.name);
 
         push_continuation_call(min_bytes->callback.error,
                                PUSH_PARSE_ERROR,
@@ -175,8 +178,9 @@ min_bytes_first_continue(void *user_data,
      * incomplete.
      */
 
-    PUSH_DEBUG_MSG("min-bytes: Haven't met minimum, currently "
+    PUSH_DEBUG_MSG("%s: Haven't met minimum, currently "
                    "have %zu bytes total.\n",
+                   min_bytes->callback.name,
                    bytes_remaining);
 
     memcpy(min_bytes->buffer, buf, bytes_remaining);
@@ -197,10 +201,12 @@ min_bytes_activate(void *user_data,
 {
     min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
 
-    PUSH_DEBUG_MSG("min-bytes: Activating.\n");
+    PUSH_DEBUG_MSG("%s: Activating.\n",
+                   min_bytes->callback.name);
     min_bytes->input = result;
 
-    PUSH_DEBUG_MSG("min-bytes: Clearing buffer.\n");
+    PUSH_DEBUG_MSG("%s: Clearing buffer.\n",
+                   min_bytes->callback.name);
     min_bytes->bytes_buffered = 0;
 
     if (bytes_remaining == 0)
@@ -241,7 +247,8 @@ min_bytes_rest_continue(void *user_data,
      * data that we receive.
      */
 
-    PUSH_DEBUG_MSG("min-bytes: Processing %zu bytes.\n",
+    PUSH_DEBUG_MSG("%s: Processing %zu bytes.\n",
+                   min_bytes->callback.name,
                    bytes_remaining);
 
     /*
@@ -263,7 +270,8 @@ min_bytes_rest_continue(void *user_data,
         bytes_to_copy =
             min_bytes->minimum_bytes - min_bytes->bytes_buffered;
 
-        PUSH_DEBUG_MSG("min-bytes: Copying %zu bytes to meet minimum.\n",
+        PUSH_DEBUG_MSG("%s: Copying %zu bytes to meet minimum.\n",
+                       min_bytes->callback.name,
                        bytes_to_copy);
 
         memcpy(min_bytes->buffer + min_bytes->bytes_buffered,
@@ -324,8 +332,9 @@ min_bytes_rest_continue(void *user_data,
 
     if (bytes_remaining == 0)
     {
-        PUSH_DEBUG_MSG("min-bytes: Reached EOF without meeting "
-                       "minimum.\n");
+        PUSH_DEBUG_MSG("%s: Reached EOF without meeting "
+                       "minimum.\n",
+                       min_bytes->callback.name);
 
         push_continuation_call(min_bytes->callback.error,
                                PUSH_PARSE_ERROR,
@@ -339,8 +348,9 @@ min_bytes_rest_continue(void *user_data,
      * incomplete.
      */
 
-    PUSH_DEBUG_MSG("min-bytes: Haven't met minimum, currently "
+    PUSH_DEBUG_MSG("%s: Haven't met minimum, currently "
                    "have %zu bytes total.\n",
+                   min_bytes->callback.name,
                    bytes_remaining);
 
     memcpy(min_bytes->buffer + min_bytes->bytes_buffered,
@@ -369,8 +379,9 @@ min_bytes_leftover_success(void *user_data,
      * chunk, which we pass back in our overall success result.
      */
 
-    PUSH_DEBUG_MSG("min-bytes: Wrapped callback succeeded with "
+    PUSH_DEBUG_MSG("%s: Wrapped callback succeeded with "
                    "%zu bytes left in chunk.\n",
+                   min_bytes->callback.name,
                    min_bytes->leftover_size);
 
     /*
@@ -381,8 +392,9 @@ min_bytes_leftover_success(void *user_data,
 
     if (bytes_remaining != 0)
     {
-        PUSH_DEBUG_MSG("min-bytes: Wrapped callback didn't process "
+        PUSH_DEBUG_MSG("%s: Wrapped callback didn't process "
                        "all %zu bytes.\n",
+                       min_bytes->callback.name,
                        min_bytes->minimum_bytes);
 
         push_continuation_call(min_bytes->callback.error,
@@ -415,8 +427,9 @@ min_bytes_leftover_incomplete(void *user_data,
      * to the wrapped callback.
      */
 
-    PUSH_DEBUG_MSG("min-bytes: Sending remaining %zu bytes in chunk "
+    PUSH_DEBUG_MSG("%s: Sending remaining %zu bytes in chunk "
                    "into wrapped callback.\n",
+                   min_bytes->callback.name,
                    min_bytes->leftover_size);
 
     /*
@@ -442,7 +455,8 @@ min_bytes_leftover_incomplete(void *user_data,
 
 
 push_callback_t *
-push_min_bytes_new(push_parser_t *parser,
+push_min_bytes_new(const char *name,
+                   push_parser_t *parser,
                    push_callback_t *wrapped,
                    size_t minimum_bytes)
 {
@@ -474,7 +488,11 @@ push_min_bytes_new(push_parser_t *parser,
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(&min_bytes->callback, parser, min_bytes,
+    if (name == NULL)
+        name = "min-bytes";
+
+    push_callback_init(name,
+                       &min_bytes->callback, parser, min_bytes,
                        min_bytes_activate,
                        NULL, NULL, NULL);
 
