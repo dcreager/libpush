@@ -39,6 +39,23 @@ make_repeated_sum(push_parser_t *parser)
     return fold;
 }
 
+static push_callback_t *
+make_repeated_max_sum(push_parser_t *parser)
+{
+    push_callback_t  *sum;
+    push_callback_t  *fold1;
+    push_callback_t  *max_bytes;
+    push_callback_t  *fold2;
+
+    sum = sum_callback_new("sum", parser);
+    fold1 = push_fold_new("fold1", parser, sum);
+    max_bytes = push_max_bytes_new("max-bytes", parser,
+                                   fold1, sizeof(uint32_t));
+    fold2 = push_fold_new("fold2", parser, max_bytes);
+
+    return fold2;
+}
+
 
 /*-----------------------------------------------------------------------
  * Sample data
@@ -484,6 +501,61 @@ START_TEST(test_misaligned_max_01)
 END_TEST
 
 
+START_TEST(test_misaligned_max_02)
+{
+    push_parser_t  *parser;
+    push_callback_t  *callback;
+    uint32_t  *result;
+    size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
+
+    PUSH_DEBUG_MSG("---\nStarting test_misaligned_max_02\n");
+
+    /*
+     * If we use max-bytes to limit each sum to one number (which
+     * doesn't really do anything).  Then we send in the numbers in
+     * two chunks, with the boundary misaligned.  We should get the
+     * same result as if we sent those numbers in as a single chunk.
+     */
+
+    parser = push_parser_new();
+    fail_if(parser == NULL,
+            "Could not allocate a new push parser");
+
+    callback = make_repeated_max_sum(parser);
+    fail_if(callback == NULL,
+            "Could not allocate a new sum callback");
+
+    push_parser_set_callback(parser, callback);
+
+    fail_unless(push_parser_activate(parser, &INT_0)
+                == PUSH_INCOMPLETE,
+                "Could not activate parser");
+
+    fail_unless(push_parser_submit_data
+                (parser, &DATA_01, FIRST_CHUNK_SIZE) == PUSH_INCOMPLETE,
+                "Could not parse data");
+
+    fail_unless(push_parser_submit_data
+                (parser,
+                 ((void *) DATA_01) + FIRST_CHUNK_SIZE,
+                 LENGTH_01 - FIRST_CHUNK_SIZE) == PUSH_INCOMPLETE,
+                "Could not parse data");
+
+    fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
+                "Shouldn't get parse error at EOF");
+
+    result = push_parser_result(parser, uint32_t);
+
+    fail_unless(*result == 15,
+                "Sum doesn't match (got %"PRIu32
+                ", expected %"PRIu32")",
+                *result, 15);
+
+    push_parser_free(parser);
+}
+END_TEST
+
+
 START_TEST(test_dynamic_max_01)
 {
     push_parser_t  *parser;
@@ -741,6 +813,7 @@ test_suite()
     tcase_add_test(tc, test_max_02);
     tcase_add_test(tc, test_max_03);
     tcase_add_test(tc, test_misaligned_max_01);
+    tcase_add_test(tc, test_misaligned_max_02);
     tcase_add_test(tc, test_dynamic_max_01);
     tcase_add_test(tc, test_dynamic_max_02);
     tcase_add_test(tc, test_dynamic_max_03);

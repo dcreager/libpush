@@ -136,6 +136,9 @@ max_bytes_activate(void *user_data,
 
         if (bytes_remaining == max_bytes->maximum_bytes)
         {
+            max_bytes->leftover_buf = NULL;
+            max_bytes->leftover_size = 0;
+
             push_continuation_call(&max_bytes->wrapped->set_incomplete,
                                    &max_bytes->wrapped_finished);
         } else {
@@ -265,6 +268,9 @@ max_bytes_cont(void *user_data,
 
         if (total_bytes == max_bytes->maximum_bytes)
         {
+            max_bytes->leftover_buf = NULL;
+            max_bytes->leftover_size = 0;
+
             push_continuation_call(&max_bytes->wrapped->set_incomplete,
                                    &max_bytes->wrapped_finished);
         } else {
