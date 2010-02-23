@@ -8,6 +8,7 @@
  * ----------------------------------------------------------------------
  */
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -47,28 +48,25 @@ typedef struct _fold
     push_continue_continuation_t  continue_after_empty;
 
     /**
-     * An error continuation that catches a wrapped parse error, and
-     * turns it into a fold success.  This is only the right behavior
-     * if the wrapped callback hasn't returned an incomplete yet,
-     * since it's required to yield a parse error <i>immediately</i>.
+     * An error continuation that catches a wrapped parse error.  If
+     * the wrapped callback hasn't returned an incomplete yet, then
+     * this turns into a success for the fold.
      */
 
-    push_error_continuation_t  initial_error;
-
-    /**
-     * An error continuation that passes on wrapped parse error as
-     * parse errors of the overall fold.  This is the right behavior
-     * if the wrapped callback has returned an incomplete during this
-     * iteration.
-     */
-
-    push_error_continuation_t  later_error;
+    push_error_continuation_t  wrapped_error;
 
     /**
      * The wrapped callback.
      */
 
     push_callback_t  *wrapped;
+
+    /**
+     * Whether the wrapped callback has returned an incomplete during
+     * this iteration.
+     */
+
+    bool  wrapped_incomplete;
 
     /**
      * The wrapped callback's continue continuation.  This is used to
@@ -125,21 +123,11 @@ fold_activate(void *user_data,
     fold->last_result = result;
 
     /*
-     * If the wrapped callback succeeds, it should reactivate the fold
-     * to start the next iteration.  If it fails in this initial
-     * chunk, then the overall fold succeeds.  If it incompletes, then
-     * we need to remember this so that we can ensure that it doesn't
-     * generate a parse error after that.
+     * This is the start of a new iteration, so the wrapped callback
+     * hasn't returned an incomplete yet.
      */
 
-    push_continuation_call(&fold->wrapped->set_success,
-                           &fold->callback.activate);
-
-    push_continuation_call(&fold->wrapped->set_incomplete,
-                           &fold->remember_incomplete);
-
-    push_continuation_call(&fold->wrapped->set_error,
-                           &fold->initial_error);
+    fold->wrapped_incomplete = false;
 
     /*
      * Before calling the wrapped callback, save this initial chunk of
@@ -169,6 +157,18 @@ fold_remember_incomplete(void *user_data,
     fold_t  *fold = (fold_t *) user_data;
 
     /*
+     * If the wrapped callback has already returned an incomplete,
+     * just pass on the continue continuation.
+     */
+
+    if (fold->wrapped_incomplete)
+    {
+        push_continuation_call(fold->callback.incomplete, cont);
+
+        return;
+    }
+
+    /*
      * If we reach this continuation, then the wrapped callback
      * generated an incomplete.  Assuming that the first chunk of data
      * isn't empty, then the wrapped callback is no longer allowed to
@@ -182,19 +182,7 @@ fold_remember_incomplete(void *user_data,
                        "It can no longer generate a parse error.\n",
                        fold->callback.name);
 
-        /*
-         * The wrapped callback can now pass on its incompletes
-         * without us having to spy on them, since the damage is done.
-         * If it generates an error, we have to use a different error
-         * continuation than before, since we can't recover the parse
-         * error as a fold success.
-         */
-
-        push_continuation_call(&fold->wrapped->set_incomplete,
-                               fold->callback.incomplete);
-
-        push_continuation_call(&fold->wrapped->set_error,
-                               &fold->later_error);
+        fold->wrapped_incomplete = true;
 
         /*
          * Pass on the incomplete.
@@ -274,7 +262,7 @@ fold_continue_after_empty(void *user_data,
 
 
 static void
-fold_initial_error(void *user_data,
+fold_wrapped_error(void *user_data,
                    push_error_code_t error_code,
                    const char *error_message)
 {
@@ -283,59 +271,36 @@ fold_initial_error(void *user_data,
     /*
      * If we reach this continuation, then the wrapped callback
      * generated an error in its initial data chunk.  If this is a
-     * parse error, then the fold succeeds, and we use the last
+     * parse error, and the wrapped callback hasn't returned an
+     * incomplete yet, then the fold succeeds, and we use the last
      * successful result as the fold's result.
      */
 
     if (error_code == PUSH_PARSE_ERROR)
     {
-        PUSH_DEBUG_MSG("%s: Parse error.  Fold succeeds with "
-                       "previous result.\n",
-                       fold->callback.name);
+        if (fold->wrapped_incomplete)
+        {
+            PUSH_DEBUG_MSG("%s: Parse error after incomplete.  "
+                           "Fold results in a parse error!\n",
+                           fold->callback.name);
 
-        push_continuation_call(fold->callback.success,
-                               fold->last_result,
-                               fold->first_chunk,
-                               fold->first_size);
+            push_continuation_call(fold->callback.error,
+                                   PUSH_PARSE_ERROR,
+                                   "Parse error in fold after incomplete");
 
-        return;
-    }
+            return;
+        } else {
+            PUSH_DEBUG_MSG("%s: Parse error.  Fold succeeds with "
+                           "previous result.\n",
+                           fold->callback.name);
 
-    /*
-     * We pass on any other error as-is.
-     */
+            push_continuation_call(fold->callback.success,
+                                   fold->last_result,
+                                   fold->first_chunk,
+                                   fold->first_size);
 
-    push_continuation_call(fold->callback.error,
-                           error_code, error_message);
-
-    return;
-}
-
-
-static void
-fold_later_error(void *user_data,
-                 push_error_code_t error_code,
-                 const char *error_message)
-{
-    fold_t  *fold = (fold_t *) user_data;
-
-    /*
-     * If we reach this continuation, then the wrapped callback
-     * generated an error are having returned an incomplete.  If this
-     * is a parse error, then the fold generates a parse error, too.
-     */
-
-    if (error_code == PUSH_PARSE_ERROR)
-    {
-        PUSH_DEBUG_MSG("%s: Parse error after incomplete.  "
-                       "Fold results in a parse error!\n",
-                       fold->callback.name);
-
-        push_continuation_call(fold->callback.error,
-                               PUSH_PARSE_ERROR,
-                               "Parse error in fold after incomplete");
-
-        return;
+            return;
+        }
     }
 
     /*
@@ -390,13 +355,26 @@ push_fold_new(const char *name,
                           fold_continue_after_empty,
                           fold);
 
-    push_continuation_set(&fold->initial_error,
-                          fold_initial_error,
+    push_continuation_set(&fold->wrapped_error,
+                          fold_wrapped_error,
                           fold);
 
-    push_continuation_set(&fold->later_error,
-                          fold_later_error,
-                          fold);
+    /*
+     * If the wrapped callback succeeds, it should reactivate the fold
+     * to start the next iteration.  If it incompletes, then we need
+     * to remember this so that we can ensure that it doesn't generate
+     * a parse error after that.  If it errors, we need to check for
+     * parse errors and possibly turn those into a fold success.
+     */
+
+    push_continuation_call(&fold->wrapped->set_success,
+                           &fold->callback.activate);
+
+    push_continuation_call(&fold->wrapped->set_incomplete,
+                           &fold->remember_incomplete);
+
+    push_continuation_call(&fold->wrapped->set_error,
+                           &fold->wrapped_error);
 
     return &fold->callback;
 }
