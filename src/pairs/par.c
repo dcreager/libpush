@@ -16,6 +16,7 @@
 
 push_callback_t *
 push_par_new(const char *name,
+             void *parent,
              push_parser_t *parser,
              push_callback_t *a,
              push_callback_t *b)
@@ -27,13 +28,10 @@ push_par_new(const char *name,
      *   a *** b = first a >>> second b
      */
 
-    const char  *first_name = NULL;
-    const char  *second_name = NULL;
-    const char  *compose_name = NULL;
-
-    push_callback_t  *first = NULL;
-    push_callback_t  *second = NULL;
-    push_callback_t  *callback = NULL;
+    void  *context;
+    push_callback_t  *first;
+    push_callback_t  *second;
+    push_callback_t  *callback;
 
     /*
      * If either wrapped callback is NULL, return NULL ourselves.
@@ -43,28 +41,27 @@ push_par_new(const char *name,
         return NULL;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (name == NULL)
-        name = "both";
-
-    first_name = push_string_concat(parser, name, ".first");
-    if (first_name == NULL) goto error;
-
-    second_name = push_string_concat(parser, name, ".second");
-    if (second_name == NULL) goto error;
-
-    compose_name = push_string_concat(parser, name, ".compose");
-    if (compose_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    first = push_first_new(first_name, parser, a);
-    second = push_second_new(second_name, parser, b);
-    callback = push_compose_new(compose_name, parser, first, second);
+    if (name == NULL) name = "par";
+
+    first = push_first_new
+        (push_talloc_asprintf(context, "%s.first", name),
+         context, parser, a);
+    second = push_second_new
+        (push_talloc_asprintf(context, "%s.second", name),
+         context, parser, b);
+    callback = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose", name),
+         context, parser, first, second);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -72,26 +69,13 @@ push_par_new(const char *name,
      */
 
     if (callback == NULL) goto error;
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(first, first_name);
-    push_talloc_steal(second, second_name);
-    push_talloc_steal(callback, compose_name);
-
     return callback;
 
   error:
-    if (first_name != NULL) push_talloc_free(first_name);
-    if (first != NULL) push_talloc_free(first);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (second_name != NULL) push_talloc_free(second_name);
-    if (second != NULL) push_talloc_free(second);
-
-    if (compose_name != NULL) push_talloc_free(compose_name);
-    if (callback != NULL) push_talloc_free(callback);
-
+    push_talloc_free(context);
     return NULL;
 }

@@ -52,7 +52,7 @@ START_TEST(test_noop_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_noop_new("noop", parser);
+    callback = push_noop_new("noop", NULL, parser);
     fail_if(callback == NULL,
             "Could not allocate a new noop callback");
 

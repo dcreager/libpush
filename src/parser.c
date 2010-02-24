@@ -175,6 +175,13 @@ push_parser_set_callback(push_parser_t *parser,
      */
 
     parser->cont = NULL;
+
+    /*
+     * Take control of the callback, so that it gets freed when the
+     * parser does.
+     */
+
+    push_talloc_steal(parser, callback);
 }
 
 

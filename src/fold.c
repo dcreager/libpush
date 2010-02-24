@@ -119,7 +119,7 @@ fold_activate(void *user_data,
 
 
     PUSH_DEBUG_MSG("%s: Saving %p as most recent result.\n",
-                   fold->callback.name,
+                   push_talloc_get_name(fold),
                    result);
     fold->last_result = result;
 
@@ -140,7 +140,7 @@ fold_activate(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Activating wrapped callback "
                    "with %zu bytes.\n",
-                   fold->callback.name,
+                   push_talloc_get_name(fold),
                    bytes_remaining);
 
     push_continuation_call(&fold->wrapped->activate,
@@ -181,7 +181,7 @@ fold_remember_incomplete(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: Wrapped callback is incomplete.  "
                        "It can no longer generate a parse error.\n",
-                       fold->callback.name);
+                       push_talloc_get_name(fold));
 
         fold->wrapped_incomplete = true;
 
@@ -204,7 +204,7 @@ fold_remember_incomplete(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Wrapped callback is incomplete, "
                    "but first data chunk is empty.\n",
-                   fold->callback.name);
+                   push_talloc_get_name(fold));
 
     fold->wrapped_cont = cont;
 
@@ -233,7 +233,7 @@ fold_continue_after_empty(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: EOF in between iterations.  Fold is "
                        "successful.\n",
-                       fold->callback.name);
+                       push_talloc_get_name(fold));
 
         push_continuation_call(fold->callback.success,
                                fold->last_result,
@@ -250,7 +250,7 @@ fold_continue_after_empty(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Continuing wrapped callback with "
                    "%zu bytes.\n",
-                   fold->callback.name,
+                   push_talloc_get_name(fold),
                    bytes_remaining);
 
     fold->first_chunk = buf;
@@ -283,7 +283,7 @@ fold_wrapped_error(void *user_data,
         {
             PUSH_DEBUG_MSG("%s: Parse error after incomplete.  "
                            "Fold results in a parse error!\n",
-                           fold->callback.name);
+                           push_talloc_get_name(fold));
 
             push_continuation_call(fold->callback.error,
                                    PUSH_PARSE_ERROR,
@@ -293,7 +293,7 @@ fold_wrapped_error(void *user_data,
         } else {
             PUSH_DEBUG_MSG("%s: Parse error.  Fold succeeds with "
                            "previous result.\n",
-                           fold->callback.name);
+                           push_talloc_get_name(fold));
 
             push_continuation_call(fold->callback.success,
                                    fold->last_result,
@@ -317,6 +317,7 @@ fold_wrapped_error(void *user_data,
 
 push_callback_t *
 push_fold_new(const char *name,
+              void *parent,
               push_parser_t *parser,
               push_callback_t *wrapped)
 {
@@ -333,9 +334,8 @@ push_fold_new(const char *name,
      * Allocate the user data struct.
      */
 
-    fold = push_talloc(parser, fold_t);
-    if (fold == NULL)
-        return NULL;
+    fold = push_talloc(parent, fold_t);
+    if (fold == NULL) return NULL;
 
     /*
      * Make the wrapped callback a child of the new callback.
@@ -353,11 +353,10 @@ push_fold_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "fold";
+    if (name == NULL) name = "fold";
+    push_talloc_set_name_const(fold, name);
 
-    push_callback_init(name,
-                       &fold->callback, parser, fold,
+    push_callback_init(&fold->callback, parser, fold,
                        fold_activate,
                        NULL, NULL, NULL);
 

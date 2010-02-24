@@ -121,7 +121,7 @@ min_bytes_first_continue(void *user_data,
      */
 
     PUSH_DEBUG_MSG("%s: Processing %zu bytes.\n",
-                   min_bytes->callback.name,
+                   push_talloc_get_name(min_bytes),
                    bytes_remaining);
 
     /*
@@ -133,7 +133,7 @@ min_bytes_first_continue(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: First chunk of data "
                        "is large enough.\n",
-                       min_bytes->callback.name);
+                       push_talloc_get_name(min_bytes));
 
         /*
          * We don't have anything further to do, so the wrapped
@@ -165,7 +165,7 @@ min_bytes_first_continue(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: Reached EOF without meeting "
                        "minimum.\n",
-                       min_bytes->callback.name);
+                       push_talloc_get_name(min_bytes));
 
         push_continuation_call(min_bytes->callback.error,
                                PUSH_PARSE_ERROR,
@@ -181,7 +181,7 @@ min_bytes_first_continue(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Haven't met minimum, currently "
                    "have %zu bytes total.\n",
-                   min_bytes->callback.name,
+                   push_talloc_get_name(min_bytes),
                    bytes_remaining);
 
     memcpy(min_bytes->buffer, buf, bytes_remaining);
@@ -203,11 +203,11 @@ min_bytes_activate(void *user_data,
     min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
 
     PUSH_DEBUG_MSG("%s: Activating.\n",
-                   min_bytes->callback.name);
+                   push_talloc_get_name(min_bytes));
     min_bytes->input = result;
 
     PUSH_DEBUG_MSG("%s: Clearing buffer.\n",
-                   min_bytes->callback.name);
+                   push_talloc_get_name(min_bytes));
     min_bytes->bytes_buffered = 0;
 
     if (bytes_remaining == 0)
@@ -249,7 +249,7 @@ min_bytes_rest_continue(void *user_data,
      */
 
     PUSH_DEBUG_MSG("%s: Processing %zu bytes.\n",
-                   min_bytes->callback.name,
+                   push_talloc_get_name(min_bytes),
                    bytes_remaining);
 
     /*
@@ -272,7 +272,7 @@ min_bytes_rest_continue(void *user_data,
             min_bytes->minimum_bytes - min_bytes->bytes_buffered;
 
         PUSH_DEBUG_MSG("%s: Copying %zu bytes to meet minimum.\n",
-                       min_bytes->callback.name,
+                       push_talloc_get_name(min_bytes),
                        bytes_to_copy);
 
         memcpy(min_bytes->buffer + min_bytes->bytes_buffered,
@@ -335,7 +335,7 @@ min_bytes_rest_continue(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: Reached EOF without meeting "
                        "minimum.\n",
-                       min_bytes->callback.name);
+                       push_talloc_get_name(min_bytes));
 
         push_continuation_call(min_bytes->callback.error,
                                PUSH_PARSE_ERROR,
@@ -351,7 +351,7 @@ min_bytes_rest_continue(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Haven't met minimum, currently "
                    "have %zu bytes total.\n",
-                   min_bytes->callback.name,
+                   push_talloc_get_name(min_bytes),
                    bytes_remaining);
 
     memcpy(min_bytes->buffer + min_bytes->bytes_buffered,
@@ -382,7 +382,7 @@ min_bytes_leftover_success(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Wrapped callback succeeded with "
                    "%zu bytes left in chunk.\n",
-                   min_bytes->callback.name,
+                   push_talloc_get_name(min_bytes),
                    min_bytes->leftover_size);
 
     /*
@@ -395,7 +395,7 @@ min_bytes_leftover_success(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: Wrapped callback didn't process "
                        "all %zu bytes.\n",
-                       min_bytes->callback.name,
+                       push_talloc_get_name(min_bytes),
                        min_bytes->minimum_bytes);
 
         push_continuation_call(min_bytes->callback.error,
@@ -430,7 +430,7 @@ min_bytes_leftover_incomplete(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Sending remaining %zu bytes in chunk "
                    "into wrapped callback.\n",
-                   min_bytes->callback.name,
+                   push_talloc_get_name(min_bytes),
                    min_bytes->leftover_size);
 
     /*
@@ -457,10 +457,12 @@ min_bytes_leftover_incomplete(void *user_data,
 
 push_callback_t *
 push_min_bytes_new(const char *name,
+                   void *parent,
                    push_parser_t *parser,
                    push_callback_t *wrapped,
                    size_t minimum_bytes)
 {
+    void  *context;
     min_bytes_t  *min_bytes;
 
     /*
@@ -471,12 +473,18 @@ push_min_bytes_new(const char *name,
         return NULL;
 
     /*
+     * Create a memory context for the objects we're about to create.
+     */
+
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
+
+    /*
      * Allocate the user data struct.
      */
 
-    min_bytes = push_talloc(parser, min_bytes_t);
-    if (min_bytes == NULL)
-        return NULL;
+    min_bytes = push_talloc(context, min_bytes_t);
+    if (min_bytes == NULL) goto error;
 
     /*
      * Make the wrapped callback a child of the new callback.
@@ -489,11 +497,7 @@ push_min_bytes_new(const char *name,
      */
 
     min_bytes->buffer = push_talloc_size(min_bytes, minimum_bytes);
-    if (min_bytes->buffer == NULL)
-    {
-        push_talloc_free(min_bytes);
-        return NULL;
-    }
+    if (min_bytes->buffer == NULL) goto error;
 
     /*
      * Fill in the data items.
@@ -506,11 +510,10 @@ push_min_bytes_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "min-bytes";
+    if (name == NULL) name = "min-bytes";
+    push_talloc_set_name_const(min_bytes, name);
 
-    push_callback_init(name,
-                       &min_bytes->callback, parser, min_bytes,
+    push_callback_init(&min_bytes->callback, parser, min_bytes,
                        min_bytes_activate,
                        NULL, NULL, NULL);
 
@@ -536,4 +539,12 @@ push_min_bytes_new(const char *name,
                           min_bytes);
 
     return &min_bytes->callback;
+
+  error:
+    /*
+     * Before returning, free any objects we created before the error.
+     */
+
+    push_talloc_free(context);
+    return NULL;
 }

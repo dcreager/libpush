@@ -20,14 +20,14 @@
 bool
 push_protobuf_add_submessage(const char *message_name,
                              const char *field_name,
+                             void *parent,
                              push_parser_t *parser,
                              push_protobuf_field_map_t *field_map,
                              push_protobuf_tag_number_t field_number,
                              push_callback_t *message_callback)
 {
-    const char  *full_field_name = NULL;
-    const char  *prefixed_name = NULL;
-
+    void  *context;
+    const char  *full_field_name;
     push_callback_t  *varint_prefixed = NULL;
 
     /*
@@ -38,30 +38,33 @@ push_protobuf_add_submessage(const char *message_name,
         return NULL;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (message_name == NULL)
-        message_name = "message";
-
-    if (field_name == NULL)
-        field_name = ".submessage";
-
-    full_field_name =
-        push_string_concat(parser, message_name, field_name);
-    if (full_field_name == NULL) goto error;
-
-    prefixed_name =
-        push_string_concat(parser, full_field_name, ".limit");
-    if (prefixed_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    varint_prefixed =
-        push_protobuf_varint_prefixed_new(prefixed_name,
-                                          parser, message_callback);
+    if (message_name == NULL) message_name = "message";
+    if (field_name == NULL) field_name = ".submessage";
+
+    full_field_name =
+        push_talloc_asprintf(context, "%s.%s",
+                             message_name, field_name);
+
+    varint_prefixed = push_protobuf_varint_prefixed_new
+        (push_talloc_asprintf(context, "%s.dup",
+                              full_field_name),
+         context, parser, message_callback);
+
+    /*
+     * Because of NULL propagation, we only have to check the last
+     * result to see if everything was created okay.
+     */
+
     if (varint_prefixed == NULL) goto error;
 
     /*
@@ -77,20 +80,13 @@ push_protobuf_add_submessage(const char *message_name,
         goto error;
     }
 
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(varint_prefixed, prefixed_name);
-    push_talloc_steal(varint_prefixed, full_field_name);
-
     return true;
 
   error:
-    if (prefixed_name != NULL) push_talloc_free(prefixed_name);
-    if (varint_prefixed != NULL) push_talloc_free(varint_prefixed);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (full_field_name != NULL) push_talloc_free(full_field_name);
-
+    push_talloc_free(context);
     return false;
 }

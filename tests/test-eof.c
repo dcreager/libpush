@@ -54,15 +54,15 @@ START_TEST(test_eof_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    integer = integer_callback_new("integer", parser);
+    integer = integer_callback_new("integer", NULL, parser);
     fail_if(integer == NULL,
             "Could not allocate a new int callback");
 
-    eof = push_eof_new("eof", parser);
+    eof = push_eof_new("eof", NULL, parser);
     fail_if(eof == NULL,
             "Could not allocate a new EOF callback");
 
-    callback = push_compose_new("compose", parser, integer, eof);
+    callback = push_compose_new("compose", NULL, parser, integer, eof);
     fail_if(callback == NULL,
             "Could not allocate a new compose callback");
 
@@ -109,15 +109,15 @@ START_TEST(test_parse_error_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    integer = integer_callback_new("integer", parser);
+    integer = integer_callback_new("integer", NULL, parser);
     fail_if(integer == NULL,
             "Could not allocate a new int callback");
 
-    eof = push_eof_new("eof", parser);
+    eof = push_eof_new("eof", NULL, parser);
     fail_if(eof == NULL,
             "Could not allocate a new EOF callback");
 
-    callback = push_compose_new("compose", parser, integer, eof);
+    callback = push_compose_new("compose", NULL, parser, integer, eof);
     fail_if(callback == NULL,
             "Could not allocate a new compose callback");
 

@@ -54,7 +54,7 @@ START_TEST(test_hwm_string_01)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_hwm_string_new("hwm", parser, &buf);
+    callback = push_hwm_string_new("hwm", NULL, parser, &buf);
     fail_if(callback == NULL,
             "Could not allocate a new HWM-string callback");
 
@@ -101,7 +101,7 @@ START_TEST(test_hwm_string_02)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_hwm_string_new("hwm", parser, &buf);
+    callback = push_hwm_string_new("hwm", NULL, parser, &buf);
     fail_if(callback == NULL,
             "Could not allocate a new HWM-string callback");
 
@@ -147,7 +147,7 @@ START_TEST(test_hwm_string_03)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_hwm_string_new("hwm", parser, &buf);
+    callback = push_hwm_string_new("hwm", NULL, parser, &buf);
     fail_if(callback == NULL,
             "Could not allocate a new HWM-string callback");
 

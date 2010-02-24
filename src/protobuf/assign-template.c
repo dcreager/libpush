@@ -77,7 +77,7 @@ assign_activate(void *user_data,
     assign->input = (PARSED_T *) result;
     PUSH_DEBUG_MSG("%s: Activating.  Got value "
                    "%"PRIuPARSED".\n",
-                   assign->callback.name,
+                   push_talloc_get_name(assign),
                    *assign->input);
 
     /*
@@ -85,7 +85,7 @@ assign_activate(void *user_data,
      */
 
     PUSH_DEBUG_MSG("%s: Assigning value to %p.\n",
-                   assign->callback.name,
+                   push_talloc_get_name(assign),
                    assign->dest);
     *assign->dest = *assign->input;
 
@@ -99,9 +99,11 @@ assign_activate(void *user_data,
 
 static push_callback_t *
 assign_new(const char *name,
-           push_parser_t *parser, DEST_T *dest)
+           void *parent,
+           push_parser_t *parser,
+           DEST_T *dest)
 {
-    ASSIGN_T  *assign = push_talloc(parser, ASSIGN_T);
+    ASSIGN_T  *assign = push_talloc(parent, ASSIGN_T);
 
     if (assign == NULL)
         return NULL;
@@ -116,11 +118,10 @@ assign_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = PRETTY_STR;
+    if (name == NULL) name = PRETTY_STR;
+    push_talloc_set_name_const(assign, name);
 
-    push_callback_init(name,
-                       &assign->callback, parser, assign,
+    push_callback_init(&assign->callback, parser, assign,
                        assign_activate,
                        NULL, NULL, NULL);
 
@@ -131,19 +132,17 @@ assign_new(const char *name,
 bool
 PUSH_PROTOBUF_ASSIGN(const char *message_name,
                      const char *field_name,
+                     void *parent,
                      push_parser_t *parser,
                      push_protobuf_field_map_t *field_map,
                      push_protobuf_tag_number_t field_number,
                      DEST_T *dest)
 {
-    const char  *full_field_name = NULL;
-    const char  *value_name = NULL;
-    const char  *assign_name = NULL;
-    const char  *compose_name = NULL;
-
-    push_callback_t  *value = NULL;
-    push_callback_t  *assign = NULL;
-    push_callback_t  *field = NULL;
+    void  *context;
+    const char  *full_field_name;
+    push_callback_t  *value;
+    push_callback_t  *assign;
+    push_callback_t  *field;
 
     /*
      * If the field map is NULL, return false.
@@ -153,39 +152,36 @@ PUSH_PROTOBUF_ASSIGN(const char *message_name,
         return false;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (message_name == NULL)
-        message_name = "message";
-
-    if (field_name == NULL)
-        field_name = ".assign";
-
-    full_field_name =
-        push_string_concat(parser, message_name, field_name);
-    if (full_field_name == NULL) goto error;
-
-    value_name =
-        push_string_concat(parser, full_field_name, "." VALUE_STR);
-    if (value_name == NULL) goto error;
-
-    assign_name =
-        push_string_concat(parser, full_field_name, "." PRETTY_STR);
-    if (assign_name == NULL) goto error;
-
-    compose_name =
-        push_string_concat(parser, full_field_name, ".compose");
-    if (compose_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    value = VALUE_CALLBACK_NEW(value_name, parser);
-    assign = assign_new(assign_name, parser, dest);
-    field = push_compose_new(compose_name, parser,
-                             value, assign);
+    if (message_name == NULL) message_name = "message";
+    if (field_name == NULL) field_name = ".assign";
+
+    full_field_name =
+        push_talloc_asprintf(context, "%s.%s",
+                             message_name, field_name);
+
+    value = VALUE_CALLBACK_NEW
+        (push_talloc_asprintf(context, "%s." VALUE_STR,
+                              full_field_name),
+         context, parser);
+    assign = assign_new
+        (push_talloc_asprintf(context, "%s." PRETTY_STR,
+                              full_field_name),
+         context, parser, dest);
+    field = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose",
+                              full_field_name),
+         context, parser,
+         value, assign);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -206,28 +202,13 @@ PUSH_PROTOBUF_ASSIGN(const char *message_name,
         goto error;
     }
 
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(value, value_name);
-    push_talloc_steal(assign, assign_name);
-    push_talloc_steal(field, compose_name);
-    push_talloc_steal(field, full_field_name);
-
     return true;
 
   error:
-    if (value_name != NULL) push_talloc_free(value_name);
-    if (value != NULL) push_talloc_free(value);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (assign_name != NULL) push_talloc_free(assign_name);
-    if (assign != NULL) push_talloc_free(assign);
-
-    if (field_name != NULL) push_talloc_free(field_name);
-    if (field != NULL) push_talloc_free(field);
-
-    if (full_field_name != NULL) push_talloc_free(full_field_name);
-
+    push_talloc_free(context);
     return false;
 }

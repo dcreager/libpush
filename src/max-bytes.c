@@ -110,7 +110,7 @@ max_bytes_activate(void *user_data,
     max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
 
     PUSH_DEBUG_MSG("%s: Activating.  Capping at %zu bytes.\n",
-                   max_bytes->callback.name,
+                   push_talloc_get_name(max_bytes),
                    max_bytes->maximum_bytes);
 
     /*
@@ -122,7 +122,7 @@ max_bytes_activate(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: Activating wrapped callback "
                        "with %zu bytes.\n",
-                       max_bytes->callback.name,
+                       push_talloc_get_name(max_bytes),
                        bytes_remaining);
 
         /*
@@ -197,7 +197,7 @@ max_bytes_activate(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Activating wrapped callback "
                    "with %zu bytes.\n",
-                   max_bytes->callback.name,
+                   push_talloc_get_name(max_bytes),
                    max_bytes->maximum_bytes);
 
     push_continuation_call(&max_bytes->wrapped->activate,
@@ -242,7 +242,7 @@ max_bytes_cont(void *user_data,
     size_t  bytes_to_send;
 
     PUSH_DEBUG_MSG("%s: Processing %zu bytes.\n",
-                   max_bytes->callback.name,
+                   push_talloc_get_name(max_bytes),
                    bytes_remaining);
 
     /*
@@ -254,7 +254,7 @@ max_bytes_cont(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: Sending %zu bytes to "
                        "wrapped callback.\n",
-                       max_bytes->callback.name,
+                       push_talloc_get_name(max_bytes),
                        bytes_remaining);
 
         /*
@@ -331,7 +331,7 @@ max_bytes_cont(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Sending %zu bytes to "
                    "wrapped callback.\n",
-                   max_bytes->callback.name,
+                   push_talloc_get_name(max_bytes),
                    bytes_to_send);
 
     push_continuation_call(max_bytes->wrapped_cont,
@@ -356,7 +356,7 @@ max_bytes_wrapped_incomplete(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Wrapped callback incomplete, maximum "
                    "not yet reached.\n",
-                   max_bytes->callback.name);
+                   push_talloc_get_name(max_bytes));
 
     max_bytes->wrapped_cont = cont;
 
@@ -392,7 +392,7 @@ max_bytes_wrapped_success(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Wrapped callback succeeded "
                    "using %zu bytes.\n",
-                   max_bytes->callback.name,
+                   push_talloc_get_name(max_bytes),
                    (max_bytes->maximum_bytes - bytes_remaining));
 
     max_bytes->leftover_buf -= bytes_remaining;
@@ -400,7 +400,7 @@ max_bytes_wrapped_success(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Sending %zu bytes on "
                    "to next callback.\n",
-                   max_bytes->callback.name,
+                   push_talloc_get_name(max_bytes),
                    max_bytes->leftover_size);
 
     push_continuation_call(max_bytes->callback.success,
@@ -429,7 +429,7 @@ max_bytes_wrapped_finished(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Wrapped callback incomplete, but "
                    "we've reached maximum.  Sending EOF.\n",
-                   max_bytes->callback.name);
+                   push_talloc_get_name(max_bytes));
 
     push_continuation_call(&max_bytes->wrapped->set_success,
                            &max_bytes->wrapped_success);
@@ -448,6 +448,7 @@ max_bytes_wrapped_finished(void *user_data,
 
 push_callback_t *
 push_max_bytes_new(const char *name,
+                   void *parent,
                    push_parser_t *parser,
                    push_callback_t *wrapped,
                    size_t maximum_bytes)
@@ -465,9 +466,8 @@ push_max_bytes_new(const char *name,
      * Allocate the user data struct.
      */
 
-    max_bytes = push_talloc(parser, max_bytes_t);
-    if (max_bytes == NULL)
-        return NULL;
+    max_bytes = push_talloc(parent, max_bytes_t);
+    if (max_bytes == NULL) return NULL;
 
     /*
      * Make the wrapped callback a child of the new callback.
@@ -486,11 +486,10 @@ push_max_bytes_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "max-bytes";
+    if (name == NULL) name = "max-bytes";
+    push_talloc_set_name_const(max_bytes, name);
 
-    push_callback_init(name,
-                       &max_bytes->callback, parser, max_bytes,
+    push_callback_init(&max_bytes->callback, parser, max_bytes,
                        max_bytes_activate,
                        NULL, NULL, NULL);
 
@@ -521,6 +520,7 @@ push_max_bytes_new(const char *name,
 
 push_callback_t *
 push_dynamic_max_bytes_new(const char *name,
+                           void *parent,
                            push_parser_t *parser,
                            push_callback_t *wrapped)
 {
@@ -537,9 +537,8 @@ push_dynamic_max_bytes_new(const char *name,
      * Allocate the user data struct.
      */
 
-    max_bytes = push_talloc(parser, max_bytes_t);
-    if (max_bytes == NULL)
-        return NULL;
+    max_bytes = push_talloc(parent, max_bytes_t);
+    if (max_bytes == NULL) return NULL;
 
     /*
      * Make the wrapped callback a child of the new callback.
@@ -557,11 +556,10 @@ push_dynamic_max_bytes_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "dyn-max-bytes";
+    if (name == NULL) name = "dyn-max-bytes";
+    push_talloc_set_name_const(max_bytes, name);
 
-    push_callback_init(name,
-                       &max_bytes->callback, parser, max_bytes,
+    push_callback_init(&max_bytes->callback, parser, max_bytes,
                        dynamic_max_bytes_activate,
                        NULL, NULL, NULL);
 

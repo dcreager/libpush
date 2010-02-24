@@ -34,6 +34,7 @@
 
 push_callback_t *
 push_compose_new(const char *name,
+                 void *parent,
                  push_parser_t *parser,
                  push_callback_t *first,
                  push_callback_t *second);
@@ -54,6 +55,7 @@ push_compose_new(const char *name,
 
 push_callback_t *
 push_fold_new(const char *name,
+              void *parent,
               push_parser_t *parser,
               push_callback_t *wrapped);
 
@@ -67,6 +69,7 @@ push_fold_new(const char *name,
 
 push_callback_t *
 push_min_bytes_new(const char *name,
+                   void *parent,
                    push_parser_t *parser,
                    push_callback_t *wrapped,
                    size_t minimum_bytes);
@@ -84,6 +87,7 @@ push_min_bytes_new(const char *name,
 
 push_callback_t *
 push_max_bytes_new(const char *name,
+                   void *parent,
                    push_parser_t *parser,
                    push_callback_t *wrapped,
                    size_t maximum_bytes);
@@ -103,6 +107,7 @@ push_max_bytes_new(const char *name,
 
 push_callback_t *
 push_dynamic_max_bytes_new(const char *name,
+                           void *parent,
                            push_parser_t *parser,
                            push_callback_t *wrapped);
 

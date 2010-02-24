@@ -80,7 +80,7 @@ hwm_string_continue(void *user_data,
 
             PUSH_DEBUG_MSG("%s: EOF found at end of string.  "
                            "Parse successful.\n",
-                           hwm_string->callback.name);
+                           push_talloc_get_name(hwm_string));
 
             /*
              * Get a pointer to the HWM buffer's contents.
@@ -90,7 +90,7 @@ hwm_string_continue(void *user_data,
             if (str == NULL)
             {
                 PUSH_DEBUG_MSG("%s: Cannot get pointer to buffer.\n",
-                               hwm_string->callback.name);
+                               push_talloc_get_name(hwm_string));
 
                 push_continuation_call(hwm_string->callback.error,
                                        PUSH_MEMORY_ERROR,
@@ -112,7 +112,7 @@ hwm_string_continue(void *user_data,
         } else {
             PUSH_DEBUG_MSG("%s: EOF found before end of string.  "
                            "Parse fails.\n",
-                           hwm_string->callback.name);
+                           push_talloc_get_name(hwm_string));
 
             push_continuation_call(hwm_string->callback.error,
                                    PUSH_PARSE_ERROR,
@@ -133,7 +133,7 @@ hwm_string_continue(void *user_data,
         hwm_string->bytes_left;
 
     PUSH_DEBUG_MSG("%s: Copying %zu bytes into buffer.\n",
-                   hwm_string->callback.name,
+                   push_talloc_get_name(hwm_string),
                    bytes_to_copy);
 
     /*
@@ -143,7 +143,7 @@ hwm_string_continue(void *user_data,
     if (!hwm_buffer_append_mem(hwm_string->buf, buf, bytes_to_copy))
     {
         PUSH_DEBUG_MSG("%s: Copying failed.\n",
-                       hwm_string->callback.name);
+                       push_talloc_get_name(hwm_string));
 
         push_continuation_call(hwm_string->callback.error,
                                PUSH_MEMORY_ERROR,
@@ -167,7 +167,7 @@ hwm_string_continue(void *user_data,
 
         PUSH_DEBUG_MSG("%s: Copying finished.  Appending "
                        "NUL terminator.\n",
-                       hwm_string->callback.name);
+                       push_talloc_get_name(hwm_string));
 
         /*
          * Get a pointer to the HWM buffer's contents.
@@ -177,7 +177,7 @@ hwm_string_continue(void *user_data,
         if (str == NULL)
         {
             PUSH_DEBUG_MSG("%s: Cannot get pointer to buffer.\n",
-                           hwm_string->callback.name);
+                           push_talloc_get_name(hwm_string));
 
             push_continuation_call(hwm_string->callback.error,
                                    PUSH_MEMORY_ERROR,
@@ -224,7 +224,7 @@ hwm_string_activate(void *user_data,
     size_t  *input_size = (size_t *) result;
 
     PUSH_DEBUG_MSG("%s: Activating.  Will read %zu bytes.\n",
-                   hwm_string->callback.name,
+                   push_talloc_get_name(hwm_string),
                    *input_size);
 
     /*
@@ -236,7 +236,7 @@ hwm_string_activate(void *user_data,
     if (!hwm_buffer_clear(hwm_string->buf))
     {
         PUSH_DEBUG_MSG("%s: Cannot clear HWM buffer.\n",
-                       hwm_string->callback.name);
+                       push_talloc_get_name(hwm_string));
 
         push_continuation_call(hwm_string->callback.error,
                                PUSH_MEMORY_ERROR,
@@ -254,11 +254,11 @@ hwm_string_activate(void *user_data,
     if (hwm_buffer_ensure_size(hwm_string->buf, (*input_size) + 1))
     {
         PUSH_DEBUG_MSG("%s: Successfully allocated %zu bytes.\n",
-                       hwm_string->callback.name,
+                       push_talloc_get_name(hwm_string),
                        (*input_size) + 1);
     } else {
         PUSH_DEBUG_MSG("%s: Could not allocate %zu bytes.\n",
-                       hwm_string->callback.name,
+                       push_talloc_get_name(hwm_string),
                        (*input_size) + 1);
 
         push_continuation_call(hwm_string->callback.error,
@@ -295,10 +295,11 @@ hwm_string_activate(void *user_data,
 
 push_callback_t *
 push_hwm_string_new(const char *name,
+                    void *parent,
                     push_parser_t *parser,
                     hwm_buffer_t *buf)
 {
-    hwm_string_t  *hwm_string = push_talloc(parser, hwm_string_t);
+    hwm_string_t  *hwm_string = push_talloc(parent, hwm_string_t);
 
     if (hwm_string == NULL)
         return NULL;
@@ -313,11 +314,10 @@ push_hwm_string_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "hwm-string";
+    if (name == NULL) name = "hwm-string";
+    push_talloc_set_name_const(hwm_string, name);
 
-    push_callback_init(name,
-                       &hwm_string->callback, parser, hwm_string,
+    push_callback_init(&hwm_string->callback, parser, hwm_string,
                        hwm_string_activate,
                        NULL, NULL, NULL);
 

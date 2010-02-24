@@ -31,6 +31,7 @@
 
 push_callback_t *
 push_eof_new(const char *name,
+             void *parent,
              push_parser_t *parser);
 
 
@@ -45,6 +46,7 @@ push_eof_new(const char *name,
 
 push_callback_t *
 push_fixed_new(const char *name,
+               void *parent,
                push_parser_t *parser,
                size_t size);
 
@@ -61,6 +63,7 @@ push_fixed_new(const char *name,
 
 push_callback_t *
 push_hwm_string_new(const char *name,
+                    void *parent,
                     push_parser_t *parser,
                     hwm_buffer_t *buf);
 
@@ -72,6 +75,7 @@ push_hwm_string_new(const char *name,
 
 push_callback_t *
 push_noop_new(const char *name,
+              void *parent,
               push_parser_t *parser);
 
 
@@ -83,6 +87,7 @@ push_noop_new(const char *name,
 
 push_callback_t *
 push_skip_new(const char *name,
+              void *parent,
               push_parser_t *parser);
 
 

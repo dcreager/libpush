@@ -97,6 +97,7 @@ compose_set_error(void *user_data,
 
 push_callback_t *
 push_compose_new(const char *name,
+                 void *parent,
                  push_parser_t *parser,
                  push_callback_t *first,
                  push_callback_t *second)
@@ -114,9 +115,8 @@ push_compose_new(const char *name,
      * Allocate the user data struct.
      */
 
-    compose = push_talloc(parser, compose_t);
-    if (compose == NULL)
-        return NULL;
+    compose = push_talloc(parent, compose_t);
+    if (compose == NULL) return NULL;
 
     /*
      * Make the wrapped callbacks children of the new callback.
@@ -136,11 +136,10 @@ push_compose_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "compose";
+    if (name == NULL) name = "compose";
+    push_talloc_set_name_const(compose, name);
 
-    push_callback_init(name,
-                       &compose->callback, parser, compose,
+    push_callback_init(&compose->callback, parser, compose,
                        NULL,
                        compose_set_success,
                        compose_set_incomplete,

@@ -42,103 +42,89 @@ typedef struct _data
 
 static push_callback_t *
 create_nested_message(const char *name,
-                      push_parser_t *parser, nested_t *nested)
+                      void *parent,
+                      push_parser_t *parser,
+                      nested_t *nested)
 {
+    void  *context;
     push_protobuf_field_map_t  *field_map = NULL;
     push_callback_t  *callback = NULL;
 
-    /*
-     * First construct all of the names.
-     */
-
-    if (name == NULL)
-        name = "nested";
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
      * Then create the callbacks.
      */
 
-    field_map = push_protobuf_field_map_new(parser);
+    if (name == NULL) name = "nested";
+
+    field_map = push_protobuf_field_map_new(context);
     if (field_map == NULL) goto error;
 
 #define CHECK(call) { if (!(call)) goto error; }
 
-    CHECK(push_protobuf_assign_uint64(name, ".int2", parser,
+    CHECK(push_protobuf_assign_uint64(name, "int2", context, parser,
                                       field_map, 2, &nested->int2));
-    CHECK(push_protobuf_assign_uint64(name, ".int3", parser,
+    CHECK(push_protobuf_assign_uint64(name, "int3", context, parser,
                                       field_map, 3, &nested->int3));
 
 #undef CHECK
 
-    callback = push_protobuf_message_new(name, parser, field_map);
-    if (callback == NULL) goto error;
+    callback = push_protobuf_message_new(name, context, parser, field_map);
 
+    if (callback == NULL) goto error;
     return callback;
 
   error:
-    if (field_map != NULL) push_talloc_free(field_map);
-    if (callback != NULL) push_talloc_free(callback);
-
+    push_talloc_free(context);
     return NULL;
 }
 
 static push_callback_t *
 create_data_message(const char *name,
-                    push_parser_t *parser, data_t *dest)
+                    void *parent,
+                    push_parser_t *parser,
+                    data_t *dest)
 {
+    void  *context;
     const char  *nested_name = NULL;
-
     push_protobuf_field_map_t  *field_map = NULL;
     push_callback_t  *nested = NULL;
     push_callback_t  *callback = NULL;
 
-    /*
-     * First construct all of the names.
-     */
-
-    if (name == NULL)
-        name = "data";
-
-    nested_name = push_string_concat(parser, name, ".nested");
-    if (nested_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
      * Then create the callbacks.
      */
 
-    field_map = push_protobuf_field_map_new(parser);
+    if (name == NULL) name = "data";
+    nested_name = push_talloc_asprintf(context, "%s.nested", name);
+
+    field_map = push_protobuf_field_map_new(context);
     if (field_map == NULL) goto error;
 
-    nested = create_nested_message(nested_name, parser, &dest->nested);
+    nested = create_nested_message(nested_name, context, parser, &dest->nested);
     if (nested == NULL) goto error;
 
 #define CHECK(call) { if (!(call)) goto error; }
 
-    CHECK(push_protobuf_assign_uint32(name, ".int1",
-                                      parser, field_map, 1, &dest->int1));
-    CHECK(push_protobuf_add_submessage(name, ".nested",
-                                       parser, field_map, 2, nested));
+    CHECK(push_protobuf_assign_uint32(name, "int1", context, parser,
+                                      field_map, 1, &dest->int1));
+    CHECK(push_protobuf_add_submessage(name, "nested", context, parser,
+                                       field_map, 2, nested));
 
 #undef CHECK
 
-    callback = push_protobuf_message_new(name, parser, field_map);
+    callback = push_protobuf_message_new(name, context, parser, field_map);
+
     if (callback == NULL) goto error;
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(nested, nested_name);
-
     return callback;
 
   error:
-    if (nested_name != NULL) push_talloc_free(nested_name);
-    if (nested != NULL) push_talloc_free(nested);
-
-    if (field_map != NULL) push_talloc_free(field_map);
-    if (callback != NULL) push_talloc_free(callback);
-
+    push_talloc_free(context);
     return NULL;
 }
 
@@ -213,7 +199,7 @@ const data_t  EXPECTED_02 =
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        message_callback = create_data_message("data",              \
+        message_callback = create_data_message("data", NULL,        \
                                                parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
@@ -274,7 +260,7 @@ const data_t  EXPECTED_02 =
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        message_callback = create_data_message("data",              \
+        message_callback = create_data_message("data", NULL,        \
                                                parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \
@@ -342,7 +328,7 @@ const data_t  EXPECTED_02 =
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        message_callback = create_data_message("data",              \
+        message_callback = create_data_message("data", NULL,        \
                                                parser, &actual);    \
         fail_if(message_callback == NULL,                           \
                 "Could not allocate a new message callback");       \

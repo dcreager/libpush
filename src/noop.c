@@ -39,7 +39,7 @@ noop_activate(void *user_data,
     noop_t  *noop = (noop_t *) user_data;
 
     PUSH_DEBUG_MSG("%s: Activating.\n",
-                   noop->callback.name);
+                   push_talloc_get_name(noop));
 
     /*
      * Immediately succeed with the same input value.
@@ -56,18 +56,18 @@ noop_activate(void *user_data,
 
 push_callback_t *
 push_noop_new(const char *name,
+              void *parent,
               push_parser_t *parser)
 {
-    noop_t  *noop = push_talloc(parser, noop_t);
+    noop_t  *noop = push_talloc(parent, noop_t);
 
     if (noop == NULL)
         return NULL;
 
-    if (name == NULL)
-        name = "noop";
+    if (name == NULL) name = "noop";
+    push_talloc_set_name_const(noop, name);
 
-    push_callback_init(name,
-                       &noop->callback, parser, noop,
+    push_callback_init(&noop->callback, parser, noop,
                        noop_activate,
                        NULL, NULL, NULL);
 

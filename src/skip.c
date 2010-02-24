@@ -65,7 +65,7 @@ skip_continue(void *user_data,
     {
         PUSH_DEBUG_MSG("%s: Reached EOF still needing to skip "
                        "%zu bytes.\n",
-                       skip->callback.name,
+                       push_talloc_get_name(skip),
                        skip->left_to_skip);
 
         push_continuation_call(skip->callback.error,
@@ -85,7 +85,7 @@ skip_continue(void *user_data,
         bytes_remaining;
 
     PUSH_DEBUG_MSG("%s: Skipping over %zu bytes.\n",
-                   skip->callback.name,
+                   push_talloc_get_name(skip),
                    bytes_to_skip);
 
     buf += bytes_to_skip;
@@ -100,7 +100,7 @@ skip_continue(void *user_data,
     if (skip->left_to_skip == 0)
     {
         PUSH_DEBUG_MSG("%s: Finished skipping.\n",
-                       skip->callback.name);
+                       push_talloc_get_name(skip));
 
         push_continuation_call(skip->callback.success,
                                NULL,
@@ -114,7 +114,7 @@ skip_continue(void *user_data,
      */
 
     PUSH_DEBUG_MSG("%s: %zu bytes left to skip.\n",
-                   skip->callback.name,
+                   push_talloc_get_name(skip),
                    skip->left_to_skip);
 
     push_continuation_call(skip->callback.incomplete,
@@ -132,7 +132,7 @@ skip_activate(void *user_data,
     size_t  *bytes_to_skip = (size_t *) result;
 
     PUSH_DEBUG_MSG("%s: Activating.  Will skip %zu bytes.\n",
-                   skip->callback.name,
+                   push_talloc_get_name(skip),
                    *bytes_to_skip);
 
     skip->total_to_skip = *bytes_to_skip;
@@ -164,9 +164,10 @@ skip_activate(void *user_data,
 
 push_callback_t *
 push_skip_new(const char *name,
+              void *parent,
               push_parser_t *parser)
 {
-    skip_t  *skip = push_talloc(parser, skip_t);
+    skip_t  *skip = push_talloc(parent, skip_t);
 
     if (skip == NULL)
         return NULL;
@@ -175,11 +176,10 @@ push_skip_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "skip";
+    if (name == NULL) name = "skip";
+    push_talloc_set_name_const(skip, name);
 
-    push_callback_init(name,
-                       &skip->callback, parser, skip,
+    push_callback_init(&skip->callback, parser, skip,
                        skip_activate,
                        NULL, NULL, NULL);
 

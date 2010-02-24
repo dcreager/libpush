@@ -19,6 +19,7 @@
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
+#include <push/talloc.h>
 
 #include <test-callbacks.h>
 
@@ -35,24 +36,30 @@
 static push_callback_t *
 make_double_sum_callback(push_parser_t *parser)
 {
+    void  *context;
     push_callback_t  *sum1;
     push_callback_t  *sum2;
     push_callback_t  *par;
     push_callback_t  *fold;
 
-    sum1 = sum_callback_new("sum1", parser);
-    if (sum1 == NULL) return NULL;
+    context = push_talloc_new(NULL);
+    if (context == NULL) return NULL;
 
-    sum2 = sum_callback_new("sum2", parser);
-    if (sum2 == NULL) return NULL;
+    sum1 = sum_callback_new
+        ("sum1", context, parser);
+    sum2 = sum_callback_new
+        ("sum2", context, parser);
+    par = push_par_new
+        ("par", context, parser, sum1, sum2);
+    fold = push_fold_new
+        ("fold", context, parser, par);
 
-    par = push_par_new("par", parser, sum1, sum2);
-    if (par == NULL) return NULL;
-
-    fold = push_fold_new("fold", parser, par);
-    if (fold == NULL) return NULL;
-
+    if (fold == NULL) goto error;
     return fold;
+
+  error:
+    push_talloc_free(context);
+    return NULL;
 }
 
 

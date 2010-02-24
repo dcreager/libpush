@@ -64,7 +64,7 @@ START_TEST(test_skip_01)
             "Could not allocate a new push parser");
 
     callback = push_protobuf_skip_length_prefixed_new
-        ("skip", parser);
+        ("skip", NULL, parser);
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 
@@ -103,7 +103,7 @@ START_TEST(test_skip_02)
             "Could not allocate a new push parser");
 
     callback = push_protobuf_skip_length_prefixed_new
-        ("skip", parser);
+        ("skip", NULL, parser);
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 
@@ -141,7 +141,7 @@ START_TEST(test_skip_03)
             "Could not allocate a new push parser");
 
     callback = push_protobuf_skip_length_prefixed_new
-        ("skip", parser);
+        ("skip", NULL, parser);
     fail_if(callback == NULL,
             "Could not allocate a new skip callback");
 

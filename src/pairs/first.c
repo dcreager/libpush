@@ -96,7 +96,7 @@ first_activate(void *user_data,
      */
 
     PUSH_DEBUG_MSG("%s: Activating wrapped callback.\n",
-                   first->callback.name);
+                   push_talloc_get_name(first));
 
     push_continuation_call(&first->wrapped->activate,
                            input->first,
@@ -119,7 +119,7 @@ first_wrapped_success(void *user_data,
      */
 
     PUSH_DEBUG_MSG("%s: Constructing output pair.\n",
-                   first->callback.name);
+                   push_talloc_get_name(first));
 
     first->result.first = result;
     first->result.second = first->second;
@@ -134,6 +134,7 @@ first_wrapped_success(void *user_data,
 
 push_callback_t *
 push_first_new(const char *name,
+               void *parent,
                push_parser_t *parser,
                push_callback_t *wrapped)
 {
@@ -150,9 +151,8 @@ push_first_new(const char *name,
      * Allocate the user data struct.
      */
 
-    first = push_talloc(parser, first_t);
-    if (first == NULL)
-        return NULL;
+    first = push_talloc(parent, first_t);
+    if (first == NULL) return NULL;
 
     /*
      * Make the wrapped callback a child of the new callback.
@@ -170,11 +170,10 @@ push_first_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "first";
+    if (name == NULL) name = "first";
+    push_talloc_set_name_const(first, name);
 
-    push_callback_init(name,
-                       &first->callback, parser, first,
+    push_callback_init(&first->callback, parser, first,
                        first_activate,
                        NULL,
                        first_set_incomplete,

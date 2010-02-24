@@ -17,10 +17,11 @@
 
 push_callback_t *
 integer_callback_new(const char *name,
+                     void *parent,
                      push_parser_t *parser)
 {
     if (name == NULL)
         name = "integer";
 
-    return push_fixed_new(name, parser, sizeof(uint32_t));
+    return push_fixed_new(name, parent, parser, sizeof(uint32_t));
 }

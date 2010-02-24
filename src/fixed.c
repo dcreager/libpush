@@ -49,13 +49,13 @@ fixed_continue(void *user_data,
     fixed_t  *fixed = (fixed_t *) user_data;
 
     PUSH_DEBUG_MSG("%s: Processing %zu bytes at %p.\n",
-                   fixed->callback.name,
+                   push_talloc_get_name(fixed),
                    bytes_remaining, buf);
 
     if (bytes_remaining < fixed->size)
     {
         PUSH_DEBUG_MSG("%s: Need more than %zu bytes to read data.\n",
-                       fixed->callback.name,
+                       push_talloc_get_name(fixed),
                        bytes_remaining);
 
         push_continuation_call(fixed->callback.error,
@@ -112,10 +112,11 @@ fixed_activate(void *user_data,
 
 static push_callback_t *
 inner_fixed_new(const char *name,
+                void *parent,
                 push_parser_t *parser,
                 size_t size)
 {
-    fixed_t  *fixed = push_talloc(parser, fixed_t);
+    fixed_t  *fixed = push_talloc(parent, fixed_t);
 
     if (fixed == NULL)
         return NULL;
@@ -130,11 +131,10 @@ inner_fixed_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "fixed";
+    if (name == NULL) name = "fixed";
+    push_talloc_set_name_const(fixed, name);
 
-    push_callback_init(name,
-                       &fixed->callback, parser, fixed,
+    push_callback_init(&fixed->callback, parser, fixed,
                        fixed_activate,
                        NULL, NULL, NULL);
 
@@ -153,35 +153,33 @@ inner_fixed_new(const char *name,
 
 push_callback_t *
 push_fixed_new(const char *name,
+               void *parent,
                push_parser_t *parser,
                size_t size)
 {
-    const char  *fixed_name = NULL;
-    const char  *min_bytes_name = NULL;
-
-    push_callback_t  *fixed = NULL;
-    push_callback_t  *min_bytes = NULL;
+    void  *context;
+    push_callback_t  *fixed;
+    push_callback_t  *min_bytes;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (name == NULL)
-        name = "fixed";
-
-    fixed_name = push_string_concat(parser, name, ".inner");
-    if (fixed_name == NULL) goto error;
-
-    min_bytes_name = push_string_concat(parser, name, ".min-bytes");
-    if (min_bytes_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    fixed = inner_fixed_new(fixed_name, parser, size);
-    min_bytes = push_min_bytes_new(min_bytes_name,
-                                   parser, fixed, size);
+    if (name == NULL) name = "fixed";
+
+    fixed = inner_fixed_new
+        (push_talloc_asprintf(context, "%s.inner", name),
+         context, parser, size);
+    min_bytes = push_min_bytes_new
+        (push_talloc_asprintf(context, "%s.min-bytes", name),
+         context, parser, fixed, size);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -190,21 +188,13 @@ push_fixed_new(const char *name,
 
     if (min_bytes == NULL) goto error;
 
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(fixed, fixed_name);
-    push_talloc_steal(min_bytes, min_bytes_name);
-
     return min_bytes;
 
   error:
-    if (fixed_name != NULL) push_talloc_free(fixed_name);
-    if (fixed != NULL) push_talloc_free(fixed);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (min_bytes_name != NULL) push_talloc_free(min_bytes_name);
-    if (min_bytes != NULL) push_talloc_free(min_bytes);
-
+    push_talloc_free(context);
     return NULL;
 }

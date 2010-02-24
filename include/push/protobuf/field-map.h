@@ -35,20 +35,7 @@ typedef struct _push_protobuf_field_map  push_protobuf_field_map_t;
  */
 
 push_protobuf_field_map_t *
-push_protobuf_field_map_new();
-
-
-/**
- * Free a field map.  This should not generally need to be called by
- * your code; if you've created a message callback that uses this
- * field map, it will free the field map when it gets freed.  If
- * you've created the field map, though, and haven't had a chance to
- * pass it off to a message callback (memory allocation error,
- * anyone?), then you probably should free it yourself.
- */
-
-void
-push_protobuf_field_map_free(push_protobuf_field_map_t *field_map);
+push_protobuf_field_map_new(void *parent);
 
 
 /**
@@ -124,6 +111,7 @@ push_protobuf_field_map_get_field
 bool
 push_protobuf_add_submessage(const char *message_name,
                              const char *field_name,
+                             void *parent,
                              push_parser_t *parser,
                              push_protobuf_field_map_t *field_map,
                              push_protobuf_tag_number_t field_number,
@@ -138,6 +126,7 @@ push_protobuf_add_submessage(const char *message_name,
 bool
 push_protobuf_add_hwm_string(const char *message_name,
                              const char *field_name,
+                             void *parent,
                              push_parser_t *parser,
                              push_protobuf_field_map_t *field_map,
                              push_protobuf_tag_number_t field_number,
@@ -154,6 +143,7 @@ push_protobuf_add_hwm_string(const char *message_name,
 bool
 push_protobuf_assign_uint32(const char *message_name,
                             const char *field_name,
+                            void *parent,
                             push_parser_t *parser,
                             push_protobuf_field_map_t *field_map,
                             push_protobuf_tag_number_t field_number,
@@ -170,6 +160,7 @@ push_protobuf_assign_uint32(const char *message_name,
 bool
 push_protobuf_assign_uint64(const char *message_name,
                             const char *field_name,
+                            void *parent,
                             push_parser_t *parser,
                             push_protobuf_field_map_t *field_map,
                             push_protobuf_tag_number_t field_number,

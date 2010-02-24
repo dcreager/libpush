@@ -57,29 +57,16 @@ struct _push_protobuf_field_map
 
 
 push_protobuf_field_map_t *
-push_protobuf_field_map_new(push_parser_t *parser)
+push_protobuf_field_map_new(void *parent)
 {
     push_protobuf_field_map_t  *field_map =
-        push_talloc(parser, push_protobuf_field_map_t);
+        push_talloc(parent, push_protobuf_field_map_t);
 
     if (field_map == NULL)
         return NULL;
 
     hwm_buffer_init(&field_map->entries);
     return field_map;
-}
-
-
-void
-push_protobuf_field_map_free(push_protobuf_field_map_t *field_map)
-{
-    /*
-     * Each callback in the field map is a push_talloc child of the
-     * field map itself, so freeing the field map will free everything
-     * in the map, too.
-     */
-
-    push_talloc_free(field_map);
 }
 
 
@@ -228,11 +215,11 @@ verify_tag_activate(void *user_data,
     verify_tag->actual_tag = (push_protobuf_tag_t *) result;
 
     PUSH_DEBUG_MSG("%s: Activating.  Got tag 0x%04"PRIx32"\n",
-                   verify_tag->callback.name,
+                   push_talloc_get_name(verify_tag),
                    *verify_tag->actual_tag);
 
     PUSH_DEBUG_MSG("%s: Got tag type %d, expecting tag type %d.\n",
-                   verify_tag->callback.name,
+                   push_talloc_get_name(verify_tag),
                    PUSH_PROTOBUF_GET_TAG_TYPE(*verify_tag->actual_tag),
                    verify_tag->expected_tag_type);
 
@@ -244,7 +231,7 @@ verify_tag_activate(void *user_data,
          */
 
         PUSH_DEBUG_MSG("%s: Tag types match.\n",
-                       verify_tag->callback.name);
+                       push_talloc_get_name(verify_tag));
 
         push_continuation_call(verify_tag->callback.success,
                                NULL,
@@ -257,7 +244,7 @@ verify_tag_activate(void *user_data,
          */
 
         PUSH_DEBUG_MSG("%s: Tag types don't match.\n",
-                       verify_tag->callback.name);
+                       push_talloc_get_name(verify_tag));
 
         push_continuation_call(verify_tag->callback.error,
                                PUSH_PARSE_ERROR,
@@ -271,10 +258,11 @@ verify_tag_activate(void *user_data,
 
 static push_callback_t *
 verify_tag_new(const char *name,
+               void *parent,
                push_parser_t *parser,
                push_protobuf_tag_type_t expected_tag_type)
 {
-    verify_tag_t  *verify_tag = push_talloc(parser, verify_tag_t);
+    verify_tag_t  *verify_tag = push_talloc(parent, verify_tag_t);
 
     if (verify_tag == NULL)
         return NULL;
@@ -289,11 +277,10 @@ verify_tag_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    if (name == NULL)
-        name = "verify_tag";
+    if (name == NULL) name = "verify_tag";
+    push_talloc_set_name_const(verify_tag, name);
 
-    push_callback_init(name,
-                       &verify_tag->callback, parser, verify_tag,
+    push_callback_init(&verify_tag->callback, parser, verify_tag,
                        verify_tag_activate,
                        NULL, NULL, NULL);
 
@@ -307,15 +294,14 @@ verify_tag_new(const char *name,
 
 static push_callback_t *
 create_field_callback(const char *name,
+                      void *parent,
                       push_parser_t *parser,
                       push_protobuf_tag_type_t expected_tag_type,
                       push_callback_t *value_callback)
 {
-    const char  *verify_tag_name = NULL;
-    const char  *compose_name = NULL;
-
-    push_callback_t  *verify_tag = NULL;
-    push_callback_t  *compose = NULL;
+    void  *context;
+    push_callback_t  *verify_tag;
+    push_callback_t  *compose;
 
     /*
      * If the value callback is NULL, return NULL ourselves.
@@ -325,26 +311,26 @@ create_field_callback(const char *name,
         return NULL;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (name == NULL)
-        name = "both";
-
-    verify_tag_name = push_string_concat(parser, name, ".verify-tag");
-    if (verify_tag_name == NULL) goto error;
-
-    compose_name = push_string_concat(parser, name, ".tag-compose");
-    if (compose_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    verify_tag = verify_tag_new(verify_tag_name,
-                                parser, expected_tag_type);
-    compose = push_compose_new(compose_name,
-                               parser, verify_tag, value_callback);
+    if (name == NULL) name = "field";
+
+    verify_tag = verify_tag_new
+        (push_talloc_asprintf(context, "%s.verify-tag", name),
+         context, parser,
+         expected_tag_type);
+    compose = push_compose_new
+        (push_talloc_asprintf(context, "%s.tag-compose", name),
+         context, parser,
+         verify_tag, value_callback);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -352,23 +338,14 @@ create_field_callback(const char *name,
      */
 
     if (compose == NULL) goto error;
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(verify_tag, verify_tag_name);
-    push_talloc_steal(compose, compose_name);
-
     return compose;
 
   error:
-    if (verify_tag_name != NULL) push_talloc_free(verify_tag_name);
-    if (verify_tag != NULL) push_talloc_free(verify_tag);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (compose_name != NULL) push_talloc_free(compose_name);
-    if (compose != NULL) push_talloc_free(compose);
-
+    push_talloc_free(context);
     return NULL;
 }
 
@@ -382,8 +359,9 @@ push_protobuf_field_map_add_field
  push_protobuf_tag_type_t expected_tag_type,
  push_callback_t *value_callback)
 {
-    field_map_entry_t  *new_entry = NULL;
-    push_callback_t  *field = NULL;
+    void  *context;
+    field_map_entry_t  *new_entry;
+    push_callback_t  *field;
 
     /*
      * If the field map or value callback is NULL, return false.
@@ -393,13 +371,20 @@ push_protobuf_field_map_add_field
         return false;
 
     /*
+     * Create a memory context for the objects we're about to create.
+     */
+
+    context = push_talloc_new(field_map);
+    if (context == NULL) return NULL;
+
+    /*
      * First, try to create a field callback for this field.
      */
 
     field =
-        create_field_callback(name, parser, expected_tag_type,
+        create_field_callback(name, context, parser,
+                              expected_tag_type,
                               value_callback);
-
     if (field == NULL) goto error;
 
     /*
@@ -410,7 +395,6 @@ push_protobuf_field_map_add_field
     new_entry =
         hwm_buffer_append_list_elem(&field_map->entries,
                                     field_map_entry_t);
-
     if (new_entry == NULL) goto error;
 
     /*
@@ -421,16 +405,13 @@ push_protobuf_field_map_add_field
     new_entry->field_number = field_number;
     new_entry->callback = field;
 
-    /*
-     * Make the field callback a child of the field map.
-     */
-
-    push_talloc_steal(field_map, field);
-
     return true;
 
   error:
-    if (field != NULL) push_talloc_free(field);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
+    push_talloc_free(context);
     return false;
 }

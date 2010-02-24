@@ -68,14 +68,14 @@ inner_sum_activate(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Activating callback.  "
                    "Received value %"PRIu32", sum %"PRIu32".\n",
-                   inner_sum->callback.name,
+                   push_talloc_get_name(inner_sum),
                    *input_int,
                    *input_sum);
 
     inner_sum->result = *input_int + *input_sum;
 
     PUSH_DEBUG_MSG("%s: Adding, sum is now %"PRIu32"\n",
-                   inner_sum->callback.name,
+                   push_talloc_get_name(inner_sum),
                    inner_sum->result);
 
     push_continuation_call(inner_sum->callback.success,
@@ -88,9 +88,10 @@ inner_sum_activate(void *user_data,
 
 static push_callback_t *
 inner_sum_callback_new(const char *name,
+                       void *parent,
                        push_parser_t *parser)
 {
-    inner_sum_t  *inner_sum = push_talloc(parser, inner_sum_t);
+    inner_sum_t  *inner_sum = push_talloc(parent, inner_sum_t);
 
     if (inner_sum == NULL)
         return NULL;
@@ -98,8 +99,7 @@ inner_sum_callback_new(const char *name,
     if (name == NULL)
         name = "sum";
 
-    push_callback_init(name,
-                       &inner_sum->callback, parser, inner_sum,
+    push_callback_init(&inner_sum->callback, parser, inner_sum,
                        inner_sum_activate,
                        NULL, NULL, NULL);
 
@@ -109,58 +109,48 @@ inner_sum_callback_new(const char *name,
 
 push_callback_t *
 sum_callback_new(const char *name,
+                 void *parent,
                  push_parser_t *parser)
 {
-    const char  *dup_name = NULL;
-    const char  *integer_name = NULL;
-    const char  *first_name = NULL;
-    const char  *inner_sum_name = NULL;
-    const char  *compose1_name = NULL;
-    const char  *compose2_name = NULL;
-
-    push_callback_t  *dup = NULL;
-    push_callback_t  *integer = NULL;
-    push_callback_t  *first = NULL;
-    push_callback_t  *inner_sum = NULL;
-    push_callback_t  *compose1 = NULL;
-    push_callback_t  *compose2 = NULL;
+    void  *context;
+    push_callback_t  *dup;
+    push_callback_t  *integer;
+    push_callback_t  *first;
+    push_callback_t  *inner_sum;
+    push_callback_t  *compose1;
+    push_callback_t  *compose2;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (name == NULL)
-        name = "sum";
-
-    dup_name = push_string_concat(parser, name, ".dup");
-    if (dup_name == NULL) goto error;
-
-    integer_name = push_string_concat(parser, name, ".value");
-    if (integer_name == NULL) goto error;
-
-    first_name = push_string_concat(parser, name, ".first");
-    if (first_name == NULL) goto error;
-
-    inner_sum_name = push_string_concat(parser, name, ".sum");
-    if (inner_sum_name == NULL) goto error;
-
-    compose1_name = push_string_concat(parser, name, ".compose1");
-    if (compose1_name == NULL) goto error;
-
-    compose2_name = push_string_concat(parser, name, ".compose2");
-    if (compose2_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    dup = push_dup_new(dup_name, parser);
-    integer = integer_callback_new(integer_name, parser);
-    first = push_first_new(first_name, parser, integer);
-    inner_sum = inner_sum_callback_new(inner_sum_name, parser);
-    compose1 = push_compose_new(compose1_name, parser, dup, first);
-    compose2 = push_compose_new(compose2_name,
-                                parser, compose1, inner_sum);
+    if (name == NULL) name = "sum";
+
+    dup = push_dup_new
+        (push_talloc_asprintf(context, "%s.dup", name),
+         context, parser);
+    integer = integer_callback_new
+        (push_talloc_asprintf(context, "%s.integer", name),
+         context, parser);
+    first = push_first_new
+        (push_talloc_asprintf(context, "%s.first", name),
+         context, parser, integer);
+    inner_sum = inner_sum_callback_new
+        (push_talloc_asprintf(context, "%s.inner", name),
+         context, parser);
+    compose1 = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose1", name),
+         context, parser, dup, first);
+    compose2 = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose2", name),
+         context, parser, compose1, inner_sum);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -168,38 +158,13 @@ sum_callback_new(const char *name,
      */
 
     if (compose2 == NULL) goto error;
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(dup, dup_name);
-    push_talloc_steal(integer, integer_name);
-    push_talloc_steal(first, first_name);
-    push_talloc_steal(inner_sum, inner_sum_name);
-    push_talloc_steal(compose1, compose1_name);
-    push_talloc_steal(compose2, compose2_name);
-
     return compose2;
 
   error:
-    if (dup_name != NULL) push_talloc_free(dup_name);
-    if (dup != NULL) push_talloc_free(dup);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (integer_name != NULL) push_talloc_free(integer_name);
-    if (integer != NULL) push_talloc_free(integer);
-
-    if (first_name != NULL) push_talloc_free(first_name);
-    if (first != NULL) push_talloc_free(first);
-
-    if (inner_sum_name != NULL) push_talloc_free(inner_sum_name);
-    if (inner_sum != NULL) push_talloc_free(inner_sum);
-
-    if (compose1_name != NULL) push_talloc_free(compose1_name);
-    if (compose1 != NULL) push_talloc_free(compose1);
-
-    if (compose2_name != NULL) push_talloc_free(compose2_name);
-    if (compose2 != NULL) push_talloc_free(compose2);
-
+    push_talloc_free(context);
     return NULL;
 }

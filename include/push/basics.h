@@ -314,12 +314,6 @@ PUSH_DEFINE_CONTINUATION(set_error);
 typedef struct _push_callback
 {
     /**
-     * The name of this callback.  Used primarily in debug messages.
-     */
-
-    const char  *name;
-
-    /**
      * Called by the push parser when this callback is activated.
      * There may not be data available yet; a NULL buf pointer or a 0
      * bytes_remaining does <b>not</b> signify end-of-stream.
@@ -373,33 +367,17 @@ typedef struct _push_callback
 
 
 /**
- * A helper function for constructing the names of compound callbacks.
- * Creates a new string on the heap, which is a concatenation of the
- * two parameters.
- *
- * The new string will be allocated on the heap, with ctx as its
- * “parent”.  This means that when ctx is freed, the string will be,
- * too.
- */
-
-const char *
-push_string_concat(void *ctx,
-                   const char *prefix,
-                   const char *suffix);
-
-
-/**
  * @brief Initializes a new push parser callback.
  *
  * @return NULL if we can't create the new callback object.
  */
 
-#define push_callback_init(name, callback, parser, user_data,           \
+#define push_callback_init(callback, parser, user_data,                 \
                            activate_func,                               \
                            set_success_func,                            \
                            set_incomplete_func,                         \
                            set_error_func)                              \
-    (_push_callback_init((name), (callback), (parser),                  \
+    (_push_callback_init((callback), (parser),                          \
                          #user_data, (user_data),                       \
                          #activate_func, (activate_func),               \
                          #set_success_func, (set_success_func),         \
@@ -408,8 +386,7 @@ push_string_concat(void *ctx,
 
 void
 _push_callback_init
-(const char *name,
- push_callback_t *callback,
+(push_callback_t *callback,
  push_parser_t *parser,
  const char *user_data_name,
  void *user_data,

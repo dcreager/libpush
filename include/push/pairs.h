@@ -48,6 +48,7 @@ typedef struct _push_pair
 
 push_callback_t *
 push_first_new(const char *name,
+               void *parent,
                push_parser_t *parser,
                push_callback_t *wrapped);
 
@@ -63,6 +64,7 @@ push_first_new(const char *name,
 
 push_callback_t *
 push_second_new(const char *name,
+                void *parent,
                 push_parser_t *parser,
                 push_callback_t *wrapped);
 
@@ -75,6 +77,7 @@ push_second_new(const char *name,
 
 push_callback_t *
 push_dup_new(const char *name,
+             void *parent,
              push_parser_t *parser);
 
 
@@ -89,6 +92,7 @@ push_dup_new(const char *name,
 
 push_callback_t *
 push_par_new(const char *name,
+             void *parent,
              push_parser_t *parser,
              push_callback_t *first,
              push_callback_t *second);
@@ -105,6 +109,7 @@ push_par_new(const char *name,
 
 push_callback_t *
 push_both_new(const char *name,
+              void *parent,
               push_parser_t *parser,
               push_callback_t *first,
               push_callback_t *second);

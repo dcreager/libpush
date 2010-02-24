@@ -52,14 +52,14 @@ inner_sum_activate(void *user_data,
     PUSH_DEBUG_MSG("%s: Activating callback.  "
                    "Received value %"PRIu32" for index "
                    "%"PRIu32".\n",
-                   inner_sum->callback.name,
+                   push_talloc_get_name(inner_sum),
                    *input_int,
                    *input_index);
 
     if ((*input_index < 0) || (*input_index >= inner_sum->num_sums))
     {
         PUSH_DEBUG_MSG("%s: Index is out of range.\n",
-                       inner_sum->callback.name);
+                       push_talloc_get_name(inner_sum));
 
         push_continuation_call(inner_sum->callback.error,
                                PUSH_PARSE_ERROR,
@@ -70,14 +70,14 @@ inner_sum_activate(void *user_data,
 
     PUSH_DEBUG_MSG("%s: Previous sum #%"PRIu32" was "
                    "%"PRIu32".\n",
-                   inner_sum->callback.name,
+                   push_talloc_get_name(inner_sum),
                    *input_index,
                    input_sums[*input_index]);
 
     input_sums[*input_index] += *input_int;
 
     PUSH_DEBUG_MSG("%s: Adding, sum is now %"PRIu32"\n",
-                   inner_sum->callback.name,
+                   push_talloc_get_name(inner_sum),
                    input_sums[*input_index]);
 
     push_continuation_call(inner_sum->callback.success,
@@ -90,18 +90,18 @@ inner_sum_activate(void *user_data,
 
 static push_callback_t *
 inner_sum_callback_new(const char *name,
+                       void *parent,
                        push_parser_t *parser, uint32_t num_sums)
 {
-    inner_sum_t  *inner_sum = push_talloc(parser, inner_sum_t);
+    inner_sum_t  *inner_sum = push_talloc(parent, inner_sum_t);
 
     if (inner_sum == NULL)
         return NULL;
 
-    if (name == NULL)
-        name = "inner-sum";
+    if (name == NULL) name = "inner-sum";
+    push_talloc_set_name_const(inner_sum, name);
 
-    push_callback_init(name,
-                       &inner_sum->callback, parser, inner_sum,
+    push_callback_init(&inner_sum->callback, parser, inner_sum,
                        inner_sum_activate,
                        NULL, NULL, NULL);
 
@@ -113,76 +113,60 @@ inner_sum_callback_new(const char *name,
 
 push_callback_t *
 indexed_sum_callback_new(const char *name,
+                         void *parent,
                          push_parser_t *parser,
                          uint32_t num_sums)
 {
-    const char  *dup_name = NULL;
-    const char  *integer_name = NULL;
-    const char  *index_name = NULL;
-    const char  *both_name = NULL;
-    const char  *first_name = NULL;
-    const char  *inner_sum_name = NULL;
-    const char  *compose1_name = NULL;
-    const char  *compose2_name = NULL;
-
-    push_callback_t  *dup = NULL;
-    push_callback_t  *integer = NULL;
-    push_callback_t  *index = NULL;
-    push_callback_t  *both = NULL;
-    push_callback_t  *first = NULL;
-    push_callback_t  *inner_sum = NULL;
-    push_callback_t  *compose1 = NULL;
-    push_callback_t  *compose2 = NULL;
+    void  *context;
+    push_callback_t  *dup;
+    push_callback_t  *integer;
+    push_callback_t  *index;
+    push_callback_t  *both;
+    push_callback_t  *first;
+    push_callback_t  *inner_sum;
+    push_callback_t  *compose1;
+    push_callback_t  *compose2;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (name == NULL)
-        name = "indexed-sum";
-
-    dup_name = push_string_concat(parser, name, ".dup");
-    if (dup_name == NULL) goto error;
-
-    integer_name = push_string_concat(parser, name, ".value");
-    if (integer_name == NULL) goto error;
-
-    index_name = push_string_concat(parser, name, ".index");
-    if (index_name == NULL) goto error;
-
-    both_name = push_string_concat(parser, name, ".both");
-    if (both_name == NULL) goto error;
-
-    first_name = push_string_concat(parser, name, ".first");
-    if (first_name == NULL) goto error;
-
-    inner_sum_name = push_string_concat(parser, name, ".sum");
-    if (inner_sum_name == NULL) goto error;
-
-    compose1_name = push_string_concat(parser, name, ".compose1");
-    if (compose1_name == NULL) goto error;
-
-    compose2_name = push_string_concat(parser, name, ".compose2");
-    if (compose2_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
      * Then create the callbacks.
      */
 
-    dup = push_dup_new(dup_name, parser);
+    if (name == NULL) name = "indexed-sum";
 
-    index = integer_callback_new(index_name, parser);
-    integer = integer_callback_new(integer_name, parser);
-    both = push_both_new(both_name, parser, index, integer);
-
-    first = push_first_new(first_name, parser, both);
-    inner_sum = inner_sum_callback_new(inner_sum_name,
-                                       parser, num_sums);
-
-    compose1 = push_compose_new(compose1_name,
-                                parser, dup, first);
-    compose2 = push_compose_new(compose2_name,
-                                parser, compose1, inner_sum);
+    dup = push_dup_new
+        (push_talloc_asprintf(context, "%s.dup", name),
+         context, parser);
+    index = integer_callback_new
+        (push_talloc_asprintf(context, "%s.index", name),
+         context, parser);
+    integer = integer_callback_new
+        (push_talloc_asprintf(context, "%s.integer", name),
+         context, parser);
+    both = push_both_new
+        (push_talloc_asprintf(context, "%s.both", name),
+         context, parser, index, integer);
+    first = push_first_new
+        (push_talloc_asprintf(context, "%s.first", name),
+         context, parser, both);
+    inner_sum = inner_sum_callback_new
+        (push_talloc_asprintf(context, "%s.inner", name),
+         context,
+         parser, num_sums);
+    compose1 = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose1", name),
+         context,
+         parser, dup, first);
+    compose2 = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose2", name),
+         context,
+         parser, compose1, inner_sum);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -190,46 +174,13 @@ indexed_sum_callback_new(const char *name,
      */
 
     if (compose2 == NULL) goto error;
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(dup, dup_name);
-    push_talloc_steal(index, index_name);
-    push_talloc_steal(integer, integer_name);
-    push_talloc_steal(both, both_name);
-    push_talloc_steal(first, first_name);
-    push_talloc_steal(inner_sum, inner_sum_name);
-    push_talloc_steal(compose1, compose1_name);
-    push_talloc_steal(compose2, compose2_name);
-
     return compose2;
 
   error:
-    if (dup_name != NULL) push_talloc_free(dup_name);
-    if (dup != NULL) push_talloc_free(dup);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (index_name != NULL) push_talloc_free(index_name);
-    if (index != NULL) push_talloc_free(index);
-
-    if (integer_name != NULL) push_talloc_free(integer_name);
-    if (integer != NULL) push_talloc_free(integer);
-
-    if (both_name != NULL) push_talloc_free(both_name);
-    if (both != NULL) push_talloc_free(both);
-
-    if (first_name != NULL) push_talloc_free(first_name);
-    if (first != NULL) push_talloc_free(first);
-
-    if (inner_sum_name != NULL) push_talloc_free(inner_sum_name);
-    if (inner_sum != NULL) push_talloc_free(inner_sum);
-
-    if (compose1_name != NULL) push_talloc_free(compose1_name);
-    if (compose1 != NULL) push_talloc_free(compose1);
-
-    if (compose2_name != NULL) push_talloc_free(compose2_name);
-    if (compose2 != NULL) push_talloc_free(compose2);
-
+    push_talloc_free(context);
     return NULL;
 }

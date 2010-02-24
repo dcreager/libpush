@@ -29,6 +29,7 @@
 
 push_callback_t *
 push_protobuf_message_new(const char *name,
+                          void *parent,
                           push_parser_t *parser,
                           push_protobuf_field_map_t *field_map);
 

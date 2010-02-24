@@ -18,40 +18,36 @@
 
 push_callback_t *
 push_protobuf_skip_length_prefixed_new(const char *name,
+                                       void *parent,
                                        push_parser_t *parser)
 {
-    const char  *read_size_name = NULL;
-    const char  *skip_name = NULL;
-    const char  *compose_name = NULL;
-
+    void  *context;
     push_callback_t  *read_size = NULL;
     push_callback_t  *skip = NULL;
     push_callback_t  *compose = NULL;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (name == NULL)
-        name = "pb-skip-lp";
-
-    read_size_name = push_string_concat(parser, name, ".size");
-    if (read_size_name == NULL) goto error;
-
-    skip_name = push_string_concat(parser, name, ".skip");
-    if (skip_name == NULL) goto error;
-
-    compose_name = push_string_concat(parser, name, ".compose");
-    if (compose_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    read_size =
-        push_protobuf_varint_size_new(read_size_name, parser);
-    skip = push_skip_new(skip_name, parser);
-    compose = push_compose_new(compose_name, parser, read_size, skip);
+    if (name == NULL) name = "pb-skip-lp";
+
+    read_size = push_protobuf_varint_size_new
+        (push_talloc_asprintf(context, "%s.size", name),
+         context, parser);
+    skip = push_skip_new
+        (push_talloc_asprintf(context, "%s.skip", name),
+         context, parser);
+    compose = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose", name),
+         context, parser, read_size, skip);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -59,26 +55,13 @@ push_protobuf_skip_length_prefixed_new(const char *name,
      */
 
     if (compose == NULL) goto error;
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(read_size, read_size_name);
-    push_talloc_steal(skip, skip_name);
-    push_talloc_steal(compose, compose_name);
-
     return compose;
 
   error:
-    if (read_size_name != NULL) push_talloc_free(read_size_name);
-    if (read_size != NULL) push_talloc_free(read_size);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (skip_name != NULL) push_talloc_free(skip_name);
-    if (skip != NULL) push_talloc_free(skip);
-
-    if (compose_name != NULL) push_talloc_free(compose_name);
-    if (compose != NULL) push_talloc_free(compose);
-
+    push_talloc_free(context);
     return NULL;
 }

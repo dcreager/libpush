@@ -21,15 +21,6 @@
 #endif
 
 
-const char *
-push_string_concat(void *ctx,
-                   const char *prefix,
-                   const char *suffix)
-{
-    return push_talloc_asprintf(ctx, "%s%s", prefix, suffix);
-}
-
-
 static void
 default_set_success(void *user_data,
                     push_success_continuation_t *success)
@@ -59,8 +50,7 @@ default_set_error(void *user_data,
 
 void
 _push_callback_init
-(const char *name,
- push_callback_t *callback,
+(push_callback_t *callback,
  push_parser_t *parser,
  const char *user_data_name,
  void *user_data,
@@ -73,12 +63,6 @@ _push_callback_init
  const char *set_error_name,
  push_set_error_continuation_func_t *set_error_func)
 {
-    /*
-     * Fill in the non-continuation data fields.
-     */
-
-    callback->name = name;
-
     /*
      * Fill in the callback's activate continuation object.
      */
@@ -106,7 +90,8 @@ _push_callback_init
 #if PUSH_CONTINUATION_DEBUG
         {
             const char  *name =
-                push_string_concat(user_data_name, "_set_success");
+                push_talloc_asprintf(callback, "%s%s",
+                                     user_data_name, "_set_success");
 
             if (name != NULL)
                 callback->set_success.name = name;
@@ -131,7 +116,8 @@ _push_callback_init
 #if PUSH_CONTINUATION_DEBUG
         {
             const char  *name =
-                push_string_concat(user_data_name, "_set_incomplete");
+                push_talloc_asprintf(callback, "%s%s",
+                                     user_data_name, "_set_incomplete");
 
             if (name != NULL)
                 callback->set_incomplete.name = name;
@@ -156,7 +142,8 @@ _push_callback_init
 #if PUSH_CONTINUATION_DEBUG
         {
             const char  *name =
-                push_string_concat(user_data_name, "_set_error");
+                push_talloc_asprintf(callback, "%s%s",
+                                     user_data_name, "_set_error");
 
             if (name != NULL)
                 callback->set_error.name = name;

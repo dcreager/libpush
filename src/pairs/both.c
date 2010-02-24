@@ -65,18 +65,18 @@ dup_activate(void *user_data,
 
 push_callback_t *
 push_dup_new(const char *name,
+             void *parent,
              push_parser_t *parser)
 {
-    dup_t  *dup = push_talloc(parser, dup_t);
+    dup_t  *dup = push_talloc(parent, dup_t);
 
     if (dup == NULL)
         return NULL;
 
-    if (name == NULL)
-        name = "dup";
+    if (name == NULL) name = "dup";
+    push_talloc_set_name_const(dup, "dup");
 
-    push_callback_init(name,
-                       &dup->callback, parser, dup,
+    push_callback_init(&dup->callback, parser, dup,
                        dup_activate,
                        NULL, NULL, NULL);
 
@@ -86,17 +86,15 @@ push_dup_new(const char *name,
 
 push_callback_t *
 push_both_new(const char *name,
+              void *parent,
               push_parser_t *parser,
               push_callback_t *a,
               push_callback_t *b)
 {
-    const char  *dup_name = NULL;
-    const char  *par_name = NULL;
-    const char  *compose_name = NULL;
-
-    push_callback_t  *dup = NULL;
-    push_callback_t  *par = NULL;
-    push_callback_t  *callback = NULL;
+    void  *context;
+    push_callback_t  *dup;
+    push_callback_t  *par;
+    push_callback_t  *callback;
 
     /*
      * If either wrapped callback is NULL, return NULL ourselves.
@@ -106,28 +104,27 @@ push_both_new(const char *name,
         return NULL;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    if (name == NULL)
-        name = "both";
-
-    dup_name = push_string_concat(parser, name, ".dup");
-    if (dup_name == NULL) goto error;
-
-    par_name = push_string_concat(parser, name, ".par");
-    if (par_name == NULL) goto error;
-
-    compose_name = push_string_concat(parser, name, ".compose");
-    if (compose_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    dup = push_dup_new(dup_name, parser);
-    par = push_par_new(par_name, parser, a, b);
-    callback = push_compose_new(compose_name, parser, dup, par);
+    if (name == NULL) name = "both";
+
+    dup = push_dup_new
+        (push_talloc_asprintf(context, "%s.dup", name),
+         context, parser);
+    par = push_par_new
+        (push_talloc_asprintf(context, "%s.par", name),
+         context, parser, a, b);
+    callback = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose", name),
+         context, parser, dup, par);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -135,26 +132,13 @@ push_both_new(const char *name,
      */
 
     if (callback == NULL) goto error;
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(dup, dup_name);
-    push_talloc_steal(par, par_name);
-    push_talloc_steal(callback, compose_name);
-
     return callback;
 
   error:
-    if (dup_name != NULL) push_talloc_free(dup_name);
-    if (dup != NULL) push_talloc_free(dup);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (par_name != NULL) push_talloc_free(par_name);
-    if (par != NULL) push_talloc_free(par);
-
-    if (compose_name != NULL) push_talloc_free(compose_name);
-    if (callback != NULL) push_talloc_free(callback);
-
+    push_talloc_free(context);
     return NULL;
 }

@@ -114,7 +114,7 @@ dispatch_activate(void *user_data,
 
     field_tag = (push_protobuf_tag_t *) result;
     PUSH_DEBUG_MSG("%s: Activating.  Got tag 0x%04"PRIx32"\n",
-                   dispatch->callback.name,
+                   push_talloc_get_name(dispatch),
                    *field_tag);
 
     /*
@@ -124,7 +124,7 @@ dispatch_activate(void *user_data,
     field_number = PUSH_PROTOBUF_GET_TAG_NUMBER(*field_tag);
 
     PUSH_DEBUG_MSG("%s: Dispatching field %"PRIu32".\n",
-                   dispatch->callback.name,
+                   push_talloc_get_name(dispatch),
                    field_number);
 
     /*
@@ -153,7 +153,7 @@ dispatch_activate(void *user_data,
 
             PUSH_DEBUG_MSG("%s: No field callback for "
                            "field %"PRIu32".\n",
-                           dispatch->callback.name,
+                           push_talloc_get_name(dispatch),
                            field_number);
 
             push_continuation_call(dispatch->callback.error,
@@ -171,7 +171,7 @@ dispatch_activate(void *user_data,
      */
 
     PUSH_DEBUG_MSG("%s: Callback %p matches.\n",
-                   dispatch->callback.name,
+                   push_talloc_get_name(dispatch),
                    field_callback);
 
     push_continuation_call(&field_callback->activate,
@@ -185,12 +185,11 @@ dispatch_activate(void *user_data,
 
 static push_callback_t *
 dispatch_new(const char *name,
+             void *parent,
              push_parser_t *parser,
              push_protobuf_field_map_t *field_map)
 {
-    const char  *dispatch_name = NULL;
-    const char  *skip_length_prefixed_name = NULL;
-
+    void  *context;
     dispatch_t  *dispatch = NULL;
     push_callback_t  *skip_length_prefixed = NULL;
 
@@ -202,24 +201,20 @@ dispatch_new(const char *name,
         return NULL;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
 
-    dispatch_name = push_string_concat(parser,
-                                       name, ".dispatch");
-    if (dispatch_name == NULL) goto error;
-
-    skip_length_prefixed_name =
-        push_string_concat(parser,
-                           name, ".skip-length-prefixed");
-    if (skip_length_prefixed_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
      * Next, allocate the dispatch callback itself.
      */
 
-    dispatch = push_talloc(parser, dispatch_t);
+    dispatch = push_talloc(context, dispatch_t);
     if (dispatch == NULL) goto error;
+
+    push_talloc_set_name_const(dispatch, name);
 
     /*
      * Then try to create the skipper callbacks.
@@ -227,23 +222,15 @@ dispatch_new(const char *name,
 
     skip_length_prefixed =
         push_protobuf_skip_length_prefixed_new
-        (skip_length_prefixed_name, parser);
+        (push_talloc_asprintf(context, "%s.skip-length-prefixed", name),
+         context, parser);
     if (skip_length_prefixed == NULL) goto error;
 
     /*
-     * Make the skip callbacks and the field map children of the
-     * dispatch callback.
+     * Make the field map a child of the dispatch callback.
      */
 
-    push_talloc_steal(dispatch, skip_length_prefixed);
     push_talloc_steal(dispatch, field_map);
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(dispatch, dispatch_name);
-    push_talloc_steal(skip_length_prefixed, skip_length_prefixed_name);
 
     /*
      * Fill in the data items.
@@ -256,8 +243,7 @@ dispatch_new(const char *name,
      * Initialize the push_callback_t instance.
      */
 
-    push_callback_init(dispatch_name,
-                       &dispatch->callback, parser, dispatch,
+    push_callback_init(&dispatch->callback, parser, dispatch,
                        dispatch_activate,
                        dispatch_set_success,
                        dispatch_set_incomplete,
@@ -266,15 +252,11 @@ dispatch_new(const char *name,
     return &dispatch->callback;
 
   error:
-    if (dispatch_name != NULL) push_talloc_free(dispatch_name);
-    if (dispatch != NULL) push_talloc_free(dispatch);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (skip_length_prefixed_name != NULL)
-        push_talloc_free(skip_length_prefixed_name);
-    if (skip_length_prefixed != NULL)
-        push_talloc_free(skip_length_prefixed);
-
-
+    push_talloc_free(context);
     return NULL;
 }
 
@@ -286,17 +268,15 @@ dispatch_new(const char *name,
 
 push_callback_t *
 push_protobuf_message_new(const char *name,
+                          void *parent,
                           push_parser_t *parser,
                           push_protobuf_field_map_t *field_map)
 {
-    const char  *read_field_tag_name = NULL;
-    const char  *compose_name = NULL;
-    const char  *fold_name = NULL;
-
-    push_callback_t  *read_field_tag = NULL;
-    push_callback_t  *dispatch = NULL;
-    push_callback_t  *compose = NULL;
-    push_callback_t  *fold = NULL;
+    void  *context;
+    push_callback_t  *read_field_tag;
+    push_callback_t  *dispatch;
+    push_callback_t  *compose;
+    push_callback_t  *fold;
 
     /*
      * If the field map is NULL, return NULL ourselves.
@@ -306,31 +286,31 @@ push_protobuf_message_new(const char *name,
         return NULL;
 
     /*
-     * First construct all of the names.
+     * Create a memory context for the objects we're about to create.
      */
-    
-    if (name == NULL)
-        name = "message";
 
-    read_field_tag_name = push_string_concat(parser, name, ".tag");
-    if (read_field_tag_name == NULL) goto error;
-
-    compose_name = push_string_concat(parser, name, ".compose");
-    if (compose_name == NULL) goto error;
-
-    fold_name = push_string_concat(parser, name, ".fold");
-    if (fold_name == NULL) goto error;
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
 
     /*
-     * Then create the callbacks.
+     * Create the callbacks.
      */
 
-    read_field_tag =
-        push_protobuf_varint32_new(read_field_tag_name, parser);
-    dispatch = dispatch_new(name, parser, field_map);
-    compose = push_compose_new(compose_name,
-                               parser, read_field_tag, dispatch);
-    fold = push_fold_new(fold_name, parser, compose);
+    if (name == NULL) name = "message";
+
+    read_field_tag = push_protobuf_varint32_new
+        (push_talloc_asprintf(context, "%s.tag", name),
+         context, parser);
+    dispatch = dispatch_new
+        (push_talloc_asprintf(context, "%s.dispatch", name),
+         context, parser, field_map);
+    compose = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose", name),
+         context, parser,
+         read_field_tag, dispatch);
+    fold = push_fold_new
+        (push_talloc_asprintf(context, "%s.fold", name),
+         context, parser, compose);
 
     /*
      * Because of NULL propagation, we only have to check the last
@@ -338,28 +318,13 @@ push_protobuf_message_new(const char *name,
      */
 
     if (fold == NULL) goto error;
-
-    /*
-     * Make each name string be the child of its callback.
-     */
-
-    push_talloc_steal(read_field_tag, read_field_tag_name);
-    push_talloc_steal(compose, compose_name);
-    push_talloc_steal(fold, fold_name);
-
     return fold;
 
   error:
-    if (read_field_tag_name != NULL) push_talloc_free(read_field_tag_name);
-    if (read_field_tag != NULL) push_talloc_free(read_field_tag);
+    /*
+     * Before returning, free any objects we created before the error.
+     */
 
-    if (compose_name != NULL) push_talloc_free(compose_name);
-    if (compose != NULL) push_talloc_free(compose);
-
-    if (fold_name != NULL) push_talloc_free(fold_name);
-    if (fold != NULL) push_talloc_free(fold);
-
-    if (dispatch != NULL) push_talloc_free(dispatch);
-
+    push_talloc_free(context);
     return NULL;
 }

@@ -18,6 +18,7 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/talloc.h>
 
 #include <test-callbacks.h>
 
@@ -42,13 +43,24 @@
 static push_callback_t *
 make_indexed_sum_callback(push_parser_t *parser)
 {
+    void  *context;
     push_callback_t  *sum;
     push_callback_t  *fold;
 
-    sum = indexed_sum_callback_new("indexed", parser, NUM_SUM_CALLBACKS);
-    fold = push_fold_new("fold", parser, sum);
+    context = push_talloc_new(NULL);
+    if (context == NULL) return NULL;
 
+    sum = indexed_sum_callback_new
+        ("indexed", context, parser, NUM_SUM_CALLBACKS);
+    fold = push_fold_new
+        ("fold", context, parser, sum);
+
+    if (fold == NULL) goto error;
     return fold;
+
+  error:
+    push_talloc_free(context);
+    return NULL;
 }
 
 
