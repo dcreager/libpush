@@ -8,11 +8,9 @@
  * ----------------------------------------------------------------------
  */
 
-
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/pairs.h>
+#include <push/talloc.h>
 
 
 /**
@@ -152,7 +150,7 @@ push_first_new(const char *name,
      * Allocate the user data struct.
      */
 
-    first = talloc(parser, first_t);
+    first = push_talloc(parser, first_t);
     if (first == NULL)
         return NULL;
 
@@ -160,7 +158,7 @@ push_first_new(const char *name,
      * Make the wrapped callback a child of the new callback.
      */
 
-    talloc_steal(first, wrapped);
+    push_talloc_steal(first, wrapped);
 
     /*
      * Fill in the data items.

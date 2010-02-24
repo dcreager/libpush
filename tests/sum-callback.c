@@ -11,12 +11,11 @@
 #include <inttypes.h>
 #include <stdint.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
 #include <test-callbacks.h>
 
 
@@ -91,7 +90,7 @@ static push_callback_t *
 inner_sum_callback_new(const char *name,
                        push_parser_t *parser)
 {
-    inner_sum_t  *inner_sum = talloc(parser, inner_sum_t);
+    inner_sum_t  *inner_sum = push_talloc(parser, inner_sum_t);
 
     if (inner_sum == NULL)
         return NULL;
@@ -174,33 +173,33 @@ sum_callback_new(const char *name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(dup, dup_name);
-    talloc_steal(integer, integer_name);
-    talloc_steal(first, first_name);
-    talloc_steal(inner_sum, inner_sum_name);
-    talloc_steal(compose1, compose1_name);
-    talloc_steal(compose2, compose2_name);
+    push_talloc_steal(dup, dup_name);
+    push_talloc_steal(integer, integer_name);
+    push_talloc_steal(first, first_name);
+    push_talloc_steal(inner_sum, inner_sum_name);
+    push_talloc_steal(compose1, compose1_name);
+    push_talloc_steal(compose2, compose2_name);
 
     return compose2;
 
   error:
-    if (dup_name != NULL) talloc_free(dup_name);
-    if (dup != NULL) talloc_free(dup);
+    if (dup_name != NULL) push_talloc_free(dup_name);
+    if (dup != NULL) push_talloc_free(dup);
 
-    if (integer_name != NULL) talloc_free(integer_name);
-    if (integer != NULL) talloc_free(integer);
+    if (integer_name != NULL) push_talloc_free(integer_name);
+    if (integer != NULL) push_talloc_free(integer);
 
-    if (first_name != NULL) talloc_free(first_name);
-    if (first != NULL) talloc_free(first);
+    if (first_name != NULL) push_talloc_free(first_name);
+    if (first != NULL) push_talloc_free(first);
 
-    if (inner_sum_name != NULL) talloc_free(inner_sum_name);
-    if (inner_sum != NULL) talloc_free(inner_sum);
+    if (inner_sum_name != NULL) push_talloc_free(inner_sum_name);
+    if (inner_sum != NULL) push_talloc_free(inner_sum);
 
-    if (compose1_name != NULL) talloc_free(compose1_name);
-    if (compose1 != NULL) talloc_free(compose1);
+    if (compose1_name != NULL) push_talloc_free(compose1_name);
+    if (compose1 != NULL) push_talloc_free(compose1);
 
-    if (compose2_name != NULL) talloc_free(compose2_name);
-    if (compose2 != NULL) talloc_free(compose2);
+    if (compose2_name != NULL) push_talloc_free(compose2_name);
+    if (compose2 != NULL) push_talloc_free(compose2);
 
     return NULL;
 }

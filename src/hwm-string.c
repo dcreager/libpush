@@ -12,12 +12,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <talloc.h>
-
 #include <hwm-buffer.h>
 
 #include <push/basics.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
 
 
 /**
@@ -299,7 +298,7 @@ push_hwm_string_new(const char *name,
                     push_parser_t *parser,
                     hwm_buffer_t *buf)
 {
-    hwm_string_t  *hwm_string = talloc(parser, hwm_string_t);
+    hwm_string_t  *hwm_string = push_talloc(parser, hwm_string_t);
 
     if (hwm_string == NULL)
         return NULL;

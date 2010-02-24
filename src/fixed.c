@@ -8,11 +8,10 @@
  * ----------------------------------------------------------------------
  */
 
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
 
 
 /**
@@ -116,7 +115,7 @@ inner_fixed_new(const char *name,
                 push_parser_t *parser,
                 size_t size)
 {
-    fixed_t  *fixed = talloc(parser, fixed_t);
+    fixed_t  *fixed = push_talloc(parser, fixed_t);
 
     if (fixed == NULL)
         return NULL;
@@ -195,17 +194,17 @@ push_fixed_new(const char *name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(fixed, fixed_name);
-    talloc_steal(min_bytes, min_bytes_name);
+    push_talloc_steal(fixed, fixed_name);
+    push_talloc_steal(min_bytes, min_bytes_name);
 
     return min_bytes;
 
   error:
-    if (fixed_name != NULL) talloc_free(fixed_name);
-    if (fixed != NULL) talloc_free(fixed);
+    if (fixed_name != NULL) push_talloc_free(fixed_name);
+    if (fixed != NULL) push_talloc_free(fixed);
 
-    if (min_bytes_name != NULL) talloc_free(min_bytes_name);
-    if (min_bytes != NULL) talloc_free(min_bytes);
+    if (min_bytes_name != NULL) push_talloc_free(min_bytes_name);
+    if (min_bytes != NULL) push_talloc_free(min_bytes);
 
     return NULL;
 }

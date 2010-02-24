@@ -10,12 +10,12 @@
 
 #include <inttypes.h>
 
-#include <talloc.h>
-
 #include <hwm-buffer.h>
 
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/talloc.h>
+
 #include <push/protobuf/basics.h>
 #include <push/protobuf/field-map.h>
 
@@ -60,7 +60,7 @@ push_protobuf_field_map_t *
 push_protobuf_field_map_new(push_parser_t *parser)
 {
     push_protobuf_field_map_t  *field_map =
-        talloc(parser, push_protobuf_field_map_t);
+        push_talloc(parser, push_protobuf_field_map_t);
 
     if (field_map == NULL)
         return NULL;
@@ -74,12 +74,12 @@ void
 push_protobuf_field_map_free(push_protobuf_field_map_t *field_map)
 {
     /*
-     * Each callback in the field map is a talloc child of the field
-     * map itself, so freeing the field map will free everything in
-     * the map, too.
+     * Each callback in the field map is a push_talloc child of the
+     * field map itself, so freeing the field map will free everything
+     * in the map, too.
      */
 
-    talloc_free(field_map);
+    push_talloc_free(field_map);
 }
 
 
@@ -274,7 +274,7 @@ verify_tag_new(const char *name,
                push_parser_t *parser,
                push_protobuf_tag_type_t expected_tag_type)
 {
-    verify_tag_t  *verify_tag = talloc(parser, verify_tag_t);
+    verify_tag_t  *verify_tag = push_talloc(parser, verify_tag_t);
 
     if (verify_tag == NULL)
         return NULL;
@@ -357,17 +357,17 @@ create_field_callback(const char *name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(verify_tag, verify_tag_name);
-    talloc_steal(compose, compose_name);
+    push_talloc_steal(verify_tag, verify_tag_name);
+    push_talloc_steal(compose, compose_name);
 
     return compose;
 
   error:
-    if (verify_tag_name != NULL) talloc_free(verify_tag_name);
-    if (verify_tag != NULL) talloc_free(verify_tag);
+    if (verify_tag_name != NULL) push_talloc_free(verify_tag_name);
+    if (verify_tag != NULL) push_talloc_free(verify_tag);
 
-    if (compose_name != NULL) talloc_free(compose_name);
-    if (compose != NULL) talloc_free(compose);
+    if (compose_name != NULL) push_talloc_free(compose_name);
+    if (compose != NULL) push_talloc_free(compose);
 
     return NULL;
 }
@@ -425,12 +425,12 @@ push_protobuf_field_map_add_field
      * Make the field callback a child of the field map.
      */
 
-    talloc_steal(field_map, field);
+    push_talloc_steal(field_map, field);
 
     return true;
 
   error:
-    if (field != NULL) talloc_free(field);
+    if (field != NULL) push_talloc_free(field);
 
     return false;
 }

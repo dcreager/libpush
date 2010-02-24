@@ -14,12 +14,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <talloc.h>
-
 #include <check.h>
 #include <hwm-buffer.h>
 
 #include <push/basics.h>
+#include <push/talloc.h>
+
 #include <push/protobuf/basics.h>
 #include <push/protobuf/field-map.h>
 #include <push/protobuf/message.h>
@@ -86,8 +86,8 @@ create_data_message(const char *name,
     return callback;
 
   error:
-    if (field_map != NULL) talloc_free(field_map);
-    if (callback != NULL) talloc_free(callback);
+    if (field_map != NULL) push_talloc_free(field_map);
+    if (callback != NULL) push_talloc_free(callback);
 
     return NULL;
 }

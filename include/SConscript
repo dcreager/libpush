@@ -25,6 +25,8 @@ push_h_files = map(File, \
      "push/pairs.h",
      "push/primitives.h",
      "push/protobuf.h",
+     "push/talloc.h",
+     "push/typesafe_cb.h",
     ])
 
 SOURCE_FILES.extend(push_h_files)

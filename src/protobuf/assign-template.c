@@ -12,10 +12,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/talloc.h>
+
 #include <push/protobuf/basics.h>
 #include <push/protobuf/field-map.h>
 #include <push/protobuf/primitives.h>
@@ -101,7 +101,7 @@ static push_callback_t *
 assign_new(const char *name,
            push_parser_t *parser, DEST_T *dest)
 {
-    ASSIGN_T  *assign = talloc(parser, ASSIGN_T);
+    ASSIGN_T  *assign = push_talloc(parser, ASSIGN_T);
 
     if (assign == NULL)
         return NULL;
@@ -210,24 +210,24 @@ PUSH_PROTOBUF_ASSIGN(const char *message_name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(value, value_name);
-    talloc_steal(assign, assign_name);
-    talloc_steal(field, compose_name);
-    talloc_steal(field, full_field_name);
+    push_talloc_steal(value, value_name);
+    push_talloc_steal(assign, assign_name);
+    push_talloc_steal(field, compose_name);
+    push_talloc_steal(field, full_field_name);
 
     return true;
 
   error:
-    if (value_name != NULL) talloc_free(value_name);
-    if (value != NULL) talloc_free(value);
+    if (value_name != NULL) push_talloc_free(value_name);
+    if (value != NULL) push_talloc_free(value);
 
-    if (assign_name != NULL) talloc_free(assign_name);
-    if (assign != NULL) talloc_free(assign);
+    if (assign_name != NULL) push_talloc_free(assign_name);
+    if (assign != NULL) push_talloc_free(assign);
 
-    if (field_name != NULL) talloc_free(field_name);
-    if (field != NULL) talloc_free(field);
+    if (field_name != NULL) push_talloc_free(field_name);
+    if (field != NULL) push_talloc_free(field);
 
-    if (full_field_name != NULL) talloc_free(full_field_name);
+    if (full_field_name != NULL) push_talloc_free(full_field_name);
 
     return false;
 }

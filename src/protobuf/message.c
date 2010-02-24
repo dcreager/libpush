@@ -12,9 +12,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
+#include <push/talloc.h>
+
 #include <push/protobuf/basics.h>
 #include <push/protobuf/field-map.h>
 #include <push/protobuf/message.h>
@@ -218,7 +218,7 @@ dispatch_new(const char *name,
      * Next, allocate the dispatch callback itself.
      */
 
-    dispatch = talloc(parser, dispatch_t);
+    dispatch = push_talloc(parser, dispatch_t);
     if (dispatch == NULL) goto error;
 
     /*
@@ -235,15 +235,15 @@ dispatch_new(const char *name,
      * dispatch callback.
      */
 
-    talloc_steal(dispatch, skip_length_prefixed);
-    talloc_steal(dispatch, field_map);
+    push_talloc_steal(dispatch, skip_length_prefixed);
+    push_talloc_steal(dispatch, field_map);
 
     /*
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(dispatch, dispatch_name);
-    talloc_steal(skip_length_prefixed, skip_length_prefixed_name);
+    push_talloc_steal(dispatch, dispatch_name);
+    push_talloc_steal(skip_length_prefixed, skip_length_prefixed_name);
 
     /*
      * Fill in the data items.
@@ -266,13 +266,13 @@ dispatch_new(const char *name,
     return &dispatch->callback;
 
   error:
-    if (dispatch_name != NULL) talloc_free(dispatch_name);
-    if (dispatch != NULL) talloc_free(dispatch);
+    if (dispatch_name != NULL) push_talloc_free(dispatch_name);
+    if (dispatch != NULL) push_talloc_free(dispatch);
 
     if (skip_length_prefixed_name != NULL)
-        talloc_free(skip_length_prefixed_name);
+        push_talloc_free(skip_length_prefixed_name);
     if (skip_length_prefixed != NULL)
-        talloc_free(skip_length_prefixed);
+        push_talloc_free(skip_length_prefixed);
 
 
     return NULL;
@@ -343,23 +343,23 @@ push_protobuf_message_new(const char *name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(read_field_tag, read_field_tag_name);
-    talloc_steal(compose, compose_name);
-    talloc_steal(fold, fold_name);
+    push_talloc_steal(read_field_tag, read_field_tag_name);
+    push_talloc_steal(compose, compose_name);
+    push_talloc_steal(fold, fold_name);
 
     return fold;
 
   error:
-    if (read_field_tag_name != NULL) talloc_free(read_field_tag_name);
-    if (read_field_tag != NULL) talloc_free(read_field_tag);
+    if (read_field_tag_name != NULL) push_talloc_free(read_field_tag_name);
+    if (read_field_tag != NULL) push_talloc_free(read_field_tag);
 
-    if (compose_name != NULL) talloc_free(compose_name);
-    if (compose != NULL) talloc_free(compose);
+    if (compose_name != NULL) push_talloc_free(compose_name);
+    if (compose != NULL) push_talloc_free(compose);
 
-    if (fold_name != NULL) talloc_free(fold_name);
-    if (fold != NULL) talloc_free(fold);
+    if (fold_name != NULL) push_talloc_free(fold_name);
+    if (fold != NULL) push_talloc_free(fold);
 
-    if (dispatch != NULL) talloc_free(dispatch);
+    if (dispatch != NULL) push_talloc_free(dispatch);
 
     return NULL;
 }

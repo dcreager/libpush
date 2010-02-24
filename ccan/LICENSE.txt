@@ -1,3 +1,0 @@
-The files in the ccan/ccan directory of this release are licenses
-under the terms of the GNU Lesser General Public License, version 2 or
-later.

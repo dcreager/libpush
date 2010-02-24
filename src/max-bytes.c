@@ -11,11 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
+#include <push/talloc.h>
 
 
 /**
@@ -466,7 +465,7 @@ push_max_bytes_new(const char *name,
      * Allocate the user data struct.
      */
 
-    max_bytes = talloc(parser, max_bytes_t);
+    max_bytes = push_talloc(parser, max_bytes_t);
     if (max_bytes == NULL)
         return NULL;
 
@@ -474,7 +473,7 @@ push_max_bytes_new(const char *name,
      * Make the wrapped callback a child of the new callback.
      */
 
-    talloc_steal(max_bytes, wrapped);
+    push_talloc_steal(max_bytes, wrapped);
 
     /*
      * Fill in the data items.
@@ -538,7 +537,7 @@ push_dynamic_max_bytes_new(const char *name,
      * Allocate the user data struct.
      */
 
-    max_bytes = talloc(parser, max_bytes_t);
+    max_bytes = push_talloc(parser, max_bytes_t);
     if (max_bytes == NULL)
         return NULL;
 
@@ -546,7 +545,7 @@ push_dynamic_max_bytes_new(const char *name,
      * Make the wrapped callback a child of the new callback.
      */
 
-    talloc_steal(max_bytes, wrapped);
+    push_talloc_steal(max_bytes, wrapped);
 
     /*
      * Fill in the data items.

@@ -8,12 +8,11 @@
  * ----------------------------------------------------------------------
  */
 
-
 #include <stdbool.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
+#include <push/talloc.h>
+
 #include <push/protobuf/basics.h>
 #include <push/protobuf/field-map.h>
 #include <push/protobuf/combinators.h>
@@ -82,16 +81,16 @@ push_protobuf_add_submessage(const char *message_name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(varint_prefixed, prefixed_name);
-    talloc_steal(varint_prefixed, full_field_name);
+    push_talloc_steal(varint_prefixed, prefixed_name);
+    push_talloc_steal(varint_prefixed, full_field_name);
 
     return true;
 
   error:
-    if (prefixed_name != NULL) talloc_free(prefixed_name);
-    if (varint_prefixed != NULL) talloc_free(varint_prefixed);
+    if (prefixed_name != NULL) push_talloc_free(prefixed_name);
+    if (varint_prefixed != NULL) push_talloc_free(varint_prefixed);
 
-    if (full_field_name != NULL) talloc_free(full_field_name);
+    if (full_field_name != NULL) push_talloc_free(full_field_name);
 
     return false;
 }

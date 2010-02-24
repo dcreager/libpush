@@ -1,14 +1,10 @@
-Import('root_env SOURCE_FILES libccan')
+Import('root_env SOURCE_FILES')
 
 SOURCE_FILES.append(File('SConscript'))
 
 env = root_env.Clone()
 
-env.Append(CPPPATH = ["../include",
-                      "$libhwm_CPPPATH",
-                      "../ccan",
-                      "../ccan/ccan/talloc",
-                      "../ccan/ccan/typesafe_cb"],
+env.Append(CPPPATH = ["../include", "$libhwm_CPPPATH"],
            LIBPATH = [".", "$libhwm_LIBPATH"])
 
 libpush_files = map(File, \
@@ -28,6 +24,7 @@ libpush_files = map(File, \
      "pairs/second.c",
      "parser.c",
      "skip.c",
+     "talloc.c",
      "protobuf/assign-uint32.c",
      "protobuf/assign-uint64.c",
      "protobuf/field-map.c",
@@ -48,7 +45,7 @@ SOURCE_FILES.extend(libpush_files)
 SOURCE_FILES.append(File("protobuf/assign-template.c"))
 
 libpush = env.SharedLibrary("push", libpush_files,
-                            LIBS=[libccan, "$libhwm_LIB"])
+                            LIBS=["$libhwm_LIB"])
 env.Alias("install", env.Install("$LIBDIR", libpush))
 Default(libpush)
 

@@ -12,10 +12,9 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/talloc.h>
 
 
 /**
@@ -334,7 +333,7 @@ push_fold_new(const char *name,
      * Allocate the user data struct.
      */
 
-    fold = talloc(parser, fold_t);
+    fold = push_talloc(parser, fold_t);
     if (fold == NULL)
         return NULL;
 
@@ -342,7 +341,7 @@ push_fold_new(const char *name,
      * Make the wrapped callback a child of the new callback.
      */
 
-    talloc_steal(fold, wrapped);
+    push_talloc_steal(fold, wrapped);
 
     /*
      * Fill in the data items.

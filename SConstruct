@@ -97,7 +97,6 @@ SOURCE_FILES.extend(build_files)
 
 Export('root_env')
 SConscript([
-            'ccan/SConscript',
             'doc/SConscript',
             'include/SConscript',
             'src/SConscript',

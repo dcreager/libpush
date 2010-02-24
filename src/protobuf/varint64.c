@@ -12,9 +12,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
+#include <push/talloc.h>
 
 #include <push/protobuf/basics.h>
 #include <push/protobuf/primitives.h>
@@ -312,7 +311,7 @@ push_callback_t *
 push_protobuf_varint64_new(const char *name,
                            push_parser_t *parser)
 {
-    varint64_t  *varint64 = talloc(parser, varint64_t);
+    varint64_t  *varint64 = push_talloc(parser, varint64_t);
 
     if (varint64 == NULL)
         return NULL;

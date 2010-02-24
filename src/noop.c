@@ -10,10 +10,9 @@
 
 #include <stdlib.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
 
 
 /**
@@ -59,7 +58,7 @@ push_callback_t *
 push_noop_new(const char *name,
               push_parser_t *parser)
 {
-    noop_t  *noop = talloc(parser, noop_t);
+    noop_t  *noop = push_talloc(parser, noop_t);
 
     if (noop == NULL)
         return NULL;

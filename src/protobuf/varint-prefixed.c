@@ -8,13 +8,12 @@
  * ----------------------------------------------------------------------
  */
 
-
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
+
 #include <push/protobuf/primitives.h>
 
 
@@ -94,33 +93,33 @@ push_protobuf_varint_prefixed_new(const char *name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(dup, dup_name);
-    talloc_steal(size, size_name);
-    talloc_steal(first, first_name);
-    talloc_steal(compose1, compose1_name);
-    talloc_steal(max_bytes, max_bytes_name);
-    talloc_steal(compose2, compose2_name);
+    push_talloc_steal(dup, dup_name);
+    push_talloc_steal(size, size_name);
+    push_talloc_steal(first, first_name);
+    push_talloc_steal(compose1, compose1_name);
+    push_talloc_steal(max_bytes, max_bytes_name);
+    push_talloc_steal(compose2, compose2_name);
 
     return compose2;
 
   error:
-    if (dup_name != NULL) talloc_free(dup_name);
-    if (dup != NULL) talloc_free(dup);
+    if (dup_name != NULL) push_talloc_free(dup_name);
+    if (dup != NULL) push_talloc_free(dup);
 
-    if (size_name != NULL) talloc_free(size_name);
-    if (size != NULL) talloc_free(size);
+    if (size_name != NULL) push_talloc_free(size_name);
+    if (size != NULL) push_talloc_free(size);
 
-    if (first_name != NULL) talloc_free(first_name);
-    if (first != NULL) talloc_free(first);
+    if (first_name != NULL) push_talloc_free(first_name);
+    if (first != NULL) push_talloc_free(first);
 
-    if (compose1_name != NULL) talloc_free(compose1_name);
-    if (compose1 != NULL) talloc_free(compose1);
+    if (compose1_name != NULL) push_talloc_free(compose1_name);
+    if (compose1 != NULL) push_talloc_free(compose1);
 
-    if (max_bytes_name != NULL) talloc_free(max_bytes_name);
-    if (max_bytes != NULL) talloc_free(max_bytes);
+    if (max_bytes_name != NULL) push_talloc_free(max_bytes_name);
+    if (max_bytes != NULL) push_talloc_free(max_bytes);
 
-    if (compose2_name != NULL) talloc_free(compose2_name);
-    if (compose2 != NULL) talloc_free(compose2);
+    if (compose2_name != NULL) push_talloc_free(compose2_name);
+    if (compose2 != NULL) push_talloc_free(compose2);
 
     return NULL;
 }

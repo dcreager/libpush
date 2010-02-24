@@ -8,10 +8,9 @@
  * ----------------------------------------------------------------------
  */
 
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
 
 
 /**
@@ -119,7 +118,7 @@ push_callback_t *
 push_eof_new(const char *name,
              push_parser_t *parser)
 {
-    eof_t  *eof = talloc(parser, eof_t);
+    eof_t  *eof = push_talloc(parser, eof_t);
 
     if (eof == NULL)
         return NULL;

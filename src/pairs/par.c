@@ -8,12 +8,10 @@
  * ----------------------------------------------------------------------
  */
 
-
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
+#include <push/talloc.h>
 
 
 push_callback_t *
@@ -79,21 +77,21 @@ push_par_new(const char *name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(first, first_name);
-    talloc_steal(second, second_name);
-    talloc_steal(callback, compose_name);
+    push_talloc_steal(first, first_name);
+    push_talloc_steal(second, second_name);
+    push_talloc_steal(callback, compose_name);
 
     return callback;
 
   error:
-    if (first_name != NULL) talloc_free(first_name);
-    if (first != NULL) talloc_free(first);
+    if (first_name != NULL) push_talloc_free(first_name);
+    if (first != NULL) push_talloc_free(first);
 
-    if (second_name != NULL) talloc_free(second_name);
-    if (second != NULL) talloc_free(second);
+    if (second_name != NULL) push_talloc_free(second_name);
+    if (second != NULL) push_talloc_free(second);
 
-    if (compose_name != NULL) talloc_free(compose_name);
-    if (callback != NULL) talloc_free(callback);
+    if (compose_name != NULL) push_talloc_free(compose_name);
+    if (callback != NULL) push_talloc_free(callback);
 
     return NULL;
 }

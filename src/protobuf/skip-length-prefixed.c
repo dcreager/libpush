@@ -8,12 +8,11 @@
  * ----------------------------------------------------------------------
  */
 
-
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
+
 #include <push/protobuf/primitives.h>
 
 
@@ -65,21 +64,21 @@ push_protobuf_skip_length_prefixed_new(const char *name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(read_size, read_size_name);
-    talloc_steal(skip, skip_name);
-    talloc_steal(compose, compose_name);
+    push_talloc_steal(read_size, read_size_name);
+    push_talloc_steal(skip, skip_name);
+    push_talloc_steal(compose, compose_name);
 
     return compose;
 
   error:
-    if (read_size_name != NULL) talloc_free(read_size_name);
-    if (read_size != NULL) talloc_free(read_size);
+    if (read_size_name != NULL) push_talloc_free(read_size_name);
+    if (read_size != NULL) push_talloc_free(read_size);
 
-    if (skip_name != NULL) talloc_free(skip_name);
-    if (skip != NULL) talloc_free(skip);
+    if (skip_name != NULL) push_talloc_free(skip_name);
+    if (skip != NULL) push_talloc_free(skip);
 
-    if (compose_name != NULL) talloc_free(compose_name);
-    if (compose != NULL) talloc_free(compose);
+    if (compose_name != NULL) push_talloc_free(compose_name);
+    if (compose != NULL) push_talloc_free(compose);
 
     return NULL;
 }

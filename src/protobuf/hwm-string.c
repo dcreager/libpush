@@ -8,14 +8,12 @@
  * ----------------------------------------------------------------------
  */
 
-
-#include <talloc.h>
-
 #include <hwm-buffer.h>
 
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
 
 #include <push/protobuf/basics.h>
 #include <push/protobuf/field-map.h>
@@ -69,21 +67,21 @@ push_protobuf_hwm_string_new(const char *name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(read_size, read_size_name);
-    talloc_steal(read, read_name);
-    talloc_steal(compose, compose_name);
+    push_talloc_steal(read_size, read_size_name);
+    push_talloc_steal(read, read_name);
+    push_talloc_steal(compose, compose_name);
 
     return compose;
 
   error:
-    if (read_size_name != NULL) talloc_free(read_size_name);
-    if (read_size != NULL) talloc_free(read_size);
+    if (read_size_name != NULL) push_talloc_free(read_size_name);
+    if (read_size != NULL) push_talloc_free(read_size);
 
-    if (read_name != NULL) talloc_free(read_name);
-    if (read != NULL) talloc_free(read);
+    if (read_name != NULL) push_talloc_free(read_name);
+    if (read != NULL) push_talloc_free(read);
 
-    if (compose_name != NULL) talloc_free(compose_name);
-    if (compose != NULL) talloc_free(compose);
+    if (compose_name != NULL) push_talloc_free(compose_name);
+    if (compose != NULL) push_talloc_free(compose);
 
     return NULL;
 }
@@ -140,14 +138,14 @@ push_protobuf_add_hwm_string(const char *message_name,
      * Make each name string be the child of its callback.
      */
 
-    talloc_steal(field_callback, full_field_name);
+    push_talloc_steal(field_callback, full_field_name);
 
     return true;
 
   error:
-    if (full_field_name != NULL) talloc_free(full_field_name);
+    if (full_field_name != NULL) push_talloc_free(full_field_name);
 
-    if (field_callback != NULL) talloc_free(field_callback);
+    if (field_callback != NULL) push_talloc_free(field_callback);
 
     return false;
 }

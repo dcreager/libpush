@@ -10,10 +10,9 @@
 
 #include <stdlib.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
 #include <push/primitives.h>
+#include <push/talloc.h>
 
 
 /**
@@ -167,7 +166,7 @@ push_callback_t *
 push_skip_new(const char *name,
               push_parser_t *parser)
 {
-    skip_t  *skip = talloc(parser, skip_t);
+    skip_t  *skip = push_talloc(parser, skip_t);
 
     if (skip == NULL)
         return NULL;

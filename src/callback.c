@@ -11,9 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <talloc.h>
-
 #include <push/basics.h>
+#include <push/talloc.h>
 
 #if PUSH_FREE
 #define PUSH_FREE_MSG(...) PUSH_DEBUG_MSG(__VA_ARGS__)
@@ -27,23 +26,7 @@ push_string_concat(void *ctx,
                    const char *prefix,
                    const char *suffix)
 {
-    size_t  prefix_len;
-    size_t  suffix_len;
-
-    char  *concat_str;
-
-    prefix_len = strlen(prefix);
-    suffix_len = strlen(suffix);
-
-    concat_str = talloc_array(NULL, char,
-                              prefix_len + suffix_len + 1);
-    if (concat_str == NULL)
-        return NULL;
-
-    strncpy(concat_str, prefix, prefix_len);
-    strncpy(concat_str + prefix_len, suffix, suffix_len + 1);
-
-    return concat_str;
+    return push_talloc_asprintf(ctx, "%s%s", prefix, suffix);
 }
 
 
