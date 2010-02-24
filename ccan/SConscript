@@ -1,0 +1,19 @@
+Import('root_env SOURCE_FILES')
+
+SOURCE_FILES.append(File('SConscript'))
+
+env = root_env.Clone()
+
+env.Append(CPPPATH = [".", "ccan/talloc", "ccan/typesafe_cb"])
+
+libccan_files = map(File, \
+    [
+     "ccan/talloc/talloc.c",
+    ])
+
+SOURCE_FILES.extend(libccan_files)
+
+libccan = env.StaticLibrary("ccan", libccan_files)
+Default(libccan)
+
+Export('libccan')
