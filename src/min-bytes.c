@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/combinators.h>
 
@@ -460,20 +462,37 @@ push_min_bytes_new(const char *name,
                    push_callback_t *wrapped,
                    size_t minimum_bytes)
 {
-    min_bytes_t  *min_bytes =
-        (min_bytes_t *) malloc(sizeof(min_bytes_t));
+    min_bytes_t  *min_bytes;
 
+    /*
+     * If the wrapped callback is NULL, return NULL ourselves.
+     */
+
+    if (wrapped == NULL)
+        return NULL;
+
+    /*
+     * Allocate the user data struct.
+     */
+
+    min_bytes = talloc(parser, min_bytes_t);
     if (min_bytes == NULL)
         return NULL;
+
+    /*
+     * Make the wrapped callback a child of the new callback.
+     */
+
+    talloc_steal(min_bytes, wrapped);
 
     /*
      * Try to allocate the internal buffer.
      */
 
-    min_bytes->buffer = malloc(minimum_bytes);
+    min_bytes->buffer = talloc_size(min_bytes, minimum_bytes);
     if (min_bytes->buffer == NULL)
     {
-        free(min_bytes);
+        talloc_free(min_bytes);
         return NULL;
     }
 

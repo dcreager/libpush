@@ -9,6 +9,8 @@
  */
 
 
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/pairs.h>
 
@@ -137,10 +139,28 @@ push_first_new(const char *name,
                push_parser_t *parser,
                push_callback_t *wrapped)
 {
-    first_t  *first = (first_t *) malloc(sizeof(first_t));
+    first_t  *first;
 
+    /*
+     * If the wrapped callback is NULL, return NULL ourselves.
+     */
+
+    if (wrapped == NULL)
+        return NULL;
+
+    /*
+     * Allocate the user data struct.
+     */
+
+    first = talloc(parser, first_t);
     if (first == NULL)
         return NULL;
+
+    /*
+     * Make the wrapped callback a child of the new callback.
+     */
+
+    talloc_steal(first, wrapped);
 
     /*
      * Fill in the data items.

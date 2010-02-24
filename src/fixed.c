@@ -8,6 +8,8 @@
  * ----------------------------------------------------------------------
  */
 
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/primitives.h>
@@ -114,7 +116,7 @@ inner_fixed_new(const char *name,
                 push_parser_t *parser,
                 size_t size)
 {
-    fixed_t  *fixed = (fixed_t *) malloc(sizeof(fixed_t));
+    fixed_t  *fixed = talloc(parser, fixed_t);
 
     if (fixed == NULL)
         return NULL;
@@ -155,8 +157,8 @@ push_fixed_new(const char *name,
                push_parser_t *parser,
                size_t size)
 {
-    const char  *fixed_name;
-    const char  *min_bytes_name;
+    const char  *fixed_name = NULL;
+    const char  *min_bytes_name = NULL;
 
     push_callback_t  *fixed = NULL;
     push_callback_t  *min_bytes = NULL;
@@ -168,27 +170,42 @@ push_fixed_new(const char *name,
     if (name == NULL)
         name = "fixed";
 
-    fixed_name = push_string_concat(name, ".inner");
-    if (fixed_name == NULL) return NULL;
+    fixed_name = push_string_concat(parser, name, ".inner");
+    if (fixed_name == NULL) goto error;
 
-    min_bytes_name = push_string_concat(name, ".min-bytes");
-    if (min_bytes_name == NULL) return NULL;
+    min_bytes_name = push_string_concat(parser, name, ".min-bytes");
+    if (min_bytes_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
      */
 
     fixed = inner_fixed_new(fixed_name, parser, size);
-    if (fixed == NULL)
-        return NULL;
-
     min_bytes = push_min_bytes_new(min_bytes_name,
                                    parser, fixed, size);
-    if (min_bytes == NULL)
-    {
-        push_callback_free(fixed);
-        return NULL;
-    }
+
+    /*
+     * Because of NULL propagation, we only have to check the last
+     * result to see if everything was created okay.
+     */
+
+    if (min_bytes == NULL) goto error;
+
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(fixed, fixed_name);
+    talloc_steal(min_bytes, min_bytes_name);
 
     return min_bytes;
+
+  error:
+    if (fixed_name != NULL) talloc_free(fixed_name);
+    if (fixed != NULL) talloc_free(fixed);
+
+    if (min_bytes_name != NULL) talloc_free(min_bytes_name);
+    if (min_bytes != NULL) talloc_free(min_bytes);
+
+    return NULL;
 }

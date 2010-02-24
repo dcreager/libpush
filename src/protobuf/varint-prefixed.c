@@ -8,6 +8,9 @@
  * ----------------------------------------------------------------------
  */
 
+
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
@@ -20,12 +23,12 @@ push_protobuf_varint_prefixed_new(const char *name,
                                   push_parser_t *parser,
                                   push_callback_t *wrapped)
 {
-    const char  *dup_name;
-    const char  *size_name;
-    const char  *first_name;
-    const char  *max_bytes_name;
-    const char  *compose1_name;
-    const char  *compose2_name;
+    const char  *dup_name = NULL;
+    const char  *size_name = NULL;
+    const char  *first_name = NULL;
+    const char  *max_bytes_name = NULL;
+    const char  *compose1_name = NULL;
+    const char  *compose2_name = NULL;
 
     push_callback_t  *dup = NULL;
     push_callback_t  *size = NULL;
@@ -35,86 +38,89 @@ push_protobuf_varint_prefixed_new(const char *name,
     push_callback_t  *compose2 = NULL;
 
     /*
+     * If the wrapped callback is NULL, return NULL ourselves.
+     */
+
+    if (wrapped == NULL)
+        return NULL;
+
+    /*
      * First construct all of the names.
      */
 
     if (name == NULL)
         name = "varint-prefixed";
 
-    dup_name = push_string_concat(name, ".dup");
-    if (dup_name == NULL) return NULL;
+    dup_name = push_string_concat(parser, name, ".dup");
+    if (dup_name == NULL) goto error;
 
-    size_name = push_string_concat(name, ".size");
-    if (size_name == NULL) return NULL;
+    size_name = push_string_concat(parser, name, ".size");
+    if (size_name == NULL) goto error;
 
-    first_name = push_string_concat(name, ".first");
-    if (first_name == NULL) return NULL;
+    first_name = push_string_concat(parser, name, ".first");
+    if (first_name == NULL) goto error;
 
-    max_bytes_name = push_string_concat(name, ".max");
-    if (max_bytes_name == NULL) return NULL;
+    max_bytes_name = push_string_concat(parser, name, ".max");
+    if (max_bytes_name == NULL) goto error;
 
-    compose1_name = push_string_concat(name, ".compose1");
-    if (compose1_name == NULL) return NULL;
+    compose1_name = push_string_concat(parser, name, ".compose1");
+    if (compose1_name == NULL) goto error;
 
-    compose2_name = push_string_concat(name, ".compose2");
-    if (compose2_name == NULL) return NULL;
+    compose2_name = push_string_concat(parser, name, ".compose2");
+    if (compose2_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
      */
 
     dup = push_dup_new(dup_name, parser);
-    if (dup == NULL)
-        goto error;
-
     size = push_protobuf_varint_size_new(size_name, parser);
-    if (size == NULL)
-        goto error;
-
     first = push_first_new(first_name, parser, size);
-    if (first == NULL)
-        goto error;
-
     compose1 =
         push_compose_new(compose1_name, parser, dup, first);
-    if (compose1 == NULL)
-        goto error;
-
     max_bytes =
         push_dynamic_max_bytes_new(max_bytes_name, parser, wrapped);
-    if (max_bytes == NULL)
-        goto error;
-
     compose2 =
         push_compose_new(compose2_name, parser, compose1, max_bytes);
-    if (compose2 == NULL)
-        goto error;
+
+    /*
+     * Because of NULL propagation, we only have to check the last
+     * result to see if everything was created okay.
+     */
+
+    if (compose2 == NULL) goto error;
+
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(dup, dup_name);
+    talloc_steal(size, size_name);
+    talloc_steal(first, first_name);
+    talloc_steal(compose1, compose1_name);
+    talloc_steal(max_bytes, max_bytes_name);
+    talloc_steal(compose2, compose2_name);
 
     return compose2;
 
   error:
-    /*
-     * Before returning the NULL error code, free everything that we
-     * might've created so far.
-     */
+    if (dup_name != NULL) talloc_free(dup_name);
+    if (dup != NULL) talloc_free(dup);
 
-    if (dup != NULL)
-        push_callback_free(dup);
+    if (size_name != NULL) talloc_free(size_name);
+    if (size != NULL) talloc_free(size);
 
-    if (size != NULL)
-        push_callback_free(size);
+    if (first_name != NULL) talloc_free(first_name);
+    if (first != NULL) talloc_free(first);
 
-    if (first != NULL)
-        push_callback_free(first);
+    if (compose1_name != NULL) talloc_free(compose1_name);
+    if (compose1 != NULL) talloc_free(compose1);
 
-    if (max_bytes != NULL)
-        push_callback_free(max_bytes);
+    if (max_bytes_name != NULL) talloc_free(max_bytes_name);
+    if (max_bytes != NULL) talloc_free(max_bytes);
 
-    if (compose1 != NULL)
-        push_callback_free(compose1);
-
-    if (compose2 != NULL)
-        push_callback_free(compose2);
+    if (compose2_name != NULL) talloc_free(compose2_name);
+    if (compose2 != NULL) talloc_free(compose2);
 
     return NULL;
 }

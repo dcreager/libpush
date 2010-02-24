@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <talloc.h>
+
 #include <check.h>
 
 #include <push/basics.h>
@@ -42,18 +44,24 @@ static push_callback_t *
 create_nested_message(const char *name,
                       push_parser_t *parser, nested_t *nested)
 {
-    push_protobuf_field_map_t  *field_map =
-        push_protobuf_field_map_new();
+    push_protobuf_field_map_t  *field_map = NULL;
+    push_callback_t  *callback = NULL;
 
-    push_callback_t  *callback;
-
-    if (field_map == NULL)
-        return NULL;
+    /*
+     * First construct all of the names.
+     */
 
     if (name == NULL)
         name = "nested";
 
-#define CHECK(call) { if (!(call)) return NULL; }
+    /*
+     * Then create the callbacks.
+     */
+
+    field_map = push_protobuf_field_map_new(parser);
+    if (field_map == NULL) goto error;
+
+#define CHECK(call) { if (!(call)) goto error; }
 
     CHECK(push_protobuf_assign_uint64(name, ".int2", parser,
                                       field_map, 2, &nested->int2));
@@ -63,26 +71,26 @@ create_nested_message(const char *name,
 #undef CHECK
 
     callback = push_protobuf_message_new(name, parser, field_map);
-    if (callback == NULL)
-    {
-        push_protobuf_field_map_free(field_map);
-        return NULL;
-    }
+    if (callback == NULL) goto error;
 
     return callback;
+
+  error:
+    if (field_map != NULL) talloc_free(field_map);
+    if (callback != NULL) talloc_free(callback);
+
+    return NULL;
 }
 
 static push_callback_t *
 create_data_message(const char *name,
                     push_parser_t *parser, data_t *dest)
 {
-    const char  *nested_name;
+    const char  *nested_name = NULL;
 
-    push_protobuf_field_map_t  *field_map =
-        push_protobuf_field_map_new();
-
-    push_callback_t  *nested;
-    push_callback_t  *callback;
+    push_protobuf_field_map_t  *field_map = NULL;
+    push_callback_t  *nested = NULL;
+    push_callback_t  *callback = NULL;
 
     /*
      * First construct all of the names.
@@ -91,21 +99,20 @@ create_data_message(const char *name,
     if (name == NULL)
         name = "data";
 
-    nested_name = push_string_concat(name, ".nested");
-    if (nested_name == NULL) return NULL;
+    nested_name = push_string_concat(parser, name, ".nested");
+    if (nested_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
      */
 
-    if (field_map == NULL)
-        return NULL;
+    field_map = push_protobuf_field_map_new(parser);
+    if (field_map == NULL) goto error;
 
     nested = create_nested_message(nested_name, parser, &dest->nested);
-    if (nested == NULL)
-        return NULL;
+    if (nested == NULL) goto error;
 
-#define CHECK(call) { if (!(call)) return NULL; }
+#define CHECK(call) { if (!(call)) goto error; }
 
     CHECK(push_protobuf_assign_uint32(name, ".int1",
                                       parser, field_map, 1, &dest->int1));
@@ -115,13 +122,24 @@ create_data_message(const char *name,
 #undef CHECK
 
     callback = push_protobuf_message_new(name, parser, field_map);
-    if (callback == NULL)
-    {
-        push_protobuf_field_map_free(field_map);
-        return NULL;
-    }
+    if (callback == NULL) goto error;
+
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(nested, nested_name);
 
     return callback;
+
+  error:
+    if (nested_name != NULL) talloc_free(nested_name);
+    if (nested != NULL) talloc_free(nested);
+
+    if (field_map != NULL) talloc_free(field_map);
+    if (callback != NULL) talloc_free(callback);
+
+    return NULL;
 }
 
 static bool

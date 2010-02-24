@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <talloc.h>
+
 #include <push/basics.h>
 
 
@@ -113,7 +115,7 @@ push_parser_new(push_callback_t *callback)
      * return NULL.
      */
 
-    result = (push_parser_t *) malloc(sizeof(push_parser_t));
+    result = talloc(NULL, push_parser_t);
     if (result == NULL)
     {
         return NULL;
@@ -147,14 +149,12 @@ void
 push_parser_free(push_parser_t *parser)
 {
     /*
-     * TODO: Free the parser's callback.
+     * We create all of the callback objects using talloc, using the
+     * parser object as its parent context.  That means that calling
+     * talloc_free on the parser will free all of the callbacks, too.
      */
 
-    /*
-     * Then free the parser itself.
-     */
-
-    free(parser);
+    talloc_free(parser);
 }
 
 

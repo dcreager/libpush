@@ -13,7 +13,7 @@ libccan_files = map(File, \
 
 SOURCE_FILES.extend(libccan_files)
 
-libccan = env.StaticLibrary("ccan", libccan_files)
+libccan = map(env.SharedObject, libccan_files)
 Default(libccan)
 
 Export('libccan')

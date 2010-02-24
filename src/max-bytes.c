@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
@@ -451,11 +453,28 @@ push_max_bytes_new(const char *name,
                    push_callback_t *wrapped,
                    size_t maximum_bytes)
 {
-    max_bytes_t  *max_bytes =
-        (max_bytes_t *) malloc(sizeof(max_bytes_t));
+    max_bytes_t  *max_bytes;
 
+    /*
+     * If the wrapped callback is NULL, return NULL ourselves.
+     */
+
+    if (wrapped == NULL)
+        return NULL;
+
+    /*
+     * Allocate the user data struct.
+     */
+
+    max_bytes = talloc(parser, max_bytes_t);
     if (max_bytes == NULL)
         return NULL;
+
+    /*
+     * Make the wrapped callback a child of the new callback.
+     */
+
+    talloc_steal(max_bytes, wrapped);
 
     /*
      * Fill in the data items.
@@ -506,11 +525,28 @@ push_dynamic_max_bytes_new(const char *name,
                            push_parser_t *parser,
                            push_callback_t *wrapped)
 {
-    max_bytes_t  *max_bytes =
-        (max_bytes_t *) malloc(sizeof(max_bytes_t));
+    max_bytes_t  *max_bytes;
 
+    /*
+     * If the wrapped callback is NULL, return NULL ourselves.
+     */
+
+    if (wrapped == NULL)
+        return NULL;
+
+    /*
+     * Allocate the user data struct.
+     */
+
+    max_bytes = talloc(parser, max_bytes_t);
     if (max_bytes == NULL)
         return NULL;
+
+    /*
+     * Make the wrapped callback a child of the new callback.
+     */
+
+    talloc_steal(max_bytes, wrapped);
 
     /*
      * Fill in the data items.

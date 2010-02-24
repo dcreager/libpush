@@ -11,11 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <push/basics.h>
+#include <talloc.h>
 
-#ifndef PUSH_FREE
-#define PUSH_FREE 0
-#endif
+#include <push/basics.h>
 
 #if PUSH_FREE
 #define PUSH_FREE_MSG(...) PUSH_DEBUG_MSG(__VA_ARGS__)
@@ -25,7 +23,9 @@
 
 
 const char *
-push_string_concat(const char *prefix, const char *suffix)
+push_string_concat(void *ctx,
+                   const char *prefix,
+                   const char *suffix)
 {
     size_t  prefix_len;
     size_t  suffix_len;
@@ -35,7 +35,8 @@ push_string_concat(const char *prefix, const char *suffix)
     prefix_len = strlen(prefix);
     suffix_len = strlen(suffix);
 
-    concat_str = (char *) malloc(prefix_len + suffix_len + 1);
+    concat_str = talloc_array(NULL, char,
+                              prefix_len + suffix_len + 1);
     if (concat_str == NULL)
         return NULL;
 
@@ -201,13 +202,4 @@ _push_callback_init
 
     push_continuation_call(&callback->set_error,
                            &parser->error);
-}
-
-
-void
-push_callback_free(push_callback_t *callback)
-{
-    PUSH_FREE_MSG("callback: %p: Freeing push_callback_t instance.\n",
-                  callback);
-    free(callback);
 }

@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <talloc.h>
+
 #include <check.h>
 #include <hwm-buffer.h>
 
@@ -50,18 +52,24 @@ static push_callback_t *
 create_data_message(const char *name,
                     push_parser_t *parser, data_t *dest)
 {
-    push_protobuf_field_map_t  *field_map =
-        push_protobuf_field_map_new();
+    push_protobuf_field_map_t  *field_map = NULL;
+    push_callback_t  *callback = NULL;
 
-    push_callback_t  *callback;
-
-    if (field_map == NULL)
-        return NULL;
+    /*
+     * First construct all of the names.
+     */
 
     if (name == NULL)
         name = "data";
 
-#define CHECK(call) { if (!(call)) return NULL; }
+    /*
+     * Then create the callbacks.
+     */
+
+    field_map = push_protobuf_field_map_new(parser);
+    if (field_map == NULL) goto error;
+
+#define CHECK(call) { if (!(call)) goto error; }
 
     CHECK(push_protobuf_assign_uint32(name, ".int1", parser,
                                       field_map, 1, &dest->int1));
@@ -73,13 +81,15 @@ create_data_message(const char *name,
 #undef CHECK
 
     callback = push_protobuf_message_new(name, parser, field_map);
-    if (callback == NULL)
-    {
-        push_protobuf_field_map_free(field_map);
-        return NULL;
-    }
+    if (callback == NULL) goto error;
 
     return callback;
+
+  error:
+    if (field_map != NULL) talloc_free(field_map);
+    if (callback != NULL) talloc_free(callback);
+
+    return NULL;
 }
 
 static bool

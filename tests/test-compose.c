@@ -14,6 +14,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <talloc.h>
+
 #include <check.h>
 
 #include <push/basics.h>
@@ -133,7 +135,7 @@ static push_callback_t *
 sum_callback_new(const char *name,
                  push_parser_t *parser)
 {
-    sum_t  *sum = (sum_t *) malloc(sizeof(sum_t));
+    sum_t  *sum = talloc(parser, sum_t);
 
     if (sum == NULL)
         return NULL;

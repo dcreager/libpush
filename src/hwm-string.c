@@ -12,6 +12,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <talloc.h>
+
 #include <hwm-buffer.h>
 
 #include <push/basics.h>
@@ -297,8 +299,7 @@ push_hwm_string_new(const char *name,
                     push_parser_t *parser,
                     hwm_buffer_t *buf)
 {
-    hwm_string_t  *hwm_string =
-        (hwm_string_t *) malloc(sizeof(hwm_string_t));
+    hwm_string_t  *hwm_string = talloc(parser, hwm_string_t);
 
     if (hwm_string == NULL)
         return NULL;

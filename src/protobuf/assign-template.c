@@ -12,6 +12,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/protobuf/basics.h>
@@ -99,8 +101,7 @@ static push_callback_t *
 assign_new(const char *name,
            push_parser_t *parser, DEST_T *dest)
 {
-    ASSIGN_T  *assign =
-        (ASSIGN_T *) malloc(sizeof(ASSIGN_T));
+    ASSIGN_T  *assign = talloc(parser, ASSIGN_T);
 
     if (assign == NULL)
         return NULL;
@@ -135,14 +136,21 @@ PUSH_PROTOBUF_ASSIGN(const char *message_name,
                      push_protobuf_tag_number_t field_number,
                      DEST_T *dest)
 {
-    const char  *full_field_name;
-    const char  *value_name;
-    const char  *assign_name;
-    const char  *compose_name;
+    const char  *full_field_name = NULL;
+    const char  *value_name = NULL;
+    const char  *assign_name = NULL;
+    const char  *compose_name = NULL;
 
-    push_callback_t  *value_callback = NULL;
-    push_callback_t  *assign_callback = NULL;
-    push_callback_t  *field_callback = NULL;
+    push_callback_t  *value = NULL;
+    push_callback_t  *assign = NULL;
+    push_callback_t  *field = NULL;
+
+    /*
+     * If the field map is NULL, return false.
+     */
+
+    if (field_map == NULL)
+        return false;
 
     /*
      * First construct all of the names.
@@ -154,68 +162,72 @@ PUSH_PROTOBUF_ASSIGN(const char *message_name,
     if (field_name == NULL)
         field_name = ".assign";
 
-    full_field_name = push_string_concat(message_name, field_name);
-    if (full_field_name == NULL) return NULL;
+    full_field_name =
+        push_string_concat(parser, message_name, field_name);
+    if (full_field_name == NULL) goto error;
 
-    value_name = push_string_concat(full_field_name, "." VALUE_STR);
-    if (value_name == NULL) return NULL;
+    value_name =
+        push_string_concat(parser, full_field_name, "." VALUE_STR);
+    if (value_name == NULL) goto error;
 
-    assign_name = push_string_concat(full_field_name, "." PRETTY_STR);
-    if (assign_name == NULL) return NULL;
+    assign_name =
+        push_string_concat(parser, full_field_name, "." PRETTY_STR);
+    if (assign_name == NULL) goto error;
 
-    compose_name = push_string_concat(full_field_name, ".compose");
-    if (compose_name == NULL) return NULL;
+    compose_name =
+        push_string_concat(parser, full_field_name, ".compose");
+    if (compose_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
      */
 
-    value_callback = VALUE_CALLBACK_NEW(value_name, parser);
-    if (value_callback == NULL)
-        goto error;
+    value = VALUE_CALLBACK_NEW(value_name, parser);
+    assign = assign_new(assign_name, parser, dest);
+    field = push_compose_new(compose_name, parser,
+                             value, assign);
 
-    assign_callback = assign_new(assign_name, parser, dest);
-    if (assign_callback == NULL)
-        goto error;
+    /*
+     * Because of NULL propagation, we only have to check the last
+     * result to see if everything was created okay.
+     */
 
-    field_callback = push_compose_new(compose_name,
-                                      parser, value_callback,
-                                      assign_callback);
-    if (field_callback == NULL)
-        goto error;
+    if (field == NULL) goto error;
 
     /*
      * Try to add the new field.  If we can't, free the field before
-     * returning.  (We don't have to explicitly free the other two
-     * callbacks at this point, since the field_callback is linked to
-     * them.)
+     * returning.
      */
 
-    if (!push_protobuf_field_map_add_field(full_field_name,
-                                           parser,
-                                           field_map, field_number,
-                                           TAG_TYPE, field_callback))
+    if (!push_protobuf_field_map_add_field
+        (full_field_name, parser,
+         field_map, field_number, TAG_TYPE, field))
     {
-        push_callback_free(field_callback);
-        return false;
+        goto error;
     }
+
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(value, value_name);
+    talloc_steal(assign, assign_name);
+    talloc_steal(field, compose_name);
+    talloc_steal(field, full_field_name);
 
     return true;
 
   error:
-    /*
-     * Before returning the NULL error code, free everything that we
-     * might've created so far.
-     */
+    if (value_name != NULL) talloc_free(value_name);
+    if (value != NULL) talloc_free(value);
 
-    if (value_callback != NULL)
-        push_callback_free(value_callback);
+    if (assign_name != NULL) talloc_free(assign_name);
+    if (assign != NULL) talloc_free(assign);
 
-    if (assign_callback != NULL)
-        push_callback_free(assign_callback);
+    if (field_name != NULL) talloc_free(field_name);
+    if (field != NULL) talloc_free(field);
 
-    if (field_callback != NULL)
-        push_callback_free(field_callback);
+    if (full_field_name != NULL) talloc_free(full_field_name);
 
-    return NULL;
+    return false;
 }

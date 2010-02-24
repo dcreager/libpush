@@ -11,6 +11,8 @@
 #include <inttypes.h>
 #include <stdint.h>
 
+#include <talloc.h>
+
 #include <push/basics.h>
 
 #include <push/protobuf/basics.h>
@@ -327,8 +329,7 @@ push_callback_t *
 push_protobuf_varint32_new(const char *name,
                            push_parser_t *parser)
 {
-    varint32_t  *varint32 =
-        (varint32_t *) malloc(sizeof(varint32_t));
+    varint32_t  *varint32 = talloc(parser, varint32_t);
 
     if (varint32 == NULL)
         return NULL;

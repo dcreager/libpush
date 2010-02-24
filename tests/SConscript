@@ -1,14 +1,20 @@
 import os
 import os.path
 
-Import('root_env SOURCE_FILES')
+Import('root_env SOURCE_FILES libccan')
 
 SOURCE_FILES.append(File('SConscript'))
 
 env = root_env.Clone()
 
-env.Prepend(CPPPATH=[".", "#/include", "$check_CPPPATH", "$libhwm_CPPPATH"],
-            LIBPATH=[".", "#/src", "$check_LIBPATH", "$libhwm_LIBPATH"])
+env.Prepend(CPPPATH=[".",
+                     "../include",
+                     "$check_CPPPATH",
+                     "$libhwm_CPPPATH",
+                      "../ccan",
+                      "../ccan/ccan/talloc",
+                      "../ccan/ccan/typesafe_cb"],
+            LIBPATH=[".", "../src", "$check_LIBPATH", "$libhwm_LIBPATH"])
 
 
 # The library with the common test callbacks.
@@ -24,7 +30,7 @@ SOURCE_FILES.extend(libpushtests_files)
 SOURCE_FILES.append(File("test-callbacks.h"))
 
 libpushtests = env.StaticLibrary("pushtests", libpushtests_files,
-                                 LIBS=['push'])
+                                 LIBS=['push', libccan])
 
 
 # Give each test program an RPATH, so that it can find the libpush
@@ -38,7 +44,7 @@ def add_test(test_program):
     SOURCE_FILES.append(File(c_file))
 
     target = env.Program(test_program, [c_file],
-                         LIBS=['push', libpushtests,
+                         LIBS=['push', libccan, libpushtests,
                                '$check_LIB', '$libhwm_LIB'],
                          RPATH=rpath)
     env.Alias("build-tests", target)

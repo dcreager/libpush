@@ -10,6 +10,8 @@
 
 #include <inttypes.h>
 
+#include <talloc.h>
+
 #include <hwm-buffer.h>
 
 #include <push/basics.h>
@@ -55,11 +57,10 @@ struct _push_protobuf_field_map
 
 
 push_protobuf_field_map_t *
-push_protobuf_field_map_new()
+push_protobuf_field_map_new(push_parser_t *parser)
 {
     push_protobuf_field_map_t  *field_map =
-        (push_protobuf_field_map_t *)
-        malloc(sizeof(push_protobuf_field_map_t));
+        talloc(parser, push_protobuf_field_map_t);
 
     if (field_map == NULL)
         return NULL;
@@ -72,28 +73,13 @@ push_protobuf_field_map_new()
 void
 push_protobuf_field_map_free(push_protobuf_field_map_t *field_map)
 {
-    field_map_entry_t  *entries;
-    unsigned int  i;
+    /*
+     * Each callback in the field map is a talloc child of the field
+     * map itself, so freeing the field map will free everything in
+     * the map, too.
+     */
 
-    entries =
-        hwm_buffer_writable_mem(&field_map->entries,
-                                field_map_entry_t);
-
-    for (i = 0;
-         i < hwm_buffer_current_list_size
-             (&field_map->entries, field_map_entry_t);
-         i++)
-    {
-        if (entries[i].callback != NULL)
-        {
-            PUSH_DEBUG_MSG("message: Freeing callback for "
-                           "field %"PRIu32"...\n",
-                           entries[i].field_number);
-            push_callback_free(entries[i].callback);
-        }
-    }
-
-    free(field_map);
+    talloc_free(field_map);
 }
 
 
@@ -288,8 +274,7 @@ verify_tag_new(const char *name,
                push_parser_t *parser,
                push_protobuf_tag_type_t expected_tag_type)
 {
-    verify_tag_t  *verify_tag =
-        (verify_tag_t *) malloc(sizeof(verify_tag_t));
+    verify_tag_t  *verify_tag = talloc(parser, verify_tag_t);
 
     if (verify_tag == NULL)
         return NULL;
@@ -326,11 +311,18 @@ create_field_callback(const char *name,
                       push_protobuf_tag_type_t expected_tag_type,
                       push_callback_t *value_callback)
 {
-    const char  *verify_tag_name;
-    const char  *compose_name;
+    const char  *verify_tag_name = NULL;
+    const char  *compose_name = NULL;
 
-    push_callback_t  *verify_tag;
-    push_callback_t  *compose;
+    push_callback_t  *verify_tag = NULL;
+    push_callback_t  *compose = NULL;
+
+    /*
+     * If the value callback is NULL, return NULL ourselves.
+     */
+
+    if (value_callback == NULL)
+        return NULL;
 
     /*
      * First construct all of the names.
@@ -339,11 +331,11 @@ create_field_callback(const char *name,
     if (name == NULL)
         name = "both";
 
-    verify_tag_name = push_string_concat(name, ".verify-tag");
-    if (verify_tag_name == NULL) return NULL;
+    verify_tag_name = push_string_concat(parser, name, ".verify-tag");
+    if (verify_tag_name == NULL) goto error;
 
-    compose_name = push_string_concat(name, ".tag-compose");
-    if (compose_name == NULL) return NULL;
+    compose_name = push_string_concat(parser, name, ".tag-compose");
+    if (compose_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
@@ -351,20 +343,33 @@ create_field_callback(const char *name,
 
     verify_tag = verify_tag_new(verify_tag_name,
                                 parser, expected_tag_type);
-    if (verify_tag == NULL)
-    {
-        return NULL;
-    }
-
     compose = push_compose_new(compose_name,
                                parser, verify_tag, value_callback);
-    if (compose == NULL)
-    {
-        push_callback_free(verify_tag);
-        return NULL;
-    }
+
+    /*
+     * Because of NULL propagation, we only have to check the last
+     * result to see if everything was created okay.
+     */
+
+    if (compose == NULL) goto error;
+
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(verify_tag, verify_tag_name);
+    talloc_steal(compose, compose_name);
 
     return compose;
+
+  error:
+    if (verify_tag_name != NULL) talloc_free(verify_tag_name);
+    if (verify_tag != NULL) talloc_free(verify_tag);
+
+    if (compose_name != NULL) talloc_free(compose_name);
+    if (compose != NULL) talloc_free(compose);
+
+    return NULL;
 }
 
 
@@ -377,19 +382,25 @@ push_protobuf_field_map_add_field
  push_protobuf_tag_type_t expected_tag_type,
  push_callback_t *value_callback)
 {
-    field_map_entry_t  *new_entry;
-    push_callback_t  *field_callback;
+    field_map_entry_t  *new_entry = NULL;
+    push_callback_t  *field = NULL;
+
+    /*
+     * If the field map or value callback is NULL, return false.
+     */
+
+    if ((field_map == NULL) || (value_callback == NULL))
+        return false;
 
     /*
      * First, try to create a field callback for this field.
      */
 
-    field_callback =
+    field =
         create_field_callback(name, parser, expected_tag_type,
                               value_callback);
 
-    if (field_callback == NULL)
-        return false;
+    if (field == NULL) goto error;
 
     /*
      * Then try to allocate a new element in the list of field
@@ -400,8 +411,7 @@ push_protobuf_field_map_add_field
         hwm_buffer_append_list_elem(&field_map->entries,
                                     field_map_entry_t);
 
-    if (new_entry == NULL)
-        return false;
+    if (new_entry == NULL) goto error;
 
     /*
      * If the allocation worked, stash the number and callback into
@@ -409,7 +419,18 @@ push_protobuf_field_map_add_field
      */
 
     new_entry->field_number = field_number;
-    new_entry->callback = field_callback;
+    new_entry->callback = field;
+
+    /*
+     * Make the field callback a child of the field map.
+     */
+
+    talloc_steal(field_map, field);
 
     return true;
+
+  error:
+    if (field != NULL) talloc_free(field);
+
+    return false;
 }

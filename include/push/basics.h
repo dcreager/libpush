@@ -376,10 +376,16 @@ typedef struct _push_callback
  * A helper function for constructing the names of compound callbacks.
  * Creates a new string on the heap, which is a concatenation of the
  * two parameters.
+ *
+ * The new string will be allocated on the heap, with ctx as its
+ * “parent”.  This means that when ctx is freed, the string will be,
+ * too.
  */
 
 const char *
-push_string_concat(const char *prefix, const char *suffix);
+push_string_concat(void *ctx,
+                   const char *prefix,
+                   const char *suffix);
 
 
 /**
@@ -415,14 +421,6 @@ _push_callback_init
  push_set_incomplete_continuation_func_t *set_incomplete_func,
  const char *set_error_name,
  push_set_error_continuation_func_t *set_error_func);
-
-
-/**
- * Free a callback object.
- */
-
-void
-push_callback_free(push_callback_t *callback);
 
 
 /**

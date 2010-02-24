@@ -15,6 +15,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <talloc.h>
+
 #include <check.h>
 
 #include <push/basics.h>
@@ -64,7 +66,7 @@ inc_activate(void *user_data,
 static push_callback_t *
 inc_callback_new(push_parser_t *parser)
 {
-    inc_t  *inc = (inc_t *) malloc(sizeof(inc_t));
+    inc_t  *inc = talloc(parser, inc_t);
 
     if (inc == NULL)
         return NULL;

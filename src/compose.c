@@ -11,6 +11,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/combinators.h>
 
@@ -100,10 +102,29 @@ push_compose_new(const char *name,
                  push_callback_t *first,
                  push_callback_t *second)
 {
-    compose_t  *compose = (compose_t *) malloc(sizeof(compose_t));
+    compose_t  *compose;
 
+    /*
+     * If either wrapped callback is NULL, return NULL ourselves.
+     */
+
+    if ((first == NULL) || (second == NULL))
+        return NULL;
+
+    /*
+     * Allocate the user data struct.
+     */
+
+    compose = talloc(parser, compose_t);
     if (compose == NULL)
         return NULL;
+
+    /*
+     * Make the wrapped callbacks children of the new callback.
+     */
+
+    talloc_steal(compose, first);
+    talloc_steal(compose, second);
 
     /*
      * Fill in the data items.

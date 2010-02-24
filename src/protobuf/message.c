@@ -12,6 +12,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/protobuf/basics.h>
 #include <push/protobuf/field-map.h>
@@ -186,22 +188,38 @@ dispatch_new(const char *name,
              push_parser_t *parser,
              push_protobuf_field_map_t *field_map)
 {
-    const char  *dispatch_name;
-    const char  *skip_length_prefixed_name;
+    const char  *dispatch_name = NULL;
+    const char  *skip_length_prefixed_name = NULL;
 
-    dispatch_t  *dispatch;
-    push_callback_t  *skip_length_prefixed;
+    dispatch_t  *dispatch = NULL;
+    push_callback_t  *skip_length_prefixed = NULL;
+
+    /*
+     * If the field map is NULL, return NULL ourselves.
+     */
+
+    if (field_map == NULL)
+        return NULL;
 
     /*
      * First construct all of the names.
      */
 
-    dispatch_name = push_string_concat(name, ".dispatch");
-    if (dispatch_name == NULL) return NULL;
+    dispatch_name = push_string_concat(parser,
+                                       name, ".dispatch");
+    if (dispatch_name == NULL) goto error;
 
     skip_length_prefixed_name =
-        push_string_concat(name, ".skip-length-prefixed");
-    if (skip_length_prefixed_name == NULL) return NULL;
+        push_string_concat(parser,
+                           name, ".skip-length-prefixed");
+    if (skip_length_prefixed_name == NULL) goto error;
+
+    /*
+     * Next, allocate the dispatch callback itself.
+     */
+
+    dispatch = talloc(parser, dispatch_t);
+    if (dispatch == NULL) goto error;
 
     /*
      * Then try to create the skipper callbacks.
@@ -210,21 +228,22 @@ dispatch_new(const char *name,
     skip_length_prefixed =
         push_protobuf_skip_length_prefixed_new
         (skip_length_prefixed_name, parser);
-    if (skip_length_prefixed == NULL)
-        return NULL;
+    if (skip_length_prefixed == NULL) goto error;
 
     /*
-     * Then create the dispatch callback itself.
+     * Make the skip callbacks and the field map children of the
+     * dispatch callback.
      */
 
-    dispatch =
-        (dispatch_t *) malloc(sizeof(dispatch_t));
+    talloc_steal(dispatch, skip_length_prefixed);
+    talloc_steal(dispatch, field_map);
 
-    if (dispatch == NULL)
-    {
-        push_callback_free(skip_length_prefixed);
-        return NULL;
-    }
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(dispatch, dispatch_name);
+    talloc_steal(skip_length_prefixed, skip_length_prefixed_name);
 
     /*
      * Fill in the data items.
@@ -245,6 +264,18 @@ dispatch_new(const char *name,
                        dispatch_set_error);
 
     return &dispatch->callback;
+
+  error:
+    if (dispatch_name != NULL) talloc_free(dispatch_name);
+    if (dispatch != NULL) talloc_free(dispatch);
+
+    if (skip_length_prefixed_name != NULL)
+        talloc_free(skip_length_prefixed_name);
+    if (skip_length_prefixed != NULL)
+        talloc_free(skip_length_prefixed);
+
+
+    return NULL;
 }
 
 
@@ -258,14 +289,21 @@ push_protobuf_message_new(const char *name,
                           push_parser_t *parser,
                           push_protobuf_field_map_t *field_map)
 {
-    const char  *read_field_tag_name;
-    const char  *compose_name;
-    const char  *fold_name;
+    const char  *read_field_tag_name = NULL;
+    const char  *compose_name = NULL;
+    const char  *fold_name = NULL;
 
-    push_callback_t  *read_field_tag;
-    push_callback_t  *dispatch;
-    push_callback_t  *compose;
-    push_callback_t  *fold;
+    push_callback_t  *read_field_tag = NULL;
+    push_callback_t  *dispatch = NULL;
+    push_callback_t  *compose = NULL;
+    push_callback_t  *fold = NULL;
+
+    /*
+     * If the field map is NULL, return NULL ourselves.
+     */
+
+    if (field_map == NULL)
+        return NULL;
 
     /*
      * First construct all of the names.
@@ -274,14 +312,14 @@ push_protobuf_message_new(const char *name,
     if (name == NULL)
         name = "message";
 
-    read_field_tag_name = push_string_concat(name, ".tag");
-    if (read_field_tag_name == NULL) return NULL;
+    read_field_tag_name = push_string_concat(parser, name, ".tag");
+    if (read_field_tag_name == NULL) goto error;
 
-    compose_name = push_string_concat(name, ".compose");
-    if (compose_name == NULL) return NULL;
+    compose_name = push_string_concat(parser, name, ".compose");
+    if (compose_name == NULL) goto error;
 
-    fold_name = push_string_concat(name, ".fold");
-    if (fold_name == NULL) return NULL;
+    fold_name = push_string_concat(parser, name, ".fold");
+    if (fold_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
@@ -289,38 +327,39 @@ push_protobuf_message_new(const char *name,
 
     read_field_tag =
         push_protobuf_varint32_new(read_field_tag_name, parser);
-    if (read_field_tag == NULL)
-    {
-        return NULL;
-    }
-
     dispatch = dispatch_new(name, parser, field_map);
-    if (dispatch == NULL)
-    {
-        push_callback_free(read_field_tag);
-        return NULL;
-    }
-
     compose = push_compose_new(compose_name,
                                parser, read_field_tag, dispatch);
-    if (compose == NULL)
-    {
-        push_callback_free(read_field_tag);
-        push_callback_free(dispatch);
-        return NULL;
-    }
-
     fold = push_fold_new(fold_name, parser, compose);
-    if (fold == NULL)
-    {
-        /*
-         * We only have to free the compose, since it links to the
-         * other two.
-         */
 
-        push_callback_free(compose);
-        return NULL;
-    }
+    /*
+     * Because of NULL propagation, we only have to check the last
+     * result to see if everything was created okay.
+     */
+
+    if (fold == NULL) goto error;
+
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(read_field_tag, read_field_tag_name);
+    talloc_steal(compose, compose_name);
+    talloc_steal(fold, fold_name);
 
     return fold;
+
+  error:
+    if (read_field_tag_name != NULL) talloc_free(read_field_tag_name);
+    if (read_field_tag != NULL) talloc_free(read_field_tag);
+
+    if (compose_name != NULL) talloc_free(compose_name);
+    if (compose != NULL) talloc_free(compose);
+
+    if (fold_name != NULL) talloc_free(fold_name);
+    if (fold != NULL) talloc_free(fold);
+
+    if (dispatch != NULL) talloc_free(dispatch);
+
+    return NULL;
 }

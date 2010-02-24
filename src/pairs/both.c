@@ -9,6 +9,8 @@
  */
 
 
+#include <talloc.h>
+
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
@@ -67,7 +69,7 @@ push_callback_t *
 push_dup_new(const char *name,
              push_parser_t *parser)
 {
-    dup_t  *dup = (dup_t *) malloc(sizeof(dup_t));
+    dup_t  *dup = talloc(parser, dup_t);
 
     if (dup == NULL)
         return NULL;
@@ -90,13 +92,20 @@ push_both_new(const char *name,
               push_callback_t *a,
               push_callback_t *b)
 {
-    const char  *dup_name;
-    const char  *par_name;
-    const char  *compose_name;
+    const char  *dup_name = NULL;
+    const char  *par_name = NULL;
+    const char  *compose_name = NULL;
 
-    push_callback_t  *dup;
-    push_callback_t  *par;
-    push_callback_t  *callback;
+    push_callback_t  *dup = NULL;
+    push_callback_t  *par = NULL;
+    push_callback_t  *callback = NULL;
+
+    /*
+     * If either wrapped callback is NULL, return NULL ourselves.
+     */
+
+    if ((a == NULL) || (b == NULL))
+        return NULL;
 
     /*
      * First construct all of the names.
@@ -105,37 +114,49 @@ push_both_new(const char *name,
     if (name == NULL)
         name = "both";
 
-    dup_name = push_string_concat(name, ".dup");
-    if (dup_name == NULL) return NULL;
+    dup_name = push_string_concat(parser, name, ".dup");
+    if (dup_name == NULL) goto error;
 
-    par_name = push_string_concat(name, ".par");
-    if (par_name == NULL) return NULL;
+    par_name = push_string_concat(parser, name, ".par");
+    if (par_name == NULL) goto error;
 
-    compose_name = push_string_concat(name, ".compose");
-    if (compose_name == NULL) return NULL;
+    compose_name = push_string_concat(parser, name, ".compose");
+    if (compose_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
      */
 
     dup = push_dup_new(dup_name, parser);
-    if (dup == NULL)
-        return NULL;
-
     par = push_par_new(par_name, parser, a, b);
-    if (par == NULL)
-    {
-        push_callback_free(dup);
-        return NULL;
-    }
-
     callback = push_compose_new(compose_name, parser, dup, par);
-    if (callback == NULL)
-    {
-        push_callback_free(dup);
-        push_callback_free(par);
-        return NULL;
-    }
+
+    /*
+     * Because of NULL propagation, we only have to check the last
+     * result to see if everything was created okay.
+     */
+
+    if (callback == NULL) goto error;
+
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(dup, dup_name);
+    talloc_steal(par, par_name);
+    talloc_steal(callback, compose_name);
 
     return callback;
+
+  error:
+    if (dup_name != NULL) talloc_free(dup_name);
+    if (dup != NULL) talloc_free(dup);
+
+    if (par_name != NULL) talloc_free(par_name);
+    if (par != NULL) talloc_free(par);
+
+    if (compose_name != NULL) talloc_free(compose_name);
+    if (callback != NULL) talloc_free(callback);
+
+    return NULL;
 }

@@ -8,6 +8,9 @@
  * ----------------------------------------------------------------------
  */
 
+
+#include <talloc.h>
+
 #include <hwm-buffer.h>
 
 #include <push/basics.h>
@@ -24,9 +27,9 @@ push_protobuf_hwm_string_new(const char *name,
                              push_parser_t *parser,
                              hwm_buffer_t *buf)
 {
-    const char  *read_size_name;
-    const char  *read_name;
-    const char  *compose_name;
+    const char  *read_size_name = NULL;
+    const char  *read_name = NULL;
+    const char  *compose_name = NULL;
 
     push_callback_t  *read_size = NULL;
     push_callback_t  *read = NULL;
@@ -39,14 +42,14 @@ push_protobuf_hwm_string_new(const char *name,
     if (name == NULL)
         name = "pb-hwm-string";
 
-    read_size_name = push_string_concat(name, ".size");
-    if (read_size_name == NULL) return NULL;
+    read_size_name = push_string_concat(parser, name, ".size");
+    if (read_size_name == NULL) goto error;
 
-    read_name = push_string_concat(name, ".read");
-    if (read_name == NULL) return NULL;
+    read_name = push_string_concat(parser, name, ".read");
+    if (read_name == NULL) goto error;
 
-    compose_name = push_string_concat(name, ".compose");
-    if (compose_name == NULL) return NULL;
+    compose_name = push_string_concat(parser, name, ".compose");
+    if (compose_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
@@ -54,33 +57,33 @@ push_protobuf_hwm_string_new(const char *name,
 
     read_size =
         push_protobuf_varint_size_new(read_size_name, parser);
-    if (read_size == NULL)
-        goto error;
+    if (read_size == NULL) goto error;
 
     read = push_hwm_string_new(read_name, parser, buf);
-    if (read == NULL)
-        goto error;
+    if (read == NULL) goto error;
 
     compose = push_compose_new(compose_name, parser, read_size, read);
-    if (compose == NULL)
-        goto error;
+    if (compose == NULL) goto error;
+
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(read_size, read_size_name);
+    talloc_steal(read, read_name);
+    talloc_steal(compose, compose_name);
 
     return compose;
 
   error:
-    /*
-     * Before returning the NULL error code, free everything that we
-     * might've created so far.
-     */
+    if (read_size_name != NULL) talloc_free(read_size_name);
+    if (read_size != NULL) talloc_free(read_size);
 
-    if (read_size != NULL)
-        push_callback_free(read_size);
+    if (read_name != NULL) talloc_free(read_name);
+    if (read != NULL) talloc_free(read);
 
-    if (read != NULL)
-        push_callback_free(read);
-
-    if (compose != NULL)
-        push_callback_free(compose);
+    if (compose_name != NULL) talloc_free(compose_name);
+    if (compose != NULL) talloc_free(compose);
 
     return NULL;
 }
@@ -94,8 +97,8 @@ push_protobuf_add_hwm_string(const char *message_name,
                              push_protobuf_tag_number_t field_number,
                              hwm_buffer_t *dest)
 {
-    const char  *full_field_name;
-    push_callback_t  *field_callback;
+    const char  *full_field_name = NULL;
+    push_callback_t  *field_callback = NULL;
 
     /*
      * First construct all of the names.
@@ -107,8 +110,9 @@ push_protobuf_add_hwm_string(const char *message_name,
     if (field_name == NULL)
         field_name = ".hwm";
 
-    full_field_name = push_string_concat(message_name, field_name);
-    if (full_field_name == NULL) return NULL;
+    full_field_name =
+        push_string_concat(parser, message_name, field_name);
+    if (full_field_name == NULL) goto error;
 
     /*
      * Then create the callbacks.
@@ -116,11 +120,7 @@ push_protobuf_add_hwm_string(const char *message_name,
 
     field_callback =
         push_protobuf_hwm_string_new(full_field_name, parser, dest);
-
-    if (field_callback == NULL)
-    {
-        return false;
-    }
+    if (field_callback == NULL) goto error;
 
     /*
      * Try to add the new field.  If we can't, free the callback
@@ -133,9 +133,21 @@ push_protobuf_add_hwm_string(const char *message_name,
          PUSH_PROTOBUF_TAG_TYPE_LENGTH_DELIMITED,
          field_callback))
     {
-        push_callback_free(field_callback);
-        return false;
+        goto error;
     }
 
+    /*
+     * Make each name string be the child of its callback.
+     */
+
+    talloc_steal(field_callback, full_field_name);
+
     return true;
+
+  error:
+    if (full_field_name != NULL) talloc_free(full_field_name);
+
+    if (field_callback != NULL) talloc_free(field_callback);
+
+    return false;
 }
