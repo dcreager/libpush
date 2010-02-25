@@ -33,6 +33,10 @@ typedef struct _data
 {
     uint32_t  int1;
     uint64_t  int2;
+    int32_t  int3;
+    int64_t  int4;
+    int32_t  int5;
+    int64_t  int6;
     hwm_buffer_t  buf;
 } data_t;
 
@@ -78,6 +82,14 @@ create_data_message(const char *name,
                                       field_map, 2, &dest->int2));
     CHECK(push_protobuf_add_hwm_string(name, "buf", context, parser,
                                        field_map, 3, &dest->buf));
+    CHECK(push_protobuf_assign_int32(name, "int3", context, parser,
+                                     field_map, 4, &dest->int3));
+    CHECK(push_protobuf_assign_int64(name, "int4", context, parser,
+                                     field_map, 5, &dest->int4));
+    CHECK(push_protobuf_assign_sint32(name, "int5", context, parser,
+                                      field_map, 6, &dest->int5));
+    CHECK(push_protobuf_assign_sint64(name, "int6", context, parser,
+                                      field_map, 7, &dest->int6));
 
 #undef CHECK
 
@@ -110,6 +122,8 @@ data_eq(const data_t *d1, const data_t *d2)
     if ((d1 == NULL) || (d2 == NULL)) return false;
     return
         (d1->int1 == d2->int1) && (d1->int2 == d2->int2) &&
+        (d1->int3 == d2->int3) && (d1->int4 == d2->int4) &&
+        (d1->int5 == d2->int5) && (d1->int6 == d2->int6) &&
         buf_eq(&d1->buf, &d2->buf);
 }
 
@@ -122,40 +136,77 @@ const uint8_t  DATA_01[] =
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
     "\x10"                      /* field 2, wire type 0 */
-    "\x80\xe4\x97\xd0\x12";     /*   value = 5,000,000,000 */
-const size_t  LENGTH_01 = 9;
+    "\x80\xe4\x97\xd0\x12"      /*   value = 5,000,000,000 */
+    "\x20"                      /* field 4, wire type 0 */
+    "\x8c\xfc\xff\xff\xff"      /*   value = -500 */
+    "\xff\xff\xff\xff\x01"      /*   (cont) */
+    "\x28"                      /* field 5, wire type 0 */
+    "\x80\x9c\xe8\xaf\xed"      /*   value = -5000000000 */
+    "\xff\xff\xff\xff\x01"      /*   (cont) */
+    "\x30"                      /* field 6, wire type 0 */
+    "\xe7\x07"                  /*   value = -500 */
+    "\x38"                      /* field 7, wire type 0 */
+    "\xff\xc7\xaf\xa0\x25";     /*   value = -5000000000 */
+
+const size_t  LENGTH_01 = 40;
 const data_t  EXPECTED_01 =
-{ 300, UINT64_C(5000000000), HWM_BUFFER_INIT(NULL, 0) };
+{ 300, UINT64_C(5000000000),
+  -500, INT64_C(-5000000000),
+  -500, INT64_C(-5000000000),
+  HWM_BUFFER_INIT(NULL, 0) };
 
 
 const uint8_t  DATA_02[] =
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
-    "\x22"                      /* field 4, wire type 2 */
+    "\x82\x10"                  /* field 100, wire type 2 (0x802) */
     "\x00"                      /*   length = 0 */
     "\x10"                      /* field 2, wire type 0 */
     "\x80\xe4\x97\xd0\x12"      /*   value = 5,000,000,000 */
-    "\x2a"                      /* field 5, wire type 2 */
+    "\x20"                      /* field 4, wire type 0 */
+    "\x00"                      /*   value = 0 */
+    "\x28"                      /* field 5, wire type 0 */
+    "\x00"                      /*   value = 0 */
+    "\x30"                      /* field 6, wire type 0 */
+    "\xff\xc7\xaf\xa0\x25"      /*   value = -5000000000 */
+    "\x38"                      /* field 7, wire type 0 */
+    "\xe7\x07"                  /*   value = -500 */
+    "\x82\x11"                  /* field 101, wire type 2 (0x882) */
     "\x07"                      /*   length = 7 */
     "1234567";                  /*   data */
-const size_t  LENGTH_02 = 20;
+const size_t  LENGTH_02 = 35;
 const data_t  EXPECTED_02 =
-{ 300, UINT64_C(5000000000), HWM_BUFFER_INIT(NULL, 0) };
+{ 300, UINT64_C(5000000000),
+  0, INT64_C(0),
+  -705032704,                   /* -5,000,000,000 truncated to 32 bits */
+  INT64_C(-500),
+  HWM_BUFFER_INIT(NULL, 0) };
 
 
 const uint8_t  DATA_03[] =
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
+    "\x20"                      /* field 4, wire type 0 */
+    "\x00"                      /*   value = 0 */
+    "\x28"                      /* field 5, wire type 0 */
+    "\x00"                      /*   value = 0 */
+    "\x30"                      /* field 6, wire type 0 */
+    "\x00"                      /*   value = 0 */
+    "\x38"                      /* field 7, wire type 0 */
+    "\x00"                      /*   value = 0 */
     "\x10"                      /* field 2, wire type 0 */
     "\x80\xe4\x97\xd0\x12"      /*   value = 5,000,000,000 */
     "\x1a"                      /* field 3, wire type 2 */
     "\x05"                      /*   length = 5 */
     "abcde";                    /*   content */
-const size_t  LENGTH_03 = 16;
+const size_t  LENGTH_03 = 24;
 const char  EXPECTED_BUF_03[] = "abcde";
 /* include an extra byte in the expected HWM for the NUL terminator */
 const data_t  EXPECTED_03 =
-{ 300, UINT64_C(5000000000), HWM_BUFFER_INIT(EXPECTED_BUF_03, 6) };
+{ 300, UINT64_C(5000000000),
+  0, INT64_C(0),
+  0, INT64_C(0),
+  HWM_BUFFER_INIT(EXPECTED_BUF_03, 6) };
 
 
 const uint8_t  DATA_04[] =
@@ -164,13 +215,24 @@ const uint8_t  DATA_04[] =
     "abcde"                     /*   content */
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
+    "\x20"                      /* field 4, wire type 0 */
+    "\x00"                      /*   value = 0 */
+    "\x28"                      /* field 5, wire type 0 */
+    "\x00"                      /*   value = 0 */
+    "\x30"                      /* field 6, wire type 0 */
+    "\x00"                      /*   value = 0 */
+    "\x38"                      /* field 7, wire type 0 */
+    "\x00"                      /*   value = 0 */
     "\x10"                      /* field 2, wire type 0 */
     "\x80\xe4\x97\xd0\x12";     /*   value = 5,000,000,000 */
-const size_t  LENGTH_04 = 16;
+const size_t  LENGTH_04 = 24;
 const char  EXPECTED_BUF_04[] = "abcde";
 /* include an extra byte in the expected HWM for the NUL terminator */
 const data_t  EXPECTED_04 =
-{ 300, UINT64_C(5000000000), HWM_BUFFER_INIT(EXPECTED_BUF_03, 6) };
+{ 300, UINT64_C(5000000000),
+  0, INT64_C(0),
+  0, INT64_C(0),
+  HWM_BUFFER_INIT(EXPECTED_BUF_03, 6) };
 
 
 /*-----------------------------------------------------------------------
@@ -217,14 +279,26 @@ const data_t  EXPECTED_04 =
                                                                     \
         fail_unless(data_eq(&actual, &EXPECTED_##test_name),        \
                     "Value doesn't match (got "                     \
-                    "(%"PRIu32",%"PRIu64")"                         \
+                    "(%"PRIu32",%"PRIu64","                         \
+                    "%"PRId32",%"PRId64","                          \
+                    "%"PRId32",%"PRId64")"                          \
                     ", expected "                                   \
-                    "(%"PRIu32",%"PRIu64")"                         \
+                    "(%"PRIu32",%"PRIu64","                         \
+                    "%"PRId32",%"PRId64","                          \
+                    "%"PRId32",%"PRId64")"                          \
                     ")\n",                                          \
                     (uint32_t) actual.int1,                         \
                     (uint64_t) actual.int2,                         \
+                    (int32_t) actual.int3,                          \
+                    (int64_t) actual.int4,                          \
+                    (int32_t) actual.int5,                          \
+                    (int64_t) actual.int6,                          \
                     (uint32_t) EXPECTED_##test_name.int1,           \
-                    (uint64_t) EXPECTED_##test_name.int2);          \
+                    (uint64_t) EXPECTED_##test_name.int2,           \
+                    (int32_t) EXPECTED_##test_name.int3,            \
+                    (int64_t) EXPECTED_##test_name.int4,            \
+                    (int32_t) EXPECTED_##test_name.int5,            \
+                    (int64_t) EXPECTED_##test_name.int6);           \
                                                                     \
         push_parser_free(parser);                                   \
         data_done(&actual);                                         \
@@ -288,14 +362,26 @@ const data_t  EXPECTED_04 =
                                                                     \
         fail_unless(data_eq(&actual, &EXPECTED_##test_name),        \
                     "Value doesn't match (got "                     \
-                    "(%"PRIu32",%"PRIu64")"                         \
+                    "(%"PRIu32",%"PRIu64","                         \
+                    "%"PRId32",%"PRId64","                          \
+                    "%"PRId32",%"PRId64")"                          \
                     ", expected "                                   \
-                    "(%"PRIu32",%"PRIu64")"                         \
-                    "\n",                                           \
+                    "(%"PRIu32",%"PRIu64","                         \
+                    "%"PRId32",%"PRId64","                          \
+                    "%"PRId32",%"PRId64")"                          \
+                    ")\n",                                          \
                     (uint32_t) actual.int1,                         \
                     (uint64_t) actual.int2,                         \
+                    (int32_t) actual.int3,                          \
+                    (int64_t) actual.int4,                          \
+                    (int32_t) actual.int5,                          \
+                    (int64_t) actual.int6,                          \
                     (uint32_t) EXPECTED_##test_name.int1,           \
-                    (uint64_t) EXPECTED_##test_name.int2);          \
+                    (uint64_t) EXPECTED_##test_name.int2,           \
+                    (int32_t) EXPECTED_##test_name.int3,            \
+                    (int64_t) EXPECTED_##test_name.int4,            \
+                    (int32_t) EXPECTED_##test_name.int5,            \
+                    (int64_t) EXPECTED_##test_name.int6);           \
                                                                     \
         push_parser_free(parser);                                   \
         data_done(&actual);                                         \

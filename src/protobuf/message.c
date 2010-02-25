@@ -92,6 +92,8 @@ dispatch_set_error(void *user_data,
 {
     dispatch_t  *dispatch = (dispatch_t *) user_data;
 
+    dispatch->callback.error = error;
+
     push_protobuf_field_map_set_error(dispatch->field_map,
                                       error);
 

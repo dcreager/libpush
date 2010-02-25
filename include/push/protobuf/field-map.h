@@ -167,4 +167,72 @@ push_protobuf_assign_uint64(const char *message_name,
                             uint64_t *dest);
 
 
+/**
+ * Add a new <code>int32</code> field to a field map.  When parsing,
+ * the field's value will be assigned to the dest pointer.
+ *
+ * @return <code>false</code> if we cannot add the new field.
+ */
+
+bool
+push_protobuf_assign_int32(const char *message_name,
+                           const char *field_name,
+                           void *parent,
+                           push_parser_t *parser,
+                           push_protobuf_field_map_t *field_map,
+                           push_protobuf_tag_number_t field_number,
+                           int32_t *dest);
+
+
+/**
+ * Add a new <code>int64</code> field to a field map.  When parsing,
+ * the field's value will be assigned to the dest pointer.
+ *
+ * @return <code>false</code> if we cannot add the new field.
+ */
+
+bool
+push_protobuf_assign_int64(const char *message_name,
+                           const char *field_name,
+                           void *parent,
+                           push_parser_t *parser,
+                           push_protobuf_field_map_t *field_map,
+                           push_protobuf_tag_number_t field_number,
+                           int64_t *dest);
+
+
+/**
+ * Add a new <code>sint32</code> field to a field map.  When parsing,
+ * the field's value will be assigned to the dest pointer.
+ *
+ * @return <code>false</code> if we cannot add the new field.
+ */
+
+bool
+push_protobuf_assign_sint32(const char *message_name,
+                            const char *field_name,
+                            void *parent,
+                            push_parser_t *parser,
+                            push_protobuf_field_map_t *field_map,
+                            push_protobuf_tag_number_t field_number,
+                            int32_t *dest);
+
+
+/**
+ * Add a new <code>sint64</code> field to a field map.  When parsing,
+ * the field's value will be assigned to the dest pointer.
+ *
+ * @return <code>false</code> if we cannot add the new field.
+ */
+
+bool
+push_protobuf_assign_sint64(const char *message_name,
+                            const char *field_name,
+                            void *parent,
+                            push_parser_t *parser,
+                            push_protobuf_field_map_t *field_map,
+                            push_protobuf_tag_number_t field_number,
+                            int64_t *dest);
+
+
 #endif  /* PUSH_PROTOBUF_FIELD_MAP_H */
