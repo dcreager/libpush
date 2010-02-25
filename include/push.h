@@ -14,6 +14,7 @@
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
+#include <push/pure.h>
 #include <push/primitives.h>
 #include <push/talloc.h>
 

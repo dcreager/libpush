@@ -14,6 +14,7 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/pure.h>
 #include <push/primitives.h>
 #include <push/talloc.h>
 
@@ -42,11 +43,8 @@
 
 
 static bool
-assign_func(void *user_data, void *vinput, void **output)
+assign_func(DEST_T *dest, PARSED_T *input, PARSED_T **output)
 {
-    PARSED_T  *input = (PARSED_T *) vinput;
-    DEST_T  *dest = (DEST_T *) user_data;
-
     PUSH_DEBUG_MSG(PRETTY_STR ": Activating.  Got value "
                    "%"PRIuPARSED".\n",
                    *input);
@@ -58,6 +56,10 @@ assign_func(void *user_data, void *vinput, void **output)
     *output = input;
     return true;
 }
+
+
+push_define_pure_callback(assign_new, assign_func, PRETTY_STR,
+                          PARSED_T, PARSED_T, DEST_T);
 
 
 bool
@@ -104,11 +106,11 @@ PUSH_PROTOBUF_ASSIGN(const char *message_name,
         (push_talloc_asprintf(context, "%s." VALUE_STR,
                               full_field_name),
          context, parser);
-    assign = push_pure_new
+    assign = assign_new
         (push_talloc_asprintf(context, "%s." PRETTY_STR,
                               full_field_name),
          context, parser,
-         assign_func, dest);
+         dest);
     field = push_compose_new
         (push_talloc_asprintf(context, "%s.compose",
                               full_field_name),

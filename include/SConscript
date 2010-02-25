@@ -24,6 +24,7 @@ push_h_files = map(File, \
      "push/combinators.h",
      "push/config.h",
      "push/pairs.h",
+     "push/pure.h",
      "push/primitives.h",
      "push/protobuf.h",
      "push/talloc.h",

@@ -14,6 +14,7 @@
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
+#include <push/pure.h>
 #include <push/primitives.h>
 #include <push/talloc.h>
 #include <test-callbacks.h>
@@ -36,10 +37,10 @@ typedef struct _inner_sum
 
 
 static bool
-inner_sum_func(void *user_data, void *vinput, void **output)
+inner_sum_func(uint32_t *num_sums,
+               push_pair_t *input,
+               uint32_t **output)
 {
-    inner_sum_t  *inner_sum = (inner_sum_t *) user_data;
-    push_pair_t  *input = (push_pair_t *) vinput;
     push_pair_t  *input_ints = (push_pair_t *) input->first;
     uint32_t  *input_index = (uint32_t *) input_ints->first;
     uint32_t  *input_int = (uint32_t *) input_ints->second;
@@ -51,7 +52,7 @@ inner_sum_func(void *user_data, void *vinput, void **output)
                    *input_int,
                    *input_index);
 
-    if ((*input_index < 0) || (*input_index >= inner_sum->num_sums))
+    if ((*input_index < 0) || (*input_index >= *num_sums))
     {
         PUSH_DEBUG_MSG("inner-sum: Index is out of range.\n");
         return false;
@@ -72,6 +73,11 @@ inner_sum_func(void *user_data, void *vinput, void **output)
 }
 
 
+push_define_pure_data_callback(inner_sum_new, inner_sum_func,
+                               "inner-sum",
+                               push_pair_t, uint32_t, uint32_t);
+
+
 static push_callback_t *
 inner_sum_callback_new(const char *name,
                        void *parent,
@@ -79,20 +85,13 @@ inner_sum_callback_new(const char *name,
                        uint32_t num_sums)
 {
     push_callback_t  *inner_sum;
-    void  *vuser_data;
-    inner_sum_t  *user_data;
+    uint32_t  *user_num_sums;
 
-    if (name == NULL) name = "inner-sum";
-
-    inner_sum = push_pure_data_new
-        (name, parent, parser,
-         inner_sum_func, &vuser_data,
-         sizeof(inner_sum_t));
-
+    inner_sum = inner_sum_new(name, parent, parser,
+                              &user_num_sums);
     if (inner_sum == NULL) return NULL;
 
-    user_data = (inner_sum_t *) vuser_data;
-    user_data->num_sums = num_sums;
+    *user_num_sums = num_sums;
     return inner_sum;
 }
 

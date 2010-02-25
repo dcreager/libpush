@@ -11,15 +11,14 @@
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
+#include <push/pure.h>
 #include <push/primitives.h>
 #include <push/talloc.h>
 
 
 static bool
-duplicate(void *user_data, void *input, void **output)
+duplicate(push_pair_t *result, void *input, void **output)
 {
-    push_pair_t  *result = (push_pair_t *) user_data;
-
     result->first = input;
     result->second = input;
 
@@ -28,14 +27,16 @@ duplicate(void *user_data, void *input, void **output)
 }
 
 
+push_define_pure_data_callback(dup_new, duplicate, "dup",
+                               void, void, push_pair_t);
+
+
 push_callback_t *
 push_dup_new(const char *name,
              void *parent,
              push_parser_t *parser)
 {
-    if (name == NULL) name = "dup";
-    return push_pure_data_new(name, parent, parser,
-                              duplicate, NULL, sizeof(push_pair_t));
+    return dup_new(name, parent, parser, NULL);
 }
 
 

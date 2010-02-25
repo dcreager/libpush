@@ -14,6 +14,7 @@
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
+#include <push/pure.h>
 #include <push/primitives.h>
 #include <push/talloc.h>
 #include <test-callbacks.h>
@@ -49,12 +50,10 @@
 
 
 static bool
-inner_sum_func(void *user_data, void *vinput, void **output)
+inner_sum_func(uint32_t *result, push_pair_t *input, uint32_t **output)
 {
-    push_pair_t  *input = (push_pair_t *) vinput;
     uint32_t  *input_int = (uint32_t *) input->first;
     uint32_t  *input_sum = (uint32_t *) input->second;
-    uint32_t  *result = (uint32_t *) user_data;
 
     PUSH_DEBUG_MSG("inner-sum: Activating callback.  "
                    "Received value %"PRIu32", sum %"PRIu32".\n",
@@ -64,11 +63,16 @@ inner_sum_func(void *user_data, void *vinput, void **output)
     *result = *input_int + *input_sum;
 
     PUSH_DEBUG_MSG("inner-sum: Adding, sum is now %"PRIu32"\n",
-                   inner_sum->result);
+                   *result);
 
     *output = result;
     return true;
 }
+
+
+push_define_pure_data_callback(inner_sum_new, inner_sum_func,
+                               "inner-sum",
+                               push_pair_t, uint32_t, uint32_t);
 
 
 static push_callback_t *
@@ -76,11 +80,7 @@ inner_sum_callback_new(const char *name,
                        void *parent,
                        push_parser_t *parser)
 {
-    if (name == NULL) name = "sum";
-
-    return push_pure_data_new
-        (name, parent, parser,
-         inner_sum_func, NULL, sizeof(uint32_t));
+    return inner_sum_new(name, parent, parser, NULL);
 }
 
 

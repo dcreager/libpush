@@ -19,6 +19,7 @@
 
 #include <push/basics.h>
 #include <push/pairs.h>
+#include <push/pure.h>
 #include <push/primitives.h>
 #include <push/talloc.h>
 
@@ -30,22 +31,23 @@
  */
 
 static bool
-inc_func(void *user_data, void *vinput, void **output)
+inc_func(int *result, int *input, int **output)
 {
-    int  *input = (int *) vinput;
-    int  *result = (int *) user_data;
-
     PUSH_DEBUG_MSG("inc: Activating.  Received value %d.\n",
                    *input);
 
     *result = (*input) + 1;
 
     PUSH_DEBUG_MSG("inc: Incrementing value.  Result is %d.\n",
-                   inc->result);
+                   *result);
 
     *output = result;
     return true;
 }
+
+
+push_define_pure_data_callback(inc_new, inc_func, "inc",
+                               int, int, int);
 
 
 static push_callback_t *
@@ -53,11 +55,7 @@ inc_callback_new(const char *name,
                  void *parent,
                  push_parser_t *parser)
 {
-    if (name == NULL) name = "inc";
-
-    return push_pure_data_new
-        (name, parent, parser,
-         inc_func, NULL, sizeof(int));
+    return inc_new(name, parent, parser, NULL);
 }
 
 
