@@ -74,7 +74,7 @@ push_dup_new(const char *name,
         return NULL;
 
     if (name == NULL) name = "dup";
-    push_talloc_set_name_const(dup, "dup");
+    push_talloc_set_name_const(dup, name);
 
     push_callback_init(&dup->callback, parser, dup,
                        dup_activate,
