@@ -19,6 +19,7 @@
 
 #include <push/basics.h>
 #include <push/pairs.h>
+#include <push/primitives.h>
 #include <push/talloc.h>
 
 
@@ -28,37 +29,22 @@
  * Takes in an integer x as input, and outputs x+1.
  */
 
-typedef struct _inc
+static bool
+inc_func(void *user_data, void *vinput, void **output)
 {
-    push_callback_t  callback;
-    int  result;
-} inc_t;
+    int  *input = (int *) vinput;
+    int  *result = (int *) user_data;
 
-
-static void
-inc_activate(void *user_data,
-             void *result,
-             const void *buf,
-             size_t bytes_remaining)
-{
-    inc_t  *inc = (inc_t *) user_data;
-    int  *input = (int *) result;
-
-    PUSH_DEBUG_MSG("%s: Activating.  Received value %d.\n",
-                   push_talloc_get_name(inc),
+    PUSH_DEBUG_MSG("inc: Activating.  Received value %d.\n",
                    *input);
 
-    inc->result = (*input) + 1;
+    *result = (*input) + 1;
 
-    PUSH_DEBUG_MSG("%s: Incrementing value.  Result is %d.\n",
-                   push_talloc_get_name(inc),
+    PUSH_DEBUG_MSG("inc: Incrementing value.  Result is %d.\n",
                    inc->result);
 
-    push_continuation_call(inc->callback.success,
-                           &inc->result,
-                           buf, bytes_remaining);
-
-    return;
+    *output = result;
+    return true;
 }
 
 
@@ -67,19 +53,11 @@ inc_callback_new(const char *name,
                  void *parent,
                  push_parser_t *parser)
 {
-    inc_t  *inc = push_talloc(parent, inc_t);
-
-    if (inc == NULL)
-        return NULL;
-
     if (name == NULL) name = "inc";
-    push_talloc_set_name_const(inc, name);
 
-    push_callback_init(&inc->callback, parser, inc,
-                       inc_activate,
-                       NULL, NULL, NULL);
-
-    return &inc->callback;
+    return push_pure_data_new
+        (name, parent, parser,
+         inc_func, NULL, sizeof(int));
 }
 
 

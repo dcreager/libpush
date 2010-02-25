@@ -32,19 +32,10 @@
 #endif
 
 #if PUSH_DEBUG
-
 #include <stdio.h>
 #define PUSH_DEBUG_MSG(...) fprintf(stderr, __VA_ARGS__)
-
-#if PUSH_CONTINUATION_DEBUG
-#define PUSH_CONTINUATION_DEBUG_MSG(...) fprintf(stderr, __VA_ARGS__)
-#else
-#define PUSH_CONTINUATION_DEBUG_MSG(...) /* skipping debug message */
-#endif
-
 #else
 #define PUSH_DEBUG_MSG(...) /* skipping debug message */
-#define PUSH_CONTINUATION_DEBUG_MSG(...) /* skipping debug message */
 #endif
 
 
@@ -102,17 +93,17 @@ typedef enum
  * @param continuation A pointer to a continuation object.
  */
 
-#if PUSH_CONTINUATION_DEBUG
+#if PUSH_CONTINUATION_DEBUG && PUSH_DEBUG
 
 #define push_continuation_call(continuation, ...)               \
-    do {                                                        \
+    (                                                           \
         PUSH_DEBUG_MSG("continuation: Calling continuation "    \
                        "%s[%p].\n",                             \
                        (continuation)->name,                    \
-                       (continuation)->user_data);              \
+                       (continuation)->user_data),              \
         (continuation)->func((continuation)->user_data,         \
-                             __VA_ARGS__);                      \
-    } while(0)
+                             __VA_ARGS__)                       \
+    )
 
 #else
 
@@ -161,7 +152,7 @@ typedef enum
     typedef struct _push_##base_name##_continuation     \
     {                                                   \
         const char  *name;                              \
-        push_##base_name##_continuation_func_t  *func;  \
+        push_##base_name##_func_t  *func;               \
         void  *user_data;                               \
     } push_##base_name##_continuation_t
 
@@ -170,7 +161,7 @@ typedef enum
 #define PUSH_DEFINE_CONTINUATION(base_name)             \
     typedef struct _push_##base_name##_continuation     \
     {                                                   \
-        push_##base_name##_continuation_func_t  *func;  \
+        push_##base_name##_func_t  *func;               \
         void  *user_data;                               \
     } push_##base_name##_continuation_t
 
@@ -184,10 +175,10 @@ typedef enum
  */
 
 typedef void
-push_success_continuation_func_t(void *user_data,
-                                 void *result,
-                                 const void *buf,
-                                 size_t bytes_remaining);
+push_success_func_t(void *user_data,
+                    void *result,
+                    const void *buf,
+                    size_t bytes_remaining);
 
 PUSH_DEFINE_CONTINUATION(success);
 
@@ -200,9 +191,9 @@ PUSH_DEFINE_CONTINUATION(success);
  */
 
 typedef void
-push_continue_continuation_func_t(void *user_data,
-                                  const void *buf,
-                                  size_t bytes_remaining);
+push_continue_func_t(void *user_data,
+                     const void *buf,
+                     size_t bytes_remaining);
 
 PUSH_DEFINE_CONTINUATION(continue);
 
@@ -215,8 +206,8 @@ PUSH_DEFINE_CONTINUATION(continue);
  */
 
 typedef void
-push_incomplete_continuation_func_t(void *user_data,
-                                    push_continue_continuation_t *cont);
+push_incomplete_func_t(void *user_data,
+                       push_continue_continuation_t *cont);
 
 PUSH_DEFINE_CONTINUATION(incomplete);
 
@@ -231,9 +222,9 @@ PUSH_DEFINE_CONTINUATION(incomplete);
  */
 
 typedef void
-push_error_continuation_func_t(void *user_data,
-                               push_error_code_t error_code,
-                               const char *error_message);
+push_error_func_t(void *user_data,
+                  push_error_code_t error_code,
+                  const char *error_message);
 
 PUSH_DEFINE_CONTINUATION(error);
 
@@ -246,7 +237,7 @@ PUSH_DEFINE_CONTINUATION(error);
  */
 
 typedef void
-push_set_success_continuation_func_t
+push_set_success_func_t
 (void *user_data, push_success_continuation_t *success);
 
 PUSH_DEFINE_CONTINUATION(set_success);
@@ -260,7 +251,7 @@ PUSH_DEFINE_CONTINUATION(set_success);
  */
 
 typedef void
-push_set_incomplete_continuation_func_t
+push_set_incomplete_func_t
 (void *user_data, push_incomplete_continuation_t *incomplete);
 
 PUSH_DEFINE_CONTINUATION(set_incomplete);
@@ -274,7 +265,7 @@ PUSH_DEFINE_CONTINUATION(set_incomplete);
  */
 
 typedef void
-push_set_error_continuation_func_t
+push_set_error_func_t
 (void *user_data, push_error_continuation_t *error);
 
 PUSH_DEFINE_CONTINUATION(set_error);
@@ -391,13 +382,13 @@ _push_callback_init
  const char *user_data_name,
  void *user_data,
  const char *activate_name,
- push_success_continuation_func_t *activate_func,
+ push_success_func_t *activate_func,
  const char *set_success_name,
- push_set_success_continuation_func_t *set_success_func,
+ push_set_success_func_t *set_success_func,
  const char *set_incomplete_name,
- push_set_incomplete_continuation_func_t *set_incomplete_func,
+ push_set_incomplete_func_t *set_incomplete_func,
  const char *set_error_name,
- push_set_error_continuation_func_t *set_error_func);
+ push_set_error_func_t *set_error_func);
 
 
 /**

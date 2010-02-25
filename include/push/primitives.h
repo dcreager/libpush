@@ -80,6 +80,67 @@ push_noop_new(const char *name,
 
 
 /**
+ * A function that can be wrapped into a callback using push_pure_new
+ * or push_pure_cont_new.
+ */
+
+typedef bool
+push_pure_func_t(void *user_data,
+                 void *input,
+                 void **output);
+
+PUSH_DEFINE_CONTINUATION(pure);
+
+
+/**
+ * Create a new callback that applies the given function to its input,
+ * and immediately succeeds with the function's result as the
+ * callback's output.  You provide a pointer to the function, and a
+ * user data struct that will be passed in to the function along with
+ * the input value.
+ */
+
+push_callback_t *
+push_pure_new(const char *name,
+              void *parent,
+              push_parser_t *parser,
+              push_pure_func_t *func,
+              void *user_data);
+
+
+/**
+ * Create a new callback that applies the given function to its input,
+ * and immediately succeeds with the function's result as the
+ * callback's output.  You provide a pointer to the function.  This
+ * version allocates a user data struct for you; you pass in the size.
+ * A pointer to the new user data struct is placed in *user_data, if
+ * user_data isn't NULL.
+ */
+
+push_callback_t *
+push_pure_data_new(const char *name,
+                   void *parent,
+                   push_parser_t *parser,
+                   push_pure_func_t *func,
+                   void **user_data,
+                   size_t user_data_size);
+
+
+/**
+ * Create a new callback that applies the given function to its input,
+ * and immediately succeeds with the function's result as the
+ * callback's output.  You provide a pointer to a continuation object,
+ * which encapsulates the function pointer and a user data struct.
+ */
+
+push_callback_t *
+push_pure_cont_new(const char *name,
+                   void *parent,
+                   push_parser_t *parser,
+                   push_pure_continuation_t *cont);
+
+
+/**
  * Create a new callback that skips the specified number of bytes.
  * The callback's input should be a pointer to a size_t, indicating
  * the number of bytes to skip.

@@ -31,83 +31,69 @@
 
 typedef struct _inner_sum
 {
-    push_callback_t  callback;
     uint32_t  num_sums;
 } inner_sum_t;
 
 
-static void
-inner_sum_activate(void *user_data,
-                   void *result,
-                   const void *buf,
-                   size_t bytes_remaining)
+static bool
+inner_sum_func(void *user_data, void *vinput, void **output)
 {
     inner_sum_t  *inner_sum = (inner_sum_t *) user_data;
-    push_pair_t  *input = (push_pair_t *) result;
+    push_pair_t  *input = (push_pair_t *) vinput;
     push_pair_t  *input_ints = (push_pair_t *) input->first;
     uint32_t  *input_index = (uint32_t *) input_ints->first;
     uint32_t  *input_int = (uint32_t *) input_ints->second;
     uint32_t  *input_sums = (uint32_t *) input->second;
 
-    PUSH_DEBUG_MSG("%s: Activating callback.  "
+    PUSH_DEBUG_MSG("inner-sum: Activating callback.  "
                    "Received value %"PRIu32" for index "
                    "%"PRIu32".\n",
-                   push_talloc_get_name(inner_sum),
                    *input_int,
                    *input_index);
 
     if ((*input_index < 0) || (*input_index >= inner_sum->num_sums))
     {
-        PUSH_DEBUG_MSG("%s: Index is out of range.\n",
-                       push_talloc_get_name(inner_sum));
-
-        push_continuation_call(inner_sum->callback.error,
-                               PUSH_PARSE_ERROR,
-                               "Index is out of range");
-
-        return;
+        PUSH_DEBUG_MSG("inner-sum: Index is out of range.\n");
+        return false;
     }
 
-    PUSH_DEBUG_MSG("%s: Previous sum #%"PRIu32" was "
+    PUSH_DEBUG_MSG("inner-sum: Previous sum #%"PRIu32" was "
                    "%"PRIu32".\n",
-                   push_talloc_get_name(inner_sum),
                    *input_index,
                    input_sums[*input_index]);
 
     input_sums[*input_index] += *input_int;
 
-    PUSH_DEBUG_MSG("%s: Adding, sum is now %"PRIu32"\n",
-                   push_talloc_get_name(inner_sum),
+    PUSH_DEBUG_MSG("inner-sum: Adding, sum is now %"PRIu32"\n",
                    input_sums[*input_index]);
 
-    push_continuation_call(inner_sum->callback.success,
-                           input_sums,
-                           buf, bytes_remaining);
-
-    return;
+    *output = input_sums;
+    return true;
 }
 
 
 static push_callback_t *
 inner_sum_callback_new(const char *name,
                        void *parent,
-                       push_parser_t *parser, uint32_t num_sums)
+                       push_parser_t *parser,
+                       uint32_t num_sums)
 {
-    inner_sum_t  *inner_sum = push_talloc(parent, inner_sum_t);
-
-    if (inner_sum == NULL)
-        return NULL;
+    push_callback_t  *inner_sum;
+    void  *vuser_data;
+    inner_sum_t  *user_data;
 
     if (name == NULL) name = "inner-sum";
-    push_talloc_set_name_const(inner_sum, name);
 
-    push_callback_init(&inner_sum->callback, parser, inner_sum,
-                       inner_sum_activate,
-                       NULL, NULL, NULL);
+    inner_sum = push_pure_data_new
+        (name, parent, parser,
+         inner_sum_func, &vuser_data,
+         sizeof(inner_sum_t));
 
-    inner_sum->num_sums = num_sums;
+    if (inner_sum == NULL) return NULL;
 
-    return &inner_sum->callback;
+    user_data = (inner_sum_t *) vuser_data;
+    user_data->num_sums = num_sums;
+    return inner_sum;
 }
 
 

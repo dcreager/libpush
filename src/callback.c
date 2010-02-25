@@ -55,13 +55,13 @@ _push_callback_init
  const char *user_data_name,
  void *user_data,
  const char *activate_name,
- push_success_continuation_func_t *activate_func,
+ push_success_func_t *activate_func,
  const char *set_success_name,
- push_set_success_continuation_func_t *set_success_func,
+ push_set_success_func_t *set_success_func,
  const char *set_incomplete_name,
- push_set_incomplete_continuation_func_t *set_incomplete_func,
+ push_set_incomplete_func_t *set_incomplete_func,
  const char *set_error_name,
- push_set_error_continuation_func_t *set_error_func)
+ push_set_error_func_t *set_error_func)
 {
     /*
      * Fill in the callback's activate continuation object.

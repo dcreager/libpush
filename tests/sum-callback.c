@@ -48,41 +48,26 @@
  */
 
 
-typedef struct _inner_sum
+static bool
+inner_sum_func(void *user_data, void *vinput, void **output)
 {
-    push_callback_t  callback;
-    uint32_t  result;
-} inner_sum_t;
-
-
-static void
-inner_sum_activate(void *user_data,
-                   void *result,
-                   const void *buf,
-                   size_t bytes_remaining)
-{
-    inner_sum_t  *inner_sum = (inner_sum_t *) user_data;
-    push_pair_t  *input = (push_pair_t *) result;
+    push_pair_t  *input = (push_pair_t *) vinput;
     uint32_t  *input_int = (uint32_t *) input->first;
     uint32_t  *input_sum = (uint32_t *) input->second;
+    uint32_t  *result = (uint32_t *) user_data;
 
-    PUSH_DEBUG_MSG("%s: Activating callback.  "
+    PUSH_DEBUG_MSG("inner-sum: Activating callback.  "
                    "Received value %"PRIu32", sum %"PRIu32".\n",
-                   push_talloc_get_name(inner_sum),
                    *input_int,
                    *input_sum);
 
-    inner_sum->result = *input_int + *input_sum;
+    *result = *input_int + *input_sum;
 
-    PUSH_DEBUG_MSG("%s: Adding, sum is now %"PRIu32"\n",
-                   push_talloc_get_name(inner_sum),
+    PUSH_DEBUG_MSG("inner-sum: Adding, sum is now %"PRIu32"\n",
                    inner_sum->result);
 
-    push_continuation_call(inner_sum->callback.success,
-                           &inner_sum->result,
-                           buf, bytes_remaining);
-
-    return;
+    *output = result;
+    return true;
 }
 
 
@@ -91,19 +76,11 @@ inner_sum_callback_new(const char *name,
                        void *parent,
                        push_parser_t *parser)
 {
-    inner_sum_t  *inner_sum = push_talloc(parent, inner_sum_t);
+    if (name == NULL) name = "sum";
 
-    if (inner_sum == NULL)
-        return NULL;
-
-    if (name == NULL)
-        name = "sum";
-
-    push_callback_init(&inner_sum->callback, parser, inner_sum,
-                       inner_sum_activate,
-                       NULL, NULL, NULL);
-
-    return &inner_sum->callback;
+    return push_pure_data_new
+        (name, parent, parser,
+         inner_sum_func, NULL, sizeof(uint32_t));
 }
 
 

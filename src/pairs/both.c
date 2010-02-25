@@ -11,55 +11,20 @@
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pairs.h>
+#include <push/primitives.h>
 #include <push/talloc.h>
 
 
-/**
- * The push_callback_t subclass that defines a both callback.  For
- * now, we just implement this using the definition from Hughes's
- * paper:
- *
- *   a &&& b = arr (\a -> (a,a)) >>> (a *** b)
- */
-
-typedef struct _dup
+static bool
+duplicate(void *user_data, void *input, void **output)
 {
-    /**
-     * The push_callback_t superclass for this callback.
-     */
+    push_pair_t  *result = (push_pair_t *) user_data;
 
-    push_callback_t  callback;
+    result->first = input;
+    result->second = input;
 
-    /**
-     * The output pair that we construct.
-     */
-
-    push_pair_t  result;
-
-} dup_t;
-
-
-static void
-dup_activate(void *user_data,
-             void *result,
-             const void *buf,
-             size_t bytes_remaining)
-{
-    dup_t  *dup = (dup_t *) user_data;
-
-    /*
-     * Duplicate the input into a pair, and immediately succeed with
-     * that result.
-     */
-
-    dup->result.first = result;
-    dup->result.second = result;
-
-    push_continuation_call(dup->callback.success,
-                           &dup->result,
-                           buf, bytes_remaining);
-
-    return;
+    *output = result;
+    return true;
 }
 
 
@@ -68,21 +33,18 @@ push_dup_new(const char *name,
              void *parent,
              push_parser_t *parser)
 {
-    dup_t  *dup = push_talloc(parent, dup_t);
-
-    if (dup == NULL)
-        return NULL;
-
     if (name == NULL) name = "dup";
-    push_talloc_set_name_const(dup, name);
-
-    push_callback_init(&dup->callback, parser, dup,
-                       dup_activate,
-                       NULL, NULL, NULL);
-
-    return &dup->callback;
+    return push_pure_data_new(name, parent, parser,
+                              duplicate, NULL, sizeof(push_pair_t));
 }
 
+
+/*
+ * For now, we just implement the “both” combinator using the
+ * definition from Hughes's paper:
+ *
+ *   a &&& b = arr (\a -> (a,a)) >>> (a *** b)
+ */
 
 push_callback_t *
 push_both_new(const char *name,

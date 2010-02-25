@@ -14,6 +14,7 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/primitives.h>
 #include <push/talloc.h>
 
 #include <push/protobuf/basics.h>
@@ -39,93 +40,23 @@
  *   - TAG_TYPE
  */
 
-/*-----------------------------------------------------------------------
- * Assign callback
- */
 
-typedef struct STRUCT_NAME
+static bool
+assign_func(void *user_data, void *vinput, void **output)
 {
-    /**
-     * The push_callback_t superclass for this callback.
-     */
+    PARSED_T  *input = (PARSED_T *) vinput;
+    DEST_T  *dest = (DEST_T *) user_data;
 
-    push_callback_t  callback;
-
-    /**
-     * The input value.
-     */
-
-    PARSED_T  *input;
-
-    /**
-     * The pointer to assign the value to.
-     */
-
-    DEST_T  *dest;
-
-} ASSIGN_T;
-
-
-static void
-assign_activate(void *user_data,
-                void *result,
-                const void *buf,
-                size_t bytes_remaining)
-{
-    ASSIGN_T  *assign = (ASSIGN_T *) user_data;
-
-    assign->input = (PARSED_T *) result;
-    PUSH_DEBUG_MSG("%s: Activating.  Got value "
+    PUSH_DEBUG_MSG(PRETTY_STR ": Activating.  Got value "
                    "%"PRIuPARSED".\n",
-                   push_talloc_get_name(assign),
-                   *assign->input);
+                   *input);
 
-    /*
-     * Copy the value from the callback into the destination.
-     */
+    PUSH_DEBUG_MSG(PRETTY_STR ": Assigning value to %p.\n",
+                   dest);
+    *dest = *input;
 
-    PUSH_DEBUG_MSG("%s: Assigning value to %p.\n",
-                   push_talloc_get_name(assign),
-                   assign->dest);
-    *assign->dest = *assign->input;
-
-    push_continuation_call(assign->callback.success,
-                           assign->input,
-                           buf, bytes_remaining);
-
-    return;
-}
-
-
-static push_callback_t *
-assign_new(const char *name,
-           void *parent,
-           push_parser_t *parser,
-           DEST_T *dest)
-{
-    ASSIGN_T  *assign = push_talloc(parent, ASSIGN_T);
-
-    if (assign == NULL)
-        return NULL;
-
-    /*
-     * Fill in the data items.
-     */
-
-    assign->dest = dest;
-
-    /*
-     * Initialize the push_callback_t instance.
-     */
-
-    if (name == NULL) name = PRETTY_STR;
-    push_talloc_set_name_const(assign, name);
-
-    push_callback_init(&assign->callback, parser, assign,
-                       assign_activate,
-                       NULL, NULL, NULL);
-
-    return &assign->callback;
+    *output = input;
+    return true;
 }
 
 
@@ -173,10 +104,11 @@ PUSH_PROTOBUF_ASSIGN(const char *message_name,
         (push_talloc_asprintf(context, "%s." VALUE_STR,
                               full_field_name),
          context, parser);
-    assign = assign_new
+    assign = push_pure_new
         (push_talloc_asprintf(context, "%s." PRETTY_STR,
                               full_field_name),
-         context, parser, dest);
+         context, parser,
+         assign_func, dest);
     field = push_compose_new
         (push_talloc_asprintf(context, "%s.compose",
                               full_field_name),
