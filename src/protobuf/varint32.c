@@ -56,6 +56,12 @@ typedef struct _varint32
 
     uint32_t  value;
 
+    /**
+     * The parsed value.
+     */
+
+    uint64_t  value64;
+
 } varint32_t;
 
 
@@ -94,6 +100,10 @@ varint32_rest_continue(void *user_data,
                    push_talloc_get_name(varint32),
                    bytes_remaining);
 
+    PUSH_DEBUG_MSG("%s: Value is currently 0x%08"PRIx32".\n",
+                   push_talloc_get_name(varint32),
+                   (uint32_t) varint32->value64);
+
     while (bytes_remaining > 0)
     {
         if (varint32->bytes_processed > PUSH_PROTOBUF_MAX_VARINT_LENGTH)
@@ -117,8 +127,12 @@ varint32_rest_continue(void *user_data,
                        push_talloc_get_name(varint32),
                        *ibuf);
 
-        varint32->value |= (*ibuf & 0x7F) << shift;
+        varint32->value64 |= ((uint64_t) (*ibuf & 0x7F)) << shift;
         shift += 7;
+
+        PUSH_DEBUG_MSG("%s:   value = 0x%08"PRIx32"\n",
+                       push_talloc_get_name(varint32),
+                       (uint32_t) varint32->value64);
 
         varint32->bytes_processed++;
         buf++;
@@ -130,13 +144,15 @@ varint32_rest_continue(void *user_data,
              * This byte ends the varint.
              */
 
+            varint32->value = varint32->value64;
+
             PUSH_DEBUG_MSG("%s: Read value %"PRIu32
                            ", using %zu bytes\n",
                            push_talloc_get_name(varint32),
                            varint32->value, varint32->bytes_processed);
 
             push_continuation_call(varint32->callback.success,
-                                   &varint32->value,
+                                   &varint32->value64,
                                    buf, bytes_remaining);
 
             return;
@@ -149,6 +165,11 @@ varint32_rest_continue(void *user_data,
      * We ran out of data without processing a full varint, so return
      * the incomplete code.
      */
+
+    PUSH_DEBUG_MSG("%s: Ran out of data.  Value is "
+                   "currently 0x%08"PRIx32"\n",
+                   push_talloc_get_name(varint32),
+                   (uint32_t) varint32->value64);
 
     push_continuation_call(varint32->callback.incomplete,
                            &varint32->rest_cont);
@@ -277,6 +298,7 @@ varint32_first_continue(void *user_data,
      * Otherwise, we have to use the slow path.
      */
 
+    varint32->value64 = 0;
     return varint32_rest_continue(user_data, buf, bytes_remaining);
 }
 

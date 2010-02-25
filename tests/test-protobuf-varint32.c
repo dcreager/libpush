@@ -43,6 +43,19 @@ const size_t  LENGTH_04 = 5;
 /* 5,000,000,000 truncated to 32 bits */
 const uint32_t  EXPECTED_04 = 705032704;
 
+const uint8_t  DATA_05[] =
+    "\x8c\xfc\xff\xff\xff"
+    "\xff\xff\xff\xff\x01";
+const size_t  LENGTH_05 = 10;
+const uint32_t  EXPECTED_05 = -500;
+
+const uint8_t  DATA_06[] =
+    "\x80\x9c\xe8\xaf\xed"
+    "\xff\xff\xff\xff\x01";
+const size_t  LENGTH_06 = 10;
+/* -5,000,000,000 truncated to 32 bits */
+const uint32_t  EXPECTED_06 = -705032704;
+
 const uint8_t  DATA_TRASH[] = "\x00\x00\x00\x00\x00\x00";
 const size_t  LENGTH_TRASH = 6;
 
@@ -225,6 +238,8 @@ READ_TEST(01)
 READ_TEST(02)
 READ_TEST(03)
 READ_TEST(04)
+READ_TEST(05)
+READ_TEST(06)
 
 /*
  * Only do the two-part read test for the test cases that have more
@@ -233,11 +248,15 @@ READ_TEST(04)
 
 TWO_PART_READ_TEST(03)
 TWO_PART_READ_TEST(04)
+TWO_PART_READ_TEST(05)
+TWO_PART_READ_TEST(06)
 
 TRASH_TEST(01)
 TRASH_TEST(02)
 TRASH_TEST(03)
 TRASH_TEST(04)
+TRASH_TEST(05)
+TRASH_TEST(06)
 
 START_TEST(test_parse_error_03)
 {
@@ -288,12 +307,18 @@ test_suite()
     tcase_add_test(tc, test_read_02);
     tcase_add_test(tc, test_read_03);
     tcase_add_test(tc, test_read_04);
+    tcase_add_test(tc, test_read_05);
+    tcase_add_test(tc, test_read_06);
     tcase_add_test(tc, test_two_part_read_03);
     tcase_add_test(tc, test_two_part_read_04);
+    tcase_add_test(tc, test_two_part_read_05);
+    tcase_add_test(tc, test_two_part_read_06);
     tcase_add_test(tc, test_trash_01);
     tcase_add_test(tc, test_trash_02);
     tcase_add_test(tc, test_trash_03);
     tcase_add_test(tc, test_trash_04);
+    tcase_add_test(tc, test_trash_05);
+    tcase_add_test(tc, test_trash_06);
     tcase_add_test(tc, test_parse_error_03);
     suite_add_tcase(s, tc);
 
