@@ -132,7 +132,7 @@ data_eq(const data_t *d1, const data_t *d2)
  * Sample data
  */
 
-const uint8_t  DATA_01[] =
+uint8_t  DATA_01[] =
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
     "\x10"                      /* field 2, wire type 0 */
@@ -148,15 +148,15 @@ const uint8_t  DATA_01[] =
     "\x38"                      /* field 7, wire type 0 */
     "\xff\xc7\xaf\xa0\x25";     /*   value = -5000000000 */
 
-const size_t  LENGTH_01 = 40;
-const data_t  EXPECTED_01 =
+size_t  LENGTH_01 = 40;
+data_t  EXPECTED_01 =
 { 300, UINT64_C(5000000000),
   -500, INT64_C(-5000000000),
   -500, INT64_C(-5000000000),
   HWM_BUFFER_INIT(NULL, 0) };
 
 
-const uint8_t  DATA_02[] =
+uint8_t  DATA_02[] =
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
     "\x82\x10"                  /* field 100, wire type 2 (0x802) */
@@ -174,8 +174,8 @@ const uint8_t  DATA_02[] =
     "\x82\x11"                  /* field 101, wire type 2 (0x882) */
     "\x07"                      /*   length = 7 */
     "1234567";                  /*   data */
-const size_t  LENGTH_02 = 35;
-const data_t  EXPECTED_02 =
+size_t  LENGTH_02 = 35;
+data_t  EXPECTED_02 =
 { 300, UINT64_C(5000000000),
   0, INT64_C(0),
   -705032704,                   /* -5,000,000,000 truncated to 32 bits */
@@ -183,7 +183,7 @@ const data_t  EXPECTED_02 =
   HWM_BUFFER_INIT(NULL, 0) };
 
 
-const uint8_t  DATA_03[] =
+uint8_t  DATA_03[] =
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
     "\x20"                      /* field 4, wire type 0 */
@@ -199,17 +199,17 @@ const uint8_t  DATA_03[] =
     "\x1a"                      /* field 3, wire type 2 */
     "\x05"                      /*   length = 5 */
     "abcde";                    /*   content */
-const size_t  LENGTH_03 = 24;
-const char  EXPECTED_BUF_03[] = "abcde";
+size_t  LENGTH_03 = 24;
+char  EXPECTED_BUF_03[] = "abcde";
 /* include an extra byte in the expected HWM for the NUL terminator */
-const data_t  EXPECTED_03 =
+data_t  EXPECTED_03 =
 { 300, UINT64_C(5000000000),
   0, INT64_C(0),
   0, INT64_C(0),
   HWM_BUFFER_INIT(EXPECTED_BUF_03, 6) };
 
 
-const uint8_t  DATA_04[] =
+uint8_t  DATA_04[] =
     "\x1a"                      /* field 3, wire type 2 */
     "\x05"                      /*   length = 5 */
     "abcde"                     /*   content */
@@ -225,10 +225,10 @@ const uint8_t  DATA_04[] =
     "\x00"                      /*   value = 0 */
     "\x10"                      /* field 2, wire type 0 */
     "\x80\xe4\x97\xd0\x12";     /*   value = 5,000,000,000 */
-const size_t  LENGTH_04 = 24;
-const char  EXPECTED_BUF_04[] = "abcde";
+size_t  LENGTH_04 = 24;
+char  EXPECTED_BUF_04[] = "abcde";
 /* include an extra byte in the expected HWM for the NUL terminator */
-const data_t  EXPECTED_04 =
+data_t  EXPECTED_04 =
 { 300, UINT64_C(5000000000),
   0, INT64_C(0),
   0, INT64_C(0),

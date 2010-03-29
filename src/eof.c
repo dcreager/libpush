@@ -44,7 +44,7 @@ typedef struct _eof
 static void
 eof_activate(void *user_data,
              void *result,
-             const void *buf,
+             void *buf,
              size_t bytes_remaining)
 {
     eof_t  *eof = (eof_t *) user_data;
@@ -81,7 +81,7 @@ eof_activate(void *user_data,
 
 static void
 eof_continue(void *user_data,
-             const void *buf,
+             void *buf,
              size_t bytes_remaining)
 {
     eof_t  *eof = (eof_t *) user_data;

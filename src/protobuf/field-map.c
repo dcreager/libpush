@@ -207,7 +207,7 @@ typedef struct _verify_tag
 static void
 verify_tag_activate(void *user_data,
                     void *result,
-                    const void *buf,
+                    void *buf,
                     size_t bytes_remaining)
 {
     verify_tag_t  *verify_tag = (verify_tag_t *) user_data;

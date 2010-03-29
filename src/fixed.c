@@ -43,7 +43,7 @@ typedef struct _fixed
 
 static void
 fixed_continue(void *user_data,
-               const void *buf,
+               void *buf,
                size_t bytes_remaining)
 {
     fixed_t  *fixed = (fixed_t *) user_data;
@@ -80,9 +80,9 @@ fixed_continue(void *user_data,
 
 static void
 fixed_activate(void *user_data,
-                 void *result,
-                 const void *buf,
-                 size_t bytes_remaining)
+               void *result,
+               void *buf,
+               size_t bytes_remaining)
 {
     fixed_t  *fixed = (fixed_t *) user_data;
 

@@ -33,8 +33,8 @@ typedef struct _push_parser  push_parser_t;
 
 
 /**
- * Error codes that can be returned by a callback's process_bytes
- * function and the push_parser_submit_data() function.
+ * Error codes that can be passed into a callback's error continuation
+ * and returned by the push_parser_submit_data() function.
  */
 
 typedef enum
@@ -47,7 +47,8 @@ typedef enum
 
     /**
      * Indicates that the parse has succeeded so far, but that there
-     * wasn't enough input to finish parsing.
+     * wasn't enough input to finish parsing, or enough space in the
+     * output to finish serializing.
      */
 
     PUSH_INCOMPLETE = -1,
@@ -60,7 +61,7 @@ typedef enum
 
     /**
      * Indicates that there was a problem allocating memory during
-     * parsing.
+     * parsing or serializing.
      */
 
     PUSH_MEMORY_ERROR = -3,
@@ -70,14 +71,14 @@ typedef enum
 
 /**
  * A success continuation function.  Will be called by a callback when
- * it has successfully read a value.  This includes a pointer to any
- * remaining data that's currently available.
+ * it has successfully read or written a value.  This includes a
+ * pointer to any remaining buffer that's currently available.
  */
 
 typedef void
 push_success_func_t(void *user_data,
                     void *result,
-                    const void *buf,
+                    void *buf,
                     size_t bytes_remaining);
 
 PUSH_DEFINE_CONTINUATION(success);
@@ -85,14 +86,14 @@ PUSH_DEFINE_CONTINUATION(success);
 
 /**
  * A continue continuation function.  Will be called by the parser
- * when more data becomes available.  This function will be called
- * with a NULL buf and 0 bytes_remaining when the end of the stream is
- * reached.
+ * when more buffer becomes available.  When parsing, this function
+ * will be called with a NULL buf and 0 bytes_remaining when the end
+ * of the stream is reached.
  */
 
 typedef void
 push_continue_func_t(void *user_data,
-                     const void *buf,
+                     void *buf,
                      size_t bytes_remaining);
 
 PUSH_DEFINE_CONTINUATION(continue);
@@ -100,9 +101,9 @@ PUSH_DEFINE_CONTINUATION(continue);
 
 /**
  * An incomplete continuation function.  Will be called by a callback
- * when it has exhausted the available data.  It should provide a
+ * when it has exhausted the available buffer.  It should provide a
  * continue continuation that should be used to resume processing when
- * more data becomes available.
+ * more buffer becomes available.
  */
 
 typedef void
@@ -114,11 +115,11 @@ PUSH_DEFINE_CONTINUATION(incomplete);
 
 /**
  * An error continuation function.  Will be called by a callback when
- * it encounters a error while parsing.  This can be a parse error —
- * indicating that the stream contains invalid data — or a fatal error
- * — indicating that some exceptional circumstance occurred that
- * prevents the parse from continuing.  (This might be a failed
- * malloc, for instance.)
+ * it encounters a error while parsing or serializing.  This can be a
+ * parse error — indicating that the stream contains invalid data — or
+ * a fatal error — indicating that some exceptional circumstance
+ * occurred that prevents the parse or serialization from continuing.
+ * (This might be a failed malloc, for instance.)
  */
 
 typedef void
@@ -175,13 +176,13 @@ PUSH_DEFINE_CONTINUATION(set_error);
  * @brief A callback object.
  *
  * This type encapsulates all of the functions that cooperate to
- * implement a parser callback.  The callback must implement an
- * “activation” function that is called to seed the callback with its
- * input value, along with an optional initial chunk of data.  Most
- * callbacks will also implement a “continue” continuation; this
- * continuation is used if the callback exhausts the current chunk of
- * data, and will be used to resume the callback when the next chunk
- * becomes available.
+ * implement a parser or serializer callback.  The callback must
+ * implement an “activation” function that is called to seed the
+ * callback with its input value, along with an optional initial chunk
+ * of data.  Most callbacks will also implement a “continue”
+ * continuation; this continuation is used if the callback exhausts
+ * the current chunk of data, and will be used to resume the callback
+ * when the next chunk becomes available.
  *
  * Most callbacks will also have a “user data” struct, which they can
  * use to store any additional state needed during the execution of
@@ -307,8 +308,8 @@ struct _push_parser
 
     /**
      * The continue continuation that should receive the next chunk of
-     * data.  This will only be set when a callback reaches the end of
-     * an input chunk.
+     * buffer.  This will only be set when a callback reaches the end
+     * of an input or output chunk.
      */
 
     push_continue_continuation_t  *cont;
@@ -322,8 +323,8 @@ struct _push_parser
     push_error_code_t  result_code;
 
     /**
-     * The final result of a successful parse.  This will be set by
-     * the parser's success continuation.
+     * The final result of a successful parse or serialization.  This
+     * will be set by the parser's success continuation.
      */
 
     void  *result;
@@ -338,7 +339,7 @@ struct _push_parser
 
     /**
      * An incomplete continuation that marks which callback should
-     * receive the next chunk of data that becomes available.  This
+     * receive the next chunk of buffer that becomes available.  This
      * will be the incomplete continuation for all of the callbacks in
      * the parser.
      */
@@ -356,7 +357,7 @@ struct _push_parser
 
     /**
      * A continue continuation that will ignore any remaining input.
-     * This will be used after the top-level callback finishes, so
+     * This will be used after a top-level parse callback finishes, so
      * that we can silently ignore any remaining data in the stream.
      */
 
@@ -427,9 +428,10 @@ push_parser_activate(push_parser_t *parser,
 
 
 /**
- * Submit some data to the push parser for processing.  If there is an
- * error during processing, a negative error code (of type
- * push_error_code_t) will be returned.
+ * Submit some data (for parsing) or an empty buffer (for serializing)
+ * to the push parser for processing.  If there is an error during
+ * processing, a negative error code (of type push_error_code_t) will
+ * be returned.
  *
  * @param parser The push parser
  *
@@ -445,13 +447,14 @@ push_parser_activate(push_parser_t *parser,
 
 push_error_code_t
 push_parser_submit_data(push_parser_t *parser,
-                        const void *buf,
+                        void *buf,
                         size_t bytes_available);
 
 
 /**
  * Notify the push parser that there are no more bytes left to
- * process.
+ * process.  This call isn't required for a serializer, since it is up
+ * to the serializer to determine when the output is finished.
  *
  * @param parser The push parser
  *

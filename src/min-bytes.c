@@ -67,7 +67,7 @@ typedef struct _min_bytes
      * leftover_success.
      */
 
-    const void  *leftover_buf;
+    void  *leftover_buf;
 
     /**
      * The size of leftover_buf.
@@ -110,7 +110,7 @@ typedef struct _min_bytes
 
 static void
 min_bytes_first_continue(void *user_data,
-                         const void *buf,
+                         void *buf,
                          size_t bytes_remaining)
 {
     min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
@@ -197,7 +197,7 @@ min_bytes_first_continue(void *user_data,
 static void
 min_bytes_activate(void *user_data,
                    void *result,
-                   const void *buf,
+                   void *buf,
                    size_t bytes_remaining)
 {
     min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
@@ -236,7 +236,7 @@ min_bytes_activate(void *user_data,
 
 static void
 min_bytes_rest_continue(void *user_data,
-                        const void *buf,
+                        void *buf,
                         size_t bytes_remaining)
 {
     min_bytes_t  *min_bytes = (min_bytes_t *) user_data;
@@ -368,7 +368,7 @@ min_bytes_rest_continue(void *user_data,
 static void
 min_bytes_leftover_success(void *user_data,
                            void *result,
-                           const void *buf,
+                           void *buf,
                            size_t bytes_remaining)
 {
     min_bytes_t  *min_bytes = (min_bytes_t *) user_data;

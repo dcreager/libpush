@@ -106,7 +106,7 @@ dispatch_set_error(void *user_data,
 static void
 dispatch_activate(void *user_data,
                   void *result,
-                  const void *buf,
+                  void *buf,
                   size_t bytes_remaining)
 {
     dispatch_t  *dispatch = (dispatch_t *) user_data;

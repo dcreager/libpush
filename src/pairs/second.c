@@ -77,7 +77,7 @@ second_set_error(void *user_data,
 static void
 second_activate(void *user_data,
                 void *result,
-                const void *buf,
+                void *buf,
                 size_t bytes_remaining)
 {
     second_t  *second = (second_t *) user_data;
@@ -109,7 +109,7 @@ second_activate(void *user_data,
 static void
 second_wrapped_success(void *user_data,
                        void *result,
-                       const void *buf,
+                       void *buf,
                        size_t bytes_remaining)
 {
     second_t  *second = (second_t *) user_data;

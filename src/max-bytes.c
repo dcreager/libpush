@@ -90,7 +90,7 @@ typedef struct _max_bytes
      * current chunk would exceed the maximum.
      */
 
-    const void  *leftover_buf;
+    void  *leftover_buf;
 
     /**
      * The size of leftover_buf.
@@ -104,7 +104,7 @@ typedef struct _max_bytes
 static void
 max_bytes_activate(void *user_data,
                    void *result,
-                   const void *buf,
+                   void *buf,
                    size_t bytes_remaining)
 {
     max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
@@ -211,7 +211,7 @@ max_bytes_activate(void *user_data,
 static void
 dynamic_max_bytes_activate(void *user_data,
                            void *result,
-                           const void *buf,
+                           void *buf,
                            size_t bytes_remaining)
 {
     max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
@@ -233,7 +233,7 @@ dynamic_max_bytes_activate(void *user_data,
 
 static void
 max_bytes_cont(void *user_data,
-               const void *buf,
+               void *buf,
                size_t bytes_remaining)
 {
     max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
@@ -370,7 +370,7 @@ max_bytes_wrapped_incomplete(void *user_data,
 static void
 max_bytes_wrapped_success(void *user_data,
                           void *result,
-                          const void *buf,
+                          void *buf,
                           size_t bytes_remaining)
 {
     max_bytes_t  *max_bytes = (max_bytes_t *) user_data;

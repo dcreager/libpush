@@ -144,7 +144,7 @@ data_eq(const data_t *d1, const data_t *d2)
  * Sample data
  */
 
-const uint8_t  DATA_01[] =
+uint8_t  DATA_01[] =
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
     "\x12"                      /* field 2, wire type 2 */
@@ -154,12 +154,12 @@ const uint8_t  DATA_01[] =
     "\x18"                      /*   field 3, wire type 0 */
     "\x07";                     /*     value = 7 */
 
-const size_t  LENGTH_01 = 13;
-const data_t  EXPECTED_01 =
+size_t  LENGTH_01 = 13;
+data_t  EXPECTED_01 =
 { 300, { UINT64_C(5000000000), UINT64_C(7) } };
 
 
-const uint8_t  DATA_02[] =
+uint8_t  DATA_02[] =
     "\x08"                      /* field 1, wire type 0 */
     "\xac\x02"                  /*   value = 300 */
     "\x22"                      /* field 4, wire type 2 */
@@ -174,8 +174,8 @@ const uint8_t  DATA_02[] =
     "\x18"                      /*   field 3, wire type 0 */
     "\x07";                     /*     value = 7 */
 
-const size_t  LENGTH_02 = 24;
-const data_t  EXPECTED_02 =
+size_t  LENGTH_02 = 24;
+data_t  EXPECTED_02 =
 { 300, { UINT64_C(5000000000), UINT64_C(7) } };
 
 

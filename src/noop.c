@@ -33,7 +33,7 @@ typedef struct _noop
 static void
 noop_activate(void *user_data,
               void *result,
-              const void *buf,
+              void *buf,
               size_t bytes_remaining)
 {
     noop_t  *noop = (noop_t *) user_data;

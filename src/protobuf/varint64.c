@@ -63,11 +63,11 @@ typedef struct _varint64
 
 static void
 varint64_rest_continue(void *user_data,
-                       const void *buf,
+                       void *buf,
                        size_t bytes_remaining)
 {
     varint64_t  *varint64 = (varint64_t *) user_data;
-    const uint8_t  *ibuf = (uint8_t *) buf;
+    uint8_t  *ibuf = (uint8_t *) buf;
 
     /*
      * If we don't have any data to process, that's a parse error.
@@ -161,7 +161,7 @@ varint64_rest_continue(void *user_data,
 
 static void
 varint64_first_continue(void *user_data,
-                        const void *buf,
+                        void *buf,
                         size_t bytes_remaining)
 {
     varint64_t  *varint64 = (varint64_t *) user_data;
@@ -202,7 +202,7 @@ varint64_first_continue(void *user_data,
         uint32_t  part1 = 0;
         uint32_t  part2 = 0;
         uint64_t  result;
-        const uint8_t  *ptr = (const uint8_t *) buf;
+        uint8_t  *ptr = (uint8_t *) buf;
         uint8_t  b;
 
         PUSH_DEBUG_MSG("%s: Using fast path\n",
@@ -267,7 +267,7 @@ varint64_first_continue(void *user_data,
 static void
 varint64_activate(void *user_data,
                   void *result,
-                  const void *buf,
+                  void *buf,
                   size_t bytes_remaining)
 {
     varint64_t  *varint64 = (varint64_t *) user_data;

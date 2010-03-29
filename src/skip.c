@@ -50,7 +50,7 @@ typedef struct _skip
 
 static void
 skip_continue(void *user_data,
-              const void *buf,
+              void *buf,
               size_t bytes_remaining)
 {
     skip_t  *skip = (skip_t *) user_data;
@@ -125,7 +125,7 @@ skip_continue(void *user_data,
 static void
 skip_activate(void *user_data,
               void *result,
-              const void *buf,
+              void *buf,
               size_t bytes_remaining)
 {
     skip_t  *skip = (skip_t *) user_data;

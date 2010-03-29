@@ -93,7 +93,7 @@ typedef struct _fold
      * success continuation.
      */
 
-    const void  *first_chunk;
+    void  *first_chunk;
 
     /**
      * The length of first_chunk.
@@ -107,7 +107,7 @@ typedef struct _fold
 static void
 fold_activate(void *user_data,
               void *result,
-              const void *buf,
+              void *buf,
               size_t bytes_remaining)
 {
     fold_t  *fold = (fold_t *) user_data;
@@ -217,7 +217,7 @@ fold_remember_incomplete(void *user_data,
 
 static void
 fold_continue_after_empty(void *user_data,
-                          const void *buf,
+                          void *buf,
                           size_t bytes_remaining)
 {
     fold_t  *fold = (fold_t *) user_data;

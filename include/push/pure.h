@@ -35,7 +35,7 @@
                                                                 \
     static void                                                 \
     new_func##_activate(void *ud, void *vinput,                 \
-                        const void *buf,                        \
+                        void *buf,                              \
                         size_t bytes_remaining)                 \
     {                                                           \
         new_func##_t  *pure = (new_func##_t *) ud;              \
@@ -94,7 +94,7 @@
                                                                 \
     static void                                                 \
     new_func##_activate(void *ud, void *vinput,                 \
-                        const void *buf,                        \
+                        void *buf,                              \
                         size_t bytes_remaining)                 \
     {                                                           \
         new_func##_t  *pure = (new_func##_t *) ud;              \

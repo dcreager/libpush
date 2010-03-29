@@ -54,7 +54,7 @@ typedef struct _hwm_string
 
 static void
 hwm_string_continue(void *user_data,
-                    const void *buf,
+                    void *buf,
                     size_t bytes_remaining)
 {
     hwm_string_t  *hwm_string = (hwm_string_t *) user_data;
@@ -217,7 +217,7 @@ hwm_string_continue(void *user_data,
 static void
 hwm_string_activate(void *user_data,
                     void *result,
-                    const void *buf,
+                    void *buf,
                     size_t bytes_remaining)
 {
     hwm_string_t  *hwm_string = (hwm_string_t *) user_data;

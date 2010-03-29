@@ -19,7 +19,7 @@
 static void
 parser_success(void *user_data,
                void *result,
-               const void *buf,
+               void *buf,
                size_t bytes_remaining)
 {
     push_parser_t  *parser = (push_parser_t *) user_data;
@@ -92,7 +92,7 @@ parser_error(void *user_data,
 
 static void
 parser_ignore(void *user_data,
-              const void *buf,
+              void *buf,
               size_t bytes_remaining)
 {
     /*
@@ -210,7 +210,7 @@ push_parser_activate(push_parser_t *parser,
 
 push_error_code_t
 push_parser_submit_data(push_parser_t *parser,
-                        const void *buf,
+                        void *buf,
                         size_t bytes_available)
 {
     PUSH_DEBUG_MSG("parser: Processing %zu bytes at %p.\n",

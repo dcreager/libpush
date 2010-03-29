@@ -26,24 +26,24 @@
  * Sample data
  */
 
-const uint8_t  DATA_01[] = "\x00";
-const size_t  LENGTH_01 = 1;
-const uint64_t  EXPECTED_01 = 0;
+uint8_t  DATA_01[] = "\x00";
+size_t  LENGTH_01 = 1;
+uint64_t  EXPECTED_01 = 0;
 
-const uint8_t  DATA_02[] = "\x01";
-const size_t  LENGTH_02 = 1;
-const uint64_t  EXPECTED_02 = 1;
+uint8_t  DATA_02[] = "\x01";
+size_t  LENGTH_02 = 1;
+uint64_t  EXPECTED_02 = 1;
 
-const uint8_t  DATA_03[] = "\xac\x02";
-const size_t  LENGTH_03 = 2;
-const uint64_t  EXPECTED_03 = 300;
+uint8_t  DATA_03[] = "\xac\x02";
+size_t  LENGTH_03 = 2;
+uint64_t  EXPECTED_03 = 300;
 
-const uint8_t  DATA_04[] = "\x80\xe4\x97\xd0\x12";
-const size_t  LENGTH_04 = 5;
-const uint64_t  EXPECTED_04 = UINT64_C(5000000000);
+uint8_t  DATA_04[] = "\x80\xe4\x97\xd0\x12";
+size_t  LENGTH_04 = 5;
+uint64_t  EXPECTED_04 = UINT64_C(5000000000);
 
-const uint8_t  DATA_TRASH[] = "\x00\x00\x00\x00\x00\x00";
-const size_t  LENGTH_TRASH = 6;
+uint8_t  DATA_TRASH[] = "\x00\x00\x00\x00\x00\x00";
+size_t  LENGTH_TRASH = 6;
 
 
 /*-----------------------------------------------------------------------

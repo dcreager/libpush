@@ -26,38 +26,38 @@
  * Sample data
  */
 
-const uint8_t  DATA_01[] = "\x00";
-const size_t  LENGTH_01 = 1;
-const uint32_t  EXPECTED_01 = 0;
+uint8_t  DATA_01[] = "\x00";
+size_t  LENGTH_01 = 1;
+uint32_t  EXPECTED_01 = 0;
 
-const uint8_t  DATA_02[] = "\x01";
-const size_t  LENGTH_02 = 1;
-const uint32_t  EXPECTED_02 = 1;
+uint8_t  DATA_02[] = "\x01";
+size_t  LENGTH_02 = 1;
+uint32_t  EXPECTED_02 = 1;
 
-const uint8_t  DATA_03[] = "\xac\x02";
-const size_t  LENGTH_03 = 2;
-const uint32_t  EXPECTED_03 = 300;
+uint8_t  DATA_03[] = "\xac\x02";
+size_t  LENGTH_03 = 2;
+uint32_t  EXPECTED_03 = 300;
 
-const uint8_t  DATA_04[] = "\x80\xe4\x97\xd0\x12";
-const size_t  LENGTH_04 = 5;
+uint8_t  DATA_04[] = "\x80\xe4\x97\xd0\x12";
+size_t  LENGTH_04 = 5;
 /* 5,000,000,000 truncated to 32 bits */
-const uint32_t  EXPECTED_04 = 705032704;
+uint32_t  EXPECTED_04 = 705032704;
 
-const uint8_t  DATA_05[] =
+uint8_t  DATA_05[] =
     "\x8c\xfc\xff\xff\xff"
     "\xff\xff\xff\xff\x01";
-const size_t  LENGTH_05 = 10;
-const uint32_t  EXPECTED_05 = -500;
+size_t  LENGTH_05 = 10;
+uint32_t  EXPECTED_05 = -500;
 
-const uint8_t  DATA_06[] =
+uint8_t  DATA_06[] =
     "\x80\x9c\xe8\xaf\xed"
     "\xff\xff\xff\xff\x01";
-const size_t  LENGTH_06 = 10;
+size_t  LENGTH_06 = 10;
 /* -5,000,000,000 truncated to 32 bits */
-const uint32_t  EXPECTED_06 = -705032704;
+uint32_t  EXPECTED_06 = -705032704;
 
-const uint8_t  DATA_TRASH[] = "\x00\x00\x00\x00\x00\x00";
-const size_t  LENGTH_TRASH = 6;
+uint8_t  DATA_TRASH[] = "\x00\x00\x00\x00\x00\x00";
+size_t  LENGTH_TRASH = 6;
 
 
 /*-----------------------------------------------------------------------

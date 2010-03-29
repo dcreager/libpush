@@ -77,7 +77,7 @@ first_set_error(void *user_data,
 static void
 first_activate(void *user_data,
                void *result,
-               const void *buf,
+               void *buf,
                size_t bytes_remaining)
 {
     first_t  *first = (first_t *) user_data;
@@ -109,7 +109,7 @@ first_activate(void *user_data,
 static void
 first_wrapped_success(void *user_data,
                       void *result,
-                      const void *buf,
+                      void *buf,
                       size_t bytes_remaining)
 {
     first_t  *first = (first_t *) user_data;

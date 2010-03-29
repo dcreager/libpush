@@ -67,11 +67,11 @@ typedef struct _varint32
 
 static void
 varint32_rest_continue(void *user_data,
-                       const void *buf,
+                       void *buf,
                        size_t bytes_remaining)
 {
     varint32_t  *varint32 = (varint32_t *) user_data;
-    const uint8_t  *ibuf = (uint8_t *) buf;
+    uint8_t  *ibuf = (uint8_t *) buf;
 
     /*
      * If we don't have any data to process, that's a parse error.
@@ -180,7 +180,7 @@ varint32_rest_continue(void *user_data,
 
 static void
 varint32_first_continue(void *user_data,
-                        const void *buf,
+                        void *buf,
                         size_t bytes_remaining)
 {
     varint32_t  *varint32 = (varint32_t *) user_data;
@@ -244,7 +244,7 @@ varint32_first_continue(void *user_data,
         (ibuf[bytes_remaining-1] < 0x80))
     {
         uint32_t  result;
-        const uint8_t  *ptr = (const uint8_t *) buf;
+        uint8_t  *ptr = (uint8_t *) buf;
         uint8_t  b;
         int  i;
 
@@ -306,7 +306,7 @@ varint32_first_continue(void *user_data,
 static void
 varint32_activate(void *user_data,
                   void *result,
-                  const void *buf,
+                  void *buf,
                   size_t bytes_remaining)
 {
     varint32_t  *varint32 = (varint32_t *) user_data;

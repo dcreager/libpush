@@ -50,7 +50,7 @@ typedef struct _sum
 
 static void
 sum_continue(void *user_data,
-             const void *buf,
+             void *buf,
              size_t bytes_remaining)
 {
     sum_t  *sum = (sum_t *) user_data;
@@ -67,7 +67,7 @@ sum_continue(void *user_data,
 
         return;
     } else {
-        const uint32_t  *next_integer = (const uint32_t *) buf;
+        uint32_t  *next_integer = (uint32_t *) buf;
         buf += sizeof(uint32_t);
         bytes_remaining -= sizeof(uint32_t);
 
@@ -94,7 +94,7 @@ sum_continue(void *user_data,
 static void
 sum_activate(void *user_data,
              void *result,
-             const void *buf,
+             void *buf,
              size_t bytes_remaining)
 {
     sum_t  *sum = (sum_t *) user_data;
