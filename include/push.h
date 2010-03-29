@@ -13,6 +13,8 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
+#include <push/continuations.h>
+#include <push/debug.h>
 #include <push/pairs.h>
 #include <push/pure.h>
 #include <push/primitives.h>
