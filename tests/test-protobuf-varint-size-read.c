@@ -26,35 +26,38 @@
  * Sample data
  */
 
+
+/**
+ * Return either a 32-bit or 64-bit version of a constant, depending
+ * on how big size_t is.
+ */
+
+#if SIZE_MAX == UINT32_MAX
+#define SIZE_C(s32, s64) (s32)
+
+#elif SIZE_MAX == UINT64_MAX
+#define SIZE_C(s32, s64) (UINT64_C(s64))
+
+#else
+#error "We need size_t to be either 32 or 64 bits."
+#endif
+
 uint8_t  DATA_01[] = "\x00";
 size_t  LENGTH_01 = 1;
-uint32_t  EXPECTED_01 = 0;
+size_t  EXPECTED_01 = 0;
 
 uint8_t  DATA_02[] = "\x01";
 size_t  LENGTH_02 = 1;
-uint32_t  EXPECTED_02 = 1;
+size_t  EXPECTED_02 = 1;
 
 uint8_t  DATA_03[] = "\xac\x02";
 size_t  LENGTH_03 = 2;
-uint32_t  EXPECTED_03 = 300;
+size_t  EXPECTED_03 = 300;
 
 uint8_t  DATA_04[] = "\x80\xe4\x97\xd0\x12";
 size_t  LENGTH_04 = 5;
-/* 5,000,000,000 truncated to 32 bits */
-uint32_t  EXPECTED_04 = 705032704;
-
-uint8_t  DATA_05[] =
-    "\x8c\xfc\xff\xff\xff"
-    "\xff\xff\xff\xff\x01";
-size_t  LENGTH_05 = 10;
-uint32_t  EXPECTED_05 = -500;
-
-uint8_t  DATA_06[] =
-    "\x80\x9c\xe8\xaf\xed"
-    "\xff\xff\xff\xff\x01";
-size_t  LENGTH_06 = 10;
-/* -5,000,000,000 truncated to 32 bits */
-uint32_t  EXPECTED_06 = -705032704;
+/* 705,032,704 == 5,000,000,000 truncated to 32 bits */
+size_t  EXPECTED_04 = SIZE_C(705032704, 5000000000);
 
 uint8_t  DATA_TRASH[] = "\x00\x00\x00\x00\x00\x00";
 size_t  LENGTH_TRASH = 6;
@@ -69,7 +72,7 @@ size_t  LENGTH_TRASH = 6;
     {                                                               \
         push_parser_t  *parser;                                     \
         push_callback_t  *callback;                                 \
-        uint32_t  *result;                                          \
+        size_t  *result;                                            \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_read_"                                 \
@@ -80,8 +83,9 @@ size_t  LENGTH_TRASH = 6;
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        callback = push_protobuf_varint32_new                       \
-            ("varint32", NULL, parser);                             \
+        callback =                                                  \
+            push_protobuf_read_varint_size_new                      \
+            ("varint-size", NULL, parser);                          \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
@@ -100,7 +104,7 @@ size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = push_parser_result(parser, uint32_t);              \
+        result = push_parser_result(parser, size_t);                \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu32              \
@@ -123,7 +127,7 @@ size_t  LENGTH_TRASH = 6;
     {                                                               \
         push_parser_t  *parser;                                     \
         push_callback_t  *callback;                                 \
-        uint32_t  *result;                                          \
+        size_t  *result;                                            \
         size_t  first_chunk_size;                                   \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
@@ -135,8 +139,9 @@ size_t  LENGTH_TRASH = 6;
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        callback = push_protobuf_varint32_new                       \
-            ("varint32", NULL, parser);                             \
+        callback =                                                  \
+            push_protobuf_read_varint_size_new                      \
+            ("varint-size", NULL, parser);                          \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
@@ -164,7 +169,7 @@ size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = push_parser_result(parser, uint32_t);              \
+        result = push_parser_result(parser, size_t);                \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu32              \
@@ -181,7 +186,7 @@ size_t  LENGTH_TRASH = 6;
     {                                                               \
         push_parser_t  *parser;                                     \
         push_callback_t  *callback;                                 \
-        uint32_t  *result;                                          \
+        size_t  *result;                                            \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_read_"                                 \
@@ -192,8 +197,9 @@ size_t  LENGTH_TRASH = 6;
         fail_if(parser == NULL,                                     \
                 "Could not allocate a new push parser");            \
                                                                     \
-        callback = push_protobuf_varint32_new                       \
-            ("varint32", NULL, parser);                             \
+        callback =                                                  \
+            push_protobuf_read_varint_size_new                      \
+            ("varint-size", NULL, parser);                          \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
@@ -218,7 +224,7 @@ size_t  LENGTH_TRASH = 6;
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = push_parser_result(parser, uint32_t);              \
+        result = push_parser_result(parser, size_t);                \
                                                                     \
         fail_unless(*result == EXPECTED_##test_name,                \
                     "Value doesn't match (got %"PRIu32              \
@@ -238,8 +244,6 @@ READ_TEST(01)
 READ_TEST(02)
 READ_TEST(03)
 READ_TEST(04)
-READ_TEST(05)
-READ_TEST(06)
 
 /*
  * Only do the two-part read test for the test cases that have more
@@ -248,15 +252,11 @@ READ_TEST(06)
 
 TWO_PART_READ_TEST(03)
 TWO_PART_READ_TEST(04)
-TWO_PART_READ_TEST(05)
-TWO_PART_READ_TEST(06)
 
 TRASH_TEST(01)
 TRASH_TEST(02)
 TRASH_TEST(03)
 TRASH_TEST(04)
-TRASH_TEST(05)
-TRASH_TEST(06)
 
 START_TEST(test_parse_error_03)
 {
@@ -269,7 +269,8 @@ START_TEST(test_parse_error_03)
     fail_if(parser == NULL,
             "Could not allocate a new push parser");
 
-    callback = push_protobuf_varint32_new("varint32", NULL, parser);
+    callback =
+        push_protobuf_read_varint_size_new("varint-size", NULL, parser);
     fail_if(callback == NULL,
             "Could not allocate a new callback");
 
@@ -300,25 +301,19 @@ END_TEST
 Suite *
 test_suite()
 {
-    Suite  *s = suite_create("protobuf-varint32");
+    Suite  *s = suite_create("protobuf-varint-size-read");
 
-    TCase  *tc = tcase_create("protobuf-varint32");
+    TCase  *tc = tcase_create("protobuf-varint-size-read");
     tcase_add_test(tc, test_read_01);
     tcase_add_test(tc, test_read_02);
     tcase_add_test(tc, test_read_03);
     tcase_add_test(tc, test_read_04);
-    tcase_add_test(tc, test_read_05);
-    tcase_add_test(tc, test_read_06);
     tcase_add_test(tc, test_two_part_read_03);
     tcase_add_test(tc, test_two_part_read_04);
-    tcase_add_test(tc, test_two_part_read_05);
-    tcase_add_test(tc, test_two_part_read_06);
     tcase_add_test(tc, test_trash_01);
     tcase_add_test(tc, test_trash_02);
     tcase_add_test(tc, test_trash_03);
     tcase_add_test(tc, test_trash_04);
-    tcase_add_test(tc, test_trash_05);
-    tcase_add_test(tc, test_trash_06);
     tcase_add_test(tc, test_parse_error_03);
     suite_add_tcase(s, tc);
 

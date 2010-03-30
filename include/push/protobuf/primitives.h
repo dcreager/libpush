@@ -16,6 +16,9 @@
 #include <push/basics.h>
 
 
+/*----------------------------------------------------------------------*/
+/** @section read Parsing callbacks */
+
 /**
  * Create a new callback that reads a length-prefixed Protocol Buffer
  * string into a high-water mark buffer.
@@ -46,9 +49,9 @@ push_protobuf_skip_length_prefixed_new(const char *name,
  */
 
 push_callback_t *
-push_protobuf_varint32_new(const char *name,
-                           void *parent,
-                           push_parser_t *parser);
+push_protobuf_read_varint32_new(const char *name,
+                                void *parent,
+                                push_parser_t *parser);
 
 
 /**
@@ -70,9 +73,36 @@ push_protobuf_varint64_new(const char *name,
  */
 
 push_callback_t *
-push_protobuf_varint_size_new(const char *name,
-                              void *parent,
-                              push_parser_t *parser);
+push_protobuf_read_varint_size_new(const char *name,
+                                   void *parent,
+                                   push_parser_t *parser);
+
+
+/*----------------------------------------------------------------------*/
+/** @section write Serialization callbacks */
+
+/**
+ * Create a new callback for serializing a varint-encoded 32-bit
+ * integer.
+ */
+
+push_callback_t *
+push_protobuf_write_varint32_new(const char *name,
+                                 void *parent,
+                                 push_parser_t *parser,
+                                 size_t offset);
+
+
+/**
+ * Create a new callback for serializing a varint-encoded size_t,
+ * regardless of whether it's 32-bit or 64-bit.
+ */
+
+push_callback_t *
+push_protobuf_write_varint_size_new(const char *name,
+                                    void *parent,
+                                    push_parser_t *parser,
+                                    size_t offset);
 
 
 #endif  /* PUSH_PROTOBUF_PRIMITIVES_H */

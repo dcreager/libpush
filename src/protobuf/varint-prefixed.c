@@ -54,7 +54,7 @@ push_protobuf_varint_prefixed_new(const char *name,
     dup = push_dup_new
         (push_talloc_asprintf(context, "%s.dup", name),
          context, parser);
-    size = push_protobuf_varint_size_new
+    size = push_protobuf_read_varint_size_new
         (push_talloc_asprintf(context, "%s.size", name),
          context, parser);
     first = push_first_new

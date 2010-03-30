@@ -44,7 +44,7 @@ push_protobuf_hwm_string_new(const char *name,
 
     if (name == NULL) name = "pb-hwm-string";
 
-    read_size = push_protobuf_varint_size_new
+    read_size = push_protobuf_read_varint_size_new
         (push_talloc_asprintf(context, "%s.size", name),
          context, parser);
     read = push_hwm_string_new

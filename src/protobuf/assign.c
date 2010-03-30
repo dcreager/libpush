@@ -192,7 +192,7 @@ ASSIGN(const char *message_name,                                        \
 
 
 ADD_FIELD(push_protobuf_assign_uint32,
-          "varint32", push_protobuf_varint32_new,
+          "varint32", push_protobuf_read_varint32_new,
           "uint32", uint32_t, assign_uint32_new,
           PUSH_PROTOBUF_TAG_TYPE_VARINT);
 
@@ -204,7 +204,7 @@ ADD_FIELD(push_protobuf_assign_uint64,
 
 
 ADD_FIELD(push_protobuf_assign_int32,
-          "varint32", push_protobuf_varint32_new,
+          "varint32", push_protobuf_read_varint32_new,
           "int32", int32_t, assign_int32_new,
           PUSH_PROTOBUF_TAG_TYPE_VARINT);
 
@@ -216,7 +216,7 @@ ADD_FIELD(push_protobuf_assign_int64,
 
 
 ADD_FIELD(push_protobuf_assign_sint32,
-          "varint32", push_protobuf_varint32_new,
+          "varint32", push_protobuf_read_varint32_new,
           "int32", int32_t, assign_sint32_new,
           PUSH_PROTOBUF_TAG_TYPE_VARINT);
 

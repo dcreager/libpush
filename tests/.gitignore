@@ -12,6 +12,9 @@ test-sum
 test-protobuf-message
 test-protobuf-skip-length-prefixed
 test-protobuf-submessage
-test-protobuf-varint32
+test-protobuf-varint32-read
 test-protobuf-varint64
-test-protobuf-varint-size
+test-protobuf-varint-size-read
+
+test-protobuf-varint32-write
+test-protobuf-varint-size-write

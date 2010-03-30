@@ -39,7 +39,7 @@ push_protobuf_skip_length_prefixed_new(const char *name,
 
     if (name == NULL) name = "pb-skip-lp";
 
-    read_size = push_protobuf_varint_size_new
+    read_size = push_protobuf_read_varint_size_new
         (push_talloc_asprintf(context, "%s.size", name),
          context, parser);
     skip = push_skip_new

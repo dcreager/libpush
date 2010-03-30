@@ -347,9 +347,9 @@ varint32_activate(void *user_data,
 
 
 push_callback_t *
-push_protobuf_varint32_new(const char *name,
-                           void *parent,
-                           push_parser_t *parser)
+push_protobuf_read_varint32_new(const char *name,
+                                void *parent,
+                                push_parser_t *parser)
 {
     varint32_t  *varint32 = push_talloc(parent, varint32_t);
 
@@ -392,11 +392,11 @@ push_protobuf_varint32_new(const char *name,
 #if SIZE_MAX == UINT32_MAX
 
 push_callback_t *
-push_protobuf_varint_size_new(const char *name,
-                              void *parent,
-                              push_parser_t *parser)
+push_protobuf_read_varint_size_new(const char *name,
+                                   void *parent,
+                                   push_parser_t *parser)
 {
-    return push_protobuf_varint32_new(name, parent, parser);
+    return push_protobuf_read_varint32_new(name, parent, parser);
 }
 
 #endif

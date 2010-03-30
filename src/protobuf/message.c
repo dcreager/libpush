@@ -300,7 +300,7 @@ push_protobuf_message_new(const char *name,
 
     if (name == NULL) name = "message";
 
-    read_field_tag = push_protobuf_varint32_new
+    read_field_tag = push_protobuf_read_varint32_new
         (push_talloc_asprintf(context, "%s.tag", name),
          context, parser);
     dispatch = dispatch_new

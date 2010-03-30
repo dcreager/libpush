@@ -118,4 +118,77 @@ typedef enum _push_protobuf_tag_type
     (((n) >> 1) ^ -((int64_t) (n) & 1))
 
 
+/**
+ * Return the size of the varint encoding of the given integer.
+ */
+
+static inline size_t
+push_protobuf_varint32_size(uint32_t value)
+{
+    if (value < (1 << 7))
+        return 1;
+    else if (value < (1 << 14))
+        return 2;
+    else if (value < (1 << 21))
+        return 3;
+    else if (value < (1 << 28))
+        return 4;
+    else
+        return 5;
+}
+
+
+/**
+ * Return the size of the varint encoding of the given integer.
+ */
+
+static inline size_t
+push_protobuf_varint64_size(uint64_t value)
+{
+    if (value < (1ull << 35))
+    {
+        if (value < (1ull << 7))
+            return 1;
+        else if (value < (1ull << 14))
+            return 2;
+        else if (value < (1ull << 21))
+            return 3;
+        else if (value < (1ull << 28))
+            return 4;
+        else
+            return 5;
+    } else {
+        if (value < (1ull << 42))
+            return 6;
+        else if (value < (1ull << 49))
+            return 7;
+        else if (value < (1ull << 56))
+            return 8;
+        else if (value < (1ull << 63))
+            return 9;
+        else
+            return 10;
+    }
+}
+
+
+/**
+ * Return the size of the varint encoding of the given integer.  This
+ * function assumes that the signed integer would be written as a
+ * protobuf int32, so negative numbers would be sign-extended and
+ * always written using the maximum number of bytes.  To obtain the
+ * integer's length as an sint32, use push_protobuf_varint32_size
+ * along with PUSH_PROTOBUF_ZIGZAG_ENCODE32.
+ */
+
+static inline size_t
+push_protobuf_varint32_size_sign_extended(int32_t value)
+{
+    if (value < 0)
+        return PUSH_PROTOBUF_MAX_VARINT_LENGTH;
+    else
+        return push_protobuf_varint32_size(value);
+}
+
+
 #endif  /* PUSH_PROTOBUF_BASICS_H */
