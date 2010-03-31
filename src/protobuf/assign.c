@@ -198,7 +198,7 @@ ADD_FIELD(push_protobuf_assign_uint32,
 
 
 ADD_FIELD(push_protobuf_assign_uint64,
-          "varint64", push_protobuf_varint64_new,
+          "varint64", push_protobuf_read_varint64_new,
           "uint64", uint64_t, assign_uint64_new,
           PUSH_PROTOBUF_TAG_TYPE_VARINT);
 
@@ -210,7 +210,7 @@ ADD_FIELD(push_protobuf_assign_int32,
 
 
 ADD_FIELD(push_protobuf_assign_int64,
-          "varint64", push_protobuf_varint64_new,
+          "varint64", push_protobuf_read_varint64_new,
           "int64", int64_t, assign_int64_new,
           PUSH_PROTOBUF_TAG_TYPE_VARINT);
 
@@ -222,6 +222,6 @@ ADD_FIELD(push_protobuf_assign_sint32,
 
 
 ADD_FIELD(push_protobuf_assign_sint64,
-          "varint64", push_protobuf_varint64_new,
+          "varint64", push_protobuf_read_varint64_new,
           "int64", int64_t, assign_sint64_new,
           PUSH_PROTOBUF_TAG_TYPE_VARINT);

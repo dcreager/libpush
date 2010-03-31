@@ -308,9 +308,9 @@ varint64_activate(void *user_data,
 
 
 push_callback_t *
-push_protobuf_varint64_new(const char *name,
-                           void *parent,
-                           push_parser_t *parser)
+push_protobuf_read_varint64_new(const char *name,
+                                void *parent,
+                                push_parser_t *parser)
 {
     varint64_t  *varint64 = push_talloc(parent, varint64_t);
 
@@ -357,7 +357,7 @@ push_protobuf_read_varint_size_new(const char *name,
                                    void *parent,
                                    push_parser_t *parser)
 {
-    return push_protobuf_varint64_new(name, parent, parser);
+    return push_protobuf_read_varint64_new(name, parent, parser);
 }
 
 #endif

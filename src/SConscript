@@ -33,7 +33,8 @@ libpush_files = map(File, \
      "protobuf/submessage.c",
      "protobuf/varint32-read.c",
      "protobuf/varint32-write.c",
-     "protobuf/varint64.c",
+     "protobuf/varint64-read.c",
+     "protobuf/varint64-write.c",
      "protobuf/varint-prefixed.c",
     ])
 

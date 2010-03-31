@@ -65,10 +65,11 @@ add_test("test-protobuf-message")
 add_test("test-protobuf-skip-length-prefixed")
 add_test("test-protobuf-submessage")
 add_test("test-protobuf-varint32-read")
-add_test("test-protobuf-varint64")
+add_test("test-protobuf-varint64-read")
 add_test("test-protobuf-varint-size-read")
 
 add_test("test-protobuf-varint32-write")
+add_test("test-protobuf-varint64-write")
 add_test("test-protobuf-varint-size-write")
 
 

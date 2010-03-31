@@ -61,9 +61,9 @@ push_protobuf_read_varint32_new(const char *name,
  */
 
 push_callback_t *
-push_protobuf_varint64_new(const char *name,
-                           void *parent,
-                           push_parser_t *parser);
+push_protobuf_read_varint64_new(const char *name,
+                                void *parent,
+                                push_parser_t *parser);
 
 
 /**
@@ -92,6 +92,17 @@ push_protobuf_write_varint32_new(const char *name,
                                  push_parser_t *parser,
                                  size_t offset);
 
+
+/**
+ * Create a new callback for serializing a varint-encoded 64-bit
+ * integer.
+ */
+
+push_callback_t *
+push_protobuf_write_varint64_new(const char *name,
+                                 void *parent,
+                                 push_parser_t *parser,
+                                 size_t offset);
 
 /**
  * Create a new callback for serializing a varint-encoded size_t,
