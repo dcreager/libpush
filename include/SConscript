@@ -23,11 +23,11 @@ push_h_files = map(File, \
      "push/basics.h",
      "push/combinators.h",
      "push/config.h",
-     "push/pairs.h",
      "push/pure.h",
      "push/primitives.h",
      "push/protobuf.h",
      "push/talloc.h",
+     "push/tuples.h",
      "push/typesafe_cb.h",
     ])
 

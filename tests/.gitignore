@@ -5,9 +5,9 @@ test-hwm
 test-indexed-sum
 test-int
 test-noop
-test-pairs
 test-skip
 test-sum
+test-tuples
 
 test-protobuf-message
 test-protobuf-skip-length-prefixed

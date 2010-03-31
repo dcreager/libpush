@@ -10,53 +10,27 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
-#include <push/pairs.h>
-#include <push/pure.h>
-#include <push/primitives.h>
 #include <push/talloc.h>
-
-
-static bool
-duplicate(push_pair_t *result, void *input, void **output)
-{
-    result->first = input;
-    result->second = input;
-
-    *output = result;
-    return true;
-}
-
-
-push_define_pure_data_callback(dup_new, duplicate, "dup",
-                               void, void, push_pair_t);
+#include <push/tuples.h>
 
 
 push_callback_t *
-push_dup_new(const char *name,
+push_par_new(const char *name,
              void *parent,
-             push_parser_t *parser)
+             push_parser_t *parser,
+             push_callback_t *a,
+             push_callback_t *b)
 {
-    return dup_new(name, parent, parser, NULL);
-}
+    /*
+     * For now, we just implement this using the definition from
+     * Hughes's paper:
+     *
+     *   a *** b = first a >>> second b
+     */
 
-
-/*
- * For now, we just implement the “both” combinator using the
- * definition from Hughes's paper:
- *
- *   a &&& b = arr (\a -> (a,a)) >>> (a *** b)
- */
-
-push_callback_t *
-push_both_new(const char *name,
-              void *parent,
-              push_parser_t *parser,
-              push_callback_t *a,
-              push_callback_t *b)
-{
     void  *context;
-    push_callback_t  *dup;
-    push_callback_t  *par;
+    push_callback_t  *first;
+    push_callback_t  *second;
     push_callback_t  *callback;
 
     /*
@@ -77,17 +51,17 @@ push_both_new(const char *name,
      * Create the callbacks.
      */
 
-    if (name == NULL) name = "both";
+    if (name == NULL) name = "par";
 
-    dup = push_dup_new
-        (push_talloc_asprintf(context, "%s.dup", name),
-         context, parser);
-    par = push_par_new
-        (push_talloc_asprintf(context, "%s.par", name),
-         context, parser, a, b);
+    first = push_first_new
+        (push_talloc_asprintf(context, "%s.first", name),
+         context, parser, a);
+    second = push_second_new
+        (push_talloc_asprintf(context, "%s.second", name),
+         context, parser, b);
     callback = push_compose_new
         (push_talloc_asprintf(context, "%s.compose", name),
-         context, parser, dup, par);
+         context, parser, first, second);
 
     /*
      * Because of NULL propagation, we only have to check the last
