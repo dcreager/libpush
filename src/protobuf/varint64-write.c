@@ -38,18 +38,10 @@ typedef struct _varint64
     push_continue_continuation_t  cont;
 
     /**
-     * The source pointer.
+     * The original integer.
      */
 
-    void  *src;
-
-    /**
-     * The location within src of the integer to encode.  This is
-     * hard-coded when the callback is created, while src is provided
-     * as the input each time the callback is run.
-     */
-
-    size_t  offset;
+    uint64_t  *src;
 
     /**
      * A buffer that stores the encoded value.  This isn't always
@@ -248,11 +240,9 @@ varint64_activate(void *user_data,
                    bytes_remaining);
 
     /*
-     * Initialize the fields that store the current value.
+     * Our input is the integer that we should write out.
      */
 
-    varint64->src = result;
-    result += varint64->offset;
     value = (uint64_t *) result;
 
     /*
@@ -276,7 +266,7 @@ varint64_activate(void *user_data,
                        encoded_length);
 
         push_continuation_call(varint64->callback.success,
-                               varint64->src,
+                               value,
                                buf, bytes_remaining);
 
         return;
@@ -289,6 +279,7 @@ varint64_activate(void *user_data,
     PUSH_DEBUG_MSG("%s: Encoding into temporary buffer.\n",
                    push_talloc_get_name(varint64));
 
+    varint64->src = value;
     varint64->encoded_length =
         varint64_fast_write(varint64->encoded, *value);
     varint64->bytes_written = 0;
@@ -324,8 +315,7 @@ varint64_activate(void *user_data,
 push_callback_t *
 push_protobuf_write_varint64_new(const char *name,
                                  void *parent,
-                                 push_parser_t *parser,
-                                 size_t offset)
+                                 push_parser_t *parser)
 {
     varint64_t  *varint64 = push_talloc(parent, varint64_t);
 
@@ -342,8 +332,6 @@ push_protobuf_write_varint64_new(const char *name,
     push_callback_init(&varint64->callback, parser, varint64,
                        varint64_activate,
                        NULL, NULL, NULL);
-
-    varint64->offset = offset;
 
     /*
      * Fill in the continuation objects for the continuations that we
@@ -368,11 +356,9 @@ push_protobuf_write_varint64_new(const char *name,
 push_callback_t *
 push_protobuf_write_varint_size_new(const char *name,
                                     void *parent,
-                                    push_parser_t *parser,
-                                    size_t offset)
+                                    push_parser_t *parser)
 {
-    return push_protobuf_write_varint64_new(name, parent, parser,
-                                            offset);
+    return push_protobuf_write_varint64_new(name, parent, parser);
 }
 
 #endif

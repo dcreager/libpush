@@ -38,18 +38,10 @@ typedef struct _varint32
     push_continue_continuation_t  cont;
 
     /**
-     * The source pointer.
+     * The original integer.
      */
 
-    void  *src;
-
-    /**
-     * The location within src of the integer to encode.  This is
-     * hard-coded when the callback is created, while src is provided
-     * as the input each time the callback is run.
-     */
-
-    size_t  offset;
+    uint32_t  *src;
 
     /**
      * A buffer that stores the encoded value.  This isn't always
@@ -196,11 +188,9 @@ varint32_activate(void *user_data,
                    bytes_remaining);
 
     /*
-     * Initialize the fields that store the current value.
+     * Our input is the integer that we should write out.
      */
 
-    varint32->src = result;
-    result += varint32->offset;
     value = (uint32_t *) result;
 
     /*
@@ -224,7 +214,7 @@ varint32_activate(void *user_data,
                        encoded_length);
 
         push_continuation_call(varint32->callback.success,
-                               varint32->src,
+                               value,
                                buf, bytes_remaining);
 
         return;
@@ -237,6 +227,7 @@ varint32_activate(void *user_data,
     PUSH_DEBUG_MSG("%s: Encoding into temporary buffer.\n",
                    push_talloc_get_name(varint32));
 
+    varint32->src = value;
     varint32->encoded_length =
         varint32_fast_write(varint32->encoded, *value);
     varint32->bytes_written = 0;
@@ -272,8 +263,7 @@ varint32_activate(void *user_data,
 push_callback_t *
 push_protobuf_write_varint32_new(const char *name,
                                  void *parent,
-                                 push_parser_t *parser,
-                                 size_t offset)
+                                 push_parser_t *parser)
 {
     varint32_t  *varint32 = push_talloc(parent, varint32_t);
 
@@ -290,8 +280,6 @@ push_protobuf_write_varint32_new(const char *name,
     push_callback_init(&varint32->callback, parser, varint32,
                        varint32_activate,
                        NULL, NULL, NULL);
-
-    varint32->offset = offset;
 
     /*
      * Fill in the continuation objects for the continuations that we
@@ -316,11 +304,9 @@ push_protobuf_write_varint32_new(const char *name,
 push_callback_t *
 push_protobuf_write_varint_size_new(const char *name,
                                     void *parent,
-                                    push_parser_t *parser,
-                                    size_t offset)
+                                    push_parser_t *parser)
 {
-    return push_protobuf_write_varint32_new(name, parent, parser,
-                                            offset);
+    return push_protobuf_write_varint32_new(name, parent, parser);
 }
 
 #endif

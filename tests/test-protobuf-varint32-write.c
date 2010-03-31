@@ -76,7 +76,7 @@ uint8_t  EXPECTED_06[] =
                 "Could not allocate a new push parser");            \
                                                                     \
         callback = push_protobuf_write_varint32_new                 \
-            ("varint32", NULL, parser, 0);                          \
+            ("varint32", NULL, parser);                             \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
@@ -148,7 +148,7 @@ uint8_t  EXPECTED_06[] =
                 "Could not allocate a new push parser");            \
                                                                     \
         callback = push_protobuf_write_varint32_new                 \
-            ("varint32", NULL, parser, 0);                          \
+            ("varint32", NULL, parser);                             \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new callback");               \
                                                                     \
