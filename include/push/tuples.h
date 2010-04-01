@@ -17,24 +17,60 @@
 
 
 /**
- * Stores a pair of values.
+ * Stores a tuple of values.  Tuples do not grow after they have been
+ * created.
  */
 
-typedef struct _push_pair
+typedef struct _push_tuple
 {
     /**
-     * The first element of the pair.
+     * The number of elements in the tuple.
      */
 
-    void  *first;
+    size_t  size;
 
     /**
-     * The second element of the pair.
+     * The elements of the tuple.
      */
 
-    void  *second;
+    void  *elements[];
 
-} push_pair_t;
+} push_tuple_t;
+
+
+#define PUSH_TUPLE_INIT(sz, ...) { sz, { __VA_ARGS__ } }
+
+
+/**
+ * Allocate a new tuple with the specified number of elements.  Each
+ * element starts off NULL.
+ */
+
+push_tuple_t *
+push_tuple_new(void *parent, size_t size);
+
+
+/**
+ * Free a tuple.
+ */
+
+void
+push_tuple_free(push_tuple_t *tuple);
+
+
+/**
+ * Create a new callback that takes a tuple as input, and applies
+ * another callback to the nth element of the pair.  The other
+ * elements are left unchanged.
+ */
+
+push_callback_t *
+push_nth_new(const char *name,
+             void *parent,
+             push_parser_t *parser,
+             push_callback_t *wrapped,
+             size_t n,
+             size_t tuple_size);
 
 
 /**
@@ -78,7 +114,8 @@ push_second_new(const char *name,
 push_callback_t *
 push_dup_new(const char *name,
              void *parent,
-             push_parser_t *parser);
+             push_parser_t *parser,
+             size_t tuple_size);
 
 
 /**

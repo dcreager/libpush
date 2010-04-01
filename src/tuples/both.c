@@ -17,26 +17,36 @@
 
 
 static bool
-duplicate(push_pair_t *result, void *input, void **output)
+duplicate(push_tuple_t *result, void *input, void **output)
 {
-    result->first = input;
-    result->second = input;
+    size_t  i;
+
+    for (i = 0; i < result->size; i++)
+    {
+        result->elements[i] = input;
+    }
 
     *output = result;
     return true;
 }
 
 
-push_define_pure_data_callback(dup_new, duplicate, "dup",
-                               void, void, push_pair_t);
+push_define_pure_callback(dup_new, duplicate, "dup",
+                          void, void, push_tuple_t);
 
 
 push_callback_t *
 push_dup_new(const char *name,
              void *parent,
-             push_parser_t *parser)
+             push_parser_t *parser,
+             size_t tuple_size)
 {
-    return dup_new(name, parent, parser, NULL);
+    push_tuple_t  *output;
+
+    output = push_tuple_new(parent, tuple_size);
+    if (output == NULL) return NULL;
+
+    return dup_new(name, parent, parser, output);
 }
 
 
@@ -81,7 +91,7 @@ push_both_new(const char *name,
 
     dup = push_dup_new
         (push_talloc_asprintf(context, "%s.dup", name),
-         context, parser);
+         context, parser, 2);
     par = push_par_new
         (push_talloc_asprintf(context, "%s.par", name),
          context, parser, a, b);

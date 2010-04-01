@@ -64,19 +64,25 @@ inc_callback_new(const char *name,
  */
 
 static bool
-int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
+int_tuple_eq(push_tuple_t *tuple1, push_tuple_t *tuple2)
 {
-    int  *first1 = (int *) pair1->first;
-    int  *second1 = (int *) pair1->second;
+    size_t  i;
 
-    int  *first2 = (int *) pair2->first;
-    int  *second2 = (int *) pair2->second;
+    if (tuple1->size != tuple2->size)
+        return false;
 
-    return (*first1 == *first2) && (*second1 == *second2);
+    for (i = 0; i < tuple1->size; i++)
+    {
+        int  *value1 = (int *) tuple1->elements[i];
+        int  *value2 = (int *) tuple1->elements[i];
+
+        if (*value1 != *value2) return false;
+    }
+
+    return true;
 }
 
-#define INT_FIRST(pair)  (*((int *) (pair)->first))
-#define INT_SECOND(pair) (*((int *) (pair)->second))
+#define INT_NTH(tuple, n)  (*((int *) (tuple)->elements[n]))
 
 
 #define FIRST_TEST(test_name)                                       \
@@ -85,7 +91,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         push_parser_t  *parser;                                     \
         push_callback_t  *inc;                                      \
         push_callback_t  *callback;                                 \
-        push_pair_t  *result;                                       \
+        push_tuple_t  *result;                                      \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_first_"                                \
@@ -114,15 +120,15 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = push_parser_result(parser, push_pair_t);           \
+        result = push_parser_result(parser, push_tuple_t);          \
                                                                     \
-        fail_unless(int_pair_eq(result,                             \
-                                &FIRST_EXPECTED_##test_name),       \
+        fail_unless(int_tuple_eq                                    \
+                    (result, &FIRST_EXPECTED_##test_name),          \
                     "Value doesn't match (got (%d,%d)"              \
                     ", expected (%d,%d))",                          \
-                    INT_FIRST(result), INT_SECOND(result),          \
-                    INT_FIRST(&FIRST_EXPECTED_##test_name),         \
-                    INT_SECOND(&FIRST_EXPECTED_##test_name));       \
+                    INT_NTH(result, 0), INT_NTH(result, 1),         \
+                    INT_NTH(&FIRST_EXPECTED_##test_name, 0),        \
+                    INT_NTH(&FIRST_EXPECTED_##test_name, 1));       \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \
@@ -135,7 +141,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         push_parser_t  *parser;                                     \
         push_callback_t  *inc;                                      \
         push_callback_t  *callback;                                 \
-        push_pair_t  *result;                                       \
+        push_tuple_t  *result;                                      \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_second_"                               \
@@ -164,15 +170,68 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = push_parser_result(parser, push_pair_t);           \
+        result = push_parser_result(parser, push_tuple_t);          \
                                                                     \
-        fail_unless(int_pair_eq(result,                             \
-                                &SECOND_EXPECTED_##test_name),      \
+        fail_unless(int_tuple_eq                                    \
+                    (result, &SECOND_EXPECTED_##test_name),         \
                     "Value doesn't match (got (%d,%d)"              \
                     ", expected (%d,%d))",                          \
-                    INT_FIRST(result), INT_SECOND(result),          \
-                    INT_FIRST(&SECOND_EXPECTED_##test_name),        \
-                    INT_SECOND(&SECOND_EXPECTED_##test_name));      \
+                    INT_NTH(result, 0), INT_NTH(result, 1),         \
+                    INT_NTH(&SECOND_EXPECTED_##test_name, 0),       \
+                    INT_NTH(&SECOND_EXPECTED_##test_name, 1));      \
+                                                                    \
+        push_parser_free(parser);                                   \
+    }                                                               \
+    END_TEST
+
+
+#define THIRD_TEST(test_name)                                       \
+    START_TEST(test_third_##test_name)                              \
+    {                                                               \
+        push_parser_t  *parser;                                     \
+        push_callback_t  *inc;                                      \
+        push_callback_t  *callback;                                 \
+        push_tuple_t  *result;                                      \
+                                                                    \
+        PUSH_DEBUG_MSG("---\nStarting test case "                   \
+                       "test_third_"                                \
+                       #test_name                                   \
+                       "\n");                                       \
+                                                                    \
+        parser = push_parser_new();                                 \
+        fail_if(parser == NULL,                                     \
+                "Could not allocate a new push parser");            \
+                                                                    \
+        inc = inc_callback_new(NULL, NULL, parser);                 \
+        fail_if(inc == NULL,                                        \
+                "Could not allocate a new increment callback");     \
+                                                                    \
+        callback = push_nth_new(NULL, NULL, parser, inc, 2, 3);     \
+        fail_if(callback == NULL,                                   \
+                "Could not allocate a new third callback");         \
+                                                                    \
+        push_parser_set_callback(parser, callback);                 \
+                                                                    \
+        fail_unless(push_parser_activate                            \
+                    (parser,                                        \
+                     &THIRD_DATA_##test_name) == PUSH_SUCCESS,      \
+                    "Could not activate");                          \
+                                                                    \
+        fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
+                    "Shouldn't get parse error at EOF");            \
+                                                                    \
+        result = push_parser_result(parser, push_tuple_t);          \
+                                                                    \
+        fail_unless(int_tuple_eq                                    \
+                    (result, &THIRD_EXPECTED_##test_name),          \
+                    "Value doesn't match (got (%d,%d,%d)"           \
+                    ", expected (%d,%d,%d))",                       \
+                    INT_NTH(result, 0),                             \
+                    INT_NTH(result, 1),                             \
+                    INT_NTH(result, 2),                             \
+                    INT_NTH(&THIRD_EXPECTED_##test_name, 0),        \
+                    INT_NTH(&THIRD_EXPECTED_##test_name, 1),        \
+                    INT_NTH(&THIRD_EXPECTED_##test_name, 2));       \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \
@@ -186,7 +245,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         push_callback_t  *inc1;                                     \
         push_callback_t  *inc2;                                     \
         push_callback_t  *callback;                                 \
-        push_pair_t  *result;                                       \
+        push_tuple_t  *result;                                      \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_par_"                                  \
@@ -219,15 +278,15 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = push_parser_result(parser, push_pair_t);           \
+        result = push_parser_result(parser, push_tuple_t);          \
                                                                     \
-        fail_unless(int_pair_eq(result,                             \
-                                &PAR_EXPECTED_##test_name),         \
+        fail_unless(int_tuple_eq                                    \
+                    (result, &PAR_EXPECTED_##test_name),            \
                     "Value doesn't match (got (%d,%d)"              \
                     ", expected (%d,%d))",                          \
-                    INT_FIRST(result), INT_SECOND(result),          \
-                    INT_FIRST(&PAR_EXPECTED_##test_name),           \
-                    INT_SECOND(&PAR_EXPECTED_##test_name));         \
+                    INT_NTH(result, 0), INT_NTH(result, 1),         \
+                    INT_NTH(&PAR_EXPECTED_##test_name, 0),          \
+                    INT_NTH(&PAR_EXPECTED_##test_name, 1));         \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \
@@ -241,7 +300,7 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         push_callback_t  *inc1;                                     \
         push_callback_t  *inc2;                                     \
         push_callback_t  *callback;                                 \
-        push_pair_t  *result;                                       \
+        push_tuple_t  *result;                                      \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_both_"                                 \
@@ -274,15 +333,15 @@ int_pair_eq(push_pair_t *pair1, push_pair_t *pair2)
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
                     "Shouldn't get parse error at EOF");            \
                                                                     \
-        result = push_parser_result(parser, push_pair_t);           \
+        result = push_parser_result(parser, push_tuple_t);          \
                                                                     \
-        fail_unless(int_pair_eq(result,                             \
-                                &BOTH_EXPECTED_##test_name),        \
+        fail_unless(int_tuple_eq                                    \
+                    (result, &BOTH_EXPECTED_##test_name),           \
                     "Value doesn't match (got (%d,%d)"              \
                     ", expected (%d,%d))",                          \
-                    INT_FIRST(result), INT_SECOND(result),          \
-                    INT_FIRST(&BOTH_EXPECTED_##test_name),          \
-                    INT_SECOND(&BOTH_EXPECTED_##test_name));        \
+                    INT_NTH(result, 0), INT_NTH(result, 1),         \
+                    INT_NTH(&BOTH_EXPECTED_##test_name, 0),         \
+                    INT_NTH(&BOTH_EXPECTED_##test_name, 1));        \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \
@@ -297,29 +356,53 @@ int  INT_0 = 0;
 int  INT_1 = 1;
 int  INT_2 = 2;
 
-push_pair_t  FIRST_DATA_01 = { &INT_1, &INT_2 };
-push_pair_t  FIRST_EXPECTED_01 = { &INT_2, &INT_2 };
+push_tuple_t  FIRST_DATA_01 =
+    PUSH_TUPLE_INIT(2, &INT_1, &INT_2);
+push_tuple_t  FIRST_EXPECTED_01 =
+    PUSH_TUPLE_INIT(2, &INT_2, &INT_2);
 
-push_pair_t  FIRST_DATA_02 = { &INT_1, &INT_1 };
-push_pair_t  FIRST_EXPECTED_02 = { &INT_2, &INT_1 };
+push_tuple_t  FIRST_DATA_02 =
+    PUSH_TUPLE_INIT(2, &INT_1, &INT_1);
+push_tuple_t  FIRST_EXPECTED_02 =
+    PUSH_TUPLE_INIT(2, &INT_2, &INT_1);
 
-push_pair_t  SECOND_DATA_01 = { &INT_2, &INT_1 };
-push_pair_t  SECOND_EXPECTED_01 = { &INT_2, &INT_2 };
+push_tuple_t  SECOND_DATA_01 =
+    PUSH_TUPLE_INIT(2, &INT_2, &INT_1);
+push_tuple_t  SECOND_EXPECTED_01 =
+    PUSH_TUPLE_INIT(2, &INT_2, &INT_2);
 
-push_pair_t  SECOND_DATA_02 = { &INT_1, &INT_1 };
-push_pair_t  SECOND_EXPECTED_02 = { &INT_1, &INT_2 };
+push_tuple_t  SECOND_DATA_02 =
+    PUSH_TUPLE_INIT(2, &INT_1, &INT_1);
+push_tuple_t  SECOND_EXPECTED_02 =
+    PUSH_TUPLE_INIT(2, &INT_1, &INT_2);
 
-push_pair_t  PAR_DATA_01 = { &INT_0, &INT_1 };
-push_pair_t  PAR_EXPECTED_01 = { &INT_1, &INT_2 };
+push_tuple_t  THIRD_DATA_01 =
+    PUSH_TUPLE_INIT(3, &INT_2, &INT_1, &INT_1);
+push_tuple_t  THIRD_EXPECTED_01 =
+    PUSH_TUPLE_INIT(3, &INT_2, &INT_2, &INT_1);
 
-push_pair_t  PAR_DATA_02 = { &INT_1, &INT_1 };
-push_pair_t  PAR_EXPECTED_02 = { &INT_2, &INT_2 };
+push_tuple_t  THIRD_DATA_02 =
+    PUSH_TUPLE_INIT(3, &INT_1, &INT_1, &INT_2);
+push_tuple_t  THIRD_EXPECTED_02 =
+    PUSH_TUPLE_INIT(3, &INT_1, &INT_2, &INT_2);
+
+push_tuple_t  PAR_DATA_01 =
+    PUSH_TUPLE_INIT(2, &INT_0, &INT_1);
+push_tuple_t  PAR_EXPECTED_01 =
+    PUSH_TUPLE_INIT(2, &INT_1, &INT_2);
+
+push_tuple_t  PAR_DATA_02 =
+    PUSH_TUPLE_INIT(2, &INT_1, &INT_1);
+push_tuple_t  PAR_EXPECTED_02 =
+    PUSH_TUPLE_INIT(2, &INT_2, &INT_2);
 
 int  BOTH_DATA_01 = 0;
-push_pair_t  BOTH_EXPECTED_01 = { &INT_1, &INT_1 };
+push_tuple_t  BOTH_EXPECTED_01 =
+    PUSH_TUPLE_INIT(2, &INT_1, &INT_1);
 
 int  BOTH_DATA_02 = 1;
-push_pair_t  BOTH_EXPECTED_02 = { &INT_2, &INT_2 };
+push_tuple_t  BOTH_EXPECTED_02 =
+    PUSH_TUPLE_INIT(2, &INT_2, &INT_2);
 
 
 /*-----------------------------------------------------------------------
@@ -331,6 +414,9 @@ FIRST_TEST(02)
 
 SECOND_TEST(01)
 SECOND_TEST(02)
+
+THIRD_TEST(01)
+THIRD_TEST(02)
 
 PAR_TEST(01)
 PAR_TEST(02)
@@ -346,13 +432,15 @@ BOTH_TEST(02)
 Suite *
 test_suite()
 {
-    Suite  *s = suite_create("pairs");
+    Suite  *s = suite_create("tuples");
 
-    TCase  *tc = tcase_create("pairs");
+    TCase  *tc = tcase_create("tuples");
     tcase_add_test(tc, test_first_01);
     tcase_add_test(tc, test_first_02);
     tcase_add_test(tc, test_second_01);
     tcase_add_test(tc, test_second_02);
+    tcase_add_test(tc, test_third_01);
+    tcase_add_test(tc, test_third_02);
     tcase_add_test(tc, test_par_01);
     tcase_add_test(tc, test_par_02);
     tcase_add_test(tc, test_both_01);

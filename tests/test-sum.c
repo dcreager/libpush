@@ -89,10 +89,12 @@ make_repeated_max_sum(push_parser_t *parser)
 uint32_t  INT_0 = 0;
 
 size_t  MAX_SIZE_01 = sizeof(uint32_t) * 3;
-push_pair_t  MAX_INPUT_01 = { &MAX_SIZE_01, &INT_0 };
+push_tuple_t  MAX_INPUT_01 =
+    PUSH_TUPLE_INIT(2, &MAX_SIZE_01, &INT_0);
 
 size_t  MAX_SIZE_02 = sizeof(uint32_t) * 2;
-push_pair_t  MAX_INPUT_02 = { &MAX_SIZE_02, &INT_0 };
+push_tuple_t  MAX_INPUT_02 =
+    PUSH_TUPLE_INIT(2, &MAX_SIZE_02, &INT_0);
 
 const uint32_t  DATA_01[] = { 1, 2, 3, 4, 5 };
 const size_t  LENGTH_01 = 5 * sizeof(uint32_t);
@@ -346,7 +348,7 @@ START_TEST(test_max_02)
     push_callback_t  *max1;
     push_callback_t  *max2;
     push_callback_t  *callback;
-    push_pair_t  *pair;
+    push_tuple_t  *tuple;
     uint32_t  *result1;
     uint32_t  *result2;
 
@@ -395,9 +397,9 @@ START_TEST(test_max_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    pair = push_parser_result(parser, push_pair_t);
-    result1 = (uint32_t *) pair->first;
-    result2 = (uint32_t *) pair->second;
+    tuple = push_parser_result(parser, push_tuple_t);
+    result1 = (uint32_t *) tuple->elements[0];
+    result2 = (uint32_t *) tuple->elements[1];
 
     fail_unless(*result1 == 3,
                 "Sum doesn't match (got %"PRIu32
@@ -640,7 +642,7 @@ START_TEST(test_dynamic_max_02)
     push_callback_t  *max1;
     push_callback_t  *max2;
     push_callback_t  *callback;
-    push_pair_t  *pair;
+    push_tuple_t  *tuple;
     uint32_t  *result1;
     uint32_t  *result2;
 
@@ -689,9 +691,9 @@ START_TEST(test_dynamic_max_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    pair = push_parser_result(parser, push_pair_t);
-    result1 = (uint32_t *) pair->first;
-    result2 = (uint32_t *) pair->second;
+    tuple = push_parser_result(parser, push_tuple_t);
+    result1 = (uint32_t *) tuple->elements[0];
+    result2 = (uint32_t *) tuple->elements[1];
 
     fail_unless(*result1 == 3,
                 "Sum doesn't match (got %"PRIu32
