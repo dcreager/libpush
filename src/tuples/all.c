@@ -58,24 +58,16 @@ push_dup_new(const char *name,
  */
 
 push_callback_t *
-push_both_new(const char *name,
-              void *parent,
-              push_parser_t *parser,
-              push_callback_t *a,
-              push_callback_t *b)
+push_all_new(const char *name,
+             void *parent,
+             push_parser_t *parser,
+             size_t tuple_size,
+             push_callback_t **callbacks)
 {
     void  *context;
     push_callback_t  *dup;
-    push_callback_t  *par_args[2];
     push_callback_t  *par;
     push_callback_t  *callback;
-
-    /*
-     * If either wrapped callback is NULL, return NULL ourselves.
-     */
-
-    if ((a == NULL) || (b == NULL))
-        return NULL;
 
     /*
      * Create a memory context for the objects we're about to create.
@@ -92,12 +84,10 @@ push_both_new(const char *name,
 
     dup = push_dup_new
         (push_talloc_asprintf(context, "%s.dup", name),
-         context, parser, 2);
-    par_args[0] = a;
-    par_args[1] = b;
+         context, parser, tuple_size);
     par = push_par_new
         (push_talloc_asprintf(context, "%s.par", name),
-         context, parser, 2, par_args);
+         context, parser, tuple_size, callbacks);
     callback = push_compose_new
         (push_talloc_asprintf(context, "%s.compose", name),
          context, parser, dup, par);

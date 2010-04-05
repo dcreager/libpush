@@ -296,17 +296,18 @@ int_tuple_eq(push_tuple_t *tuple1, push_tuple_t *tuple2)
     END_TEST
 
 
-#define BOTH_TEST(test_name)                                        \
-    START_TEST(test_both_##test_name)                               \
+#define ALL_TEST(test_name)                                         \
+    START_TEST(test_all_##test_name)                                \
     {                                                               \
         push_parser_t  *parser;                                     \
         push_callback_t  *inc1;                                     \
         push_callback_t  *inc2;                                     \
+        push_callback_t  *all_args[2];                              \
         push_callback_t  *callback;                                 \
         push_tuple_t  *result;                                      \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
-                       "test_both_"                                 \
+                       "test_all_"                                  \
                        #test_name                                   \
                        "\n");                                       \
                                                                     \
@@ -322,15 +323,17 @@ int_tuple_eq(push_tuple_t *tuple1, push_tuple_t *tuple2)
         fail_if(inc2 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        callback = push_both_new(NULL, NULL, parser, inc1, inc2);   \
+        all_args[0] = inc1;                                         \
+        all_args[1] = inc2;                                         \
+        callback = push_all_new(NULL, NULL, parser, 2, all_args);   \
         fail_if(callback == NULL,                                   \
-                "Could not allocate a new both callback");          \
+                "Could not allocate a new all callback");           \
                                                                     \
         push_parser_set_callback(parser, callback);                 \
                                                                     \
         fail_unless(push_parser_activate                            \
                     (parser,                                        \
-                     &BOTH_DATA_##test_name) == PUSH_SUCCESS,       \
+                     &ALL_DATA_##test_name) == PUSH_SUCCESS,        \
                     "Could not activate");                          \
                                                                     \
         fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,        \
@@ -339,12 +342,12 @@ int_tuple_eq(push_tuple_t *tuple1, push_tuple_t *tuple2)
         result = push_parser_result(parser, push_tuple_t);          \
                                                                     \
         fail_unless(int_tuple_eq                                    \
-                    (result, &BOTH_EXPECTED_##test_name),           \
+                    (result, &ALL_EXPECTED_##test_name),            \
                     "Value doesn't match (got (%d,%d)"              \
                     ", expected (%d,%d))",                          \
                     INT_NTH(result, 0), INT_NTH(result, 1),         \
-                    INT_NTH(&BOTH_EXPECTED_##test_name, 0),         \
-                    INT_NTH(&BOTH_EXPECTED_##test_name, 1));        \
+                    INT_NTH(&ALL_EXPECTED_##test_name, 0),          \
+                    INT_NTH(&ALL_EXPECTED_##test_name, 1));         \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \
@@ -399,12 +402,12 @@ push_tuple_t  PAR_DATA_02 =
 push_tuple_t  PAR_EXPECTED_02 =
     PUSH_TUPLE_INIT(2, &INT_2, &INT_2);
 
-int  BOTH_DATA_01 = 0;
-push_tuple_t  BOTH_EXPECTED_01 =
+int  ALL_DATA_01 = 0;
+push_tuple_t  ALL_EXPECTED_01 =
     PUSH_TUPLE_INIT(2, &INT_1, &INT_1);
 
-int  BOTH_DATA_02 = 1;
-push_tuple_t  BOTH_EXPECTED_02 =
+int  ALL_DATA_02 = 1;
+push_tuple_t  ALL_EXPECTED_02 =
     PUSH_TUPLE_INIT(2, &INT_2, &INT_2);
 
 
@@ -424,8 +427,8 @@ THIRD_TEST(02)
 PAR_TEST(01)
 PAR_TEST(02)
 
-BOTH_TEST(01)
-BOTH_TEST(02)
+ALL_TEST(01)
+ALL_TEST(02)
 
 
 /*-----------------------------------------------------------------------
@@ -446,8 +449,8 @@ test_suite()
     tcase_add_test(tc, test_third_02);
     tcase_add_test(tc, test_par_01);
     tcase_add_test(tc, test_par_02);
-    tcase_add_test(tc, test_both_01);
-    tcase_add_test(tc, test_both_02);
+    tcase_add_test(tc, test_all_01);
+    tcase_add_test(tc, test_all_02);
     suite_add_tcase(s, tc);
 
     return s;

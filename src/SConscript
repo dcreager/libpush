@@ -21,7 +21,7 @@ libpush_files = map(File, \
      "parser.c",
      "skip.c",
      "talloc.c",
-     "tuples/both.c",
+     "tuples/all.c",
      "tuples/nth.c",
      "tuples/par.c",
      "tuples/tuple.c",

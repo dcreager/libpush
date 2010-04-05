@@ -135,20 +135,21 @@ push_par_new(const char *name,
 
 
 /**
- * Create a new callback that takes a value as input, and applies two
- * callback to the value.  The results of the two callbacks are placed
- * into a pair, which is the result of the outer callback.
+ * Create a new callback that takes a value as input, and applies a
+ * number of different callbacks to the value.  The results of the
+ * callbacks are placed into a tuple, which is the result of the outer
+ * callback.
  *
- * This combinator is equivalent to the Haskell
- * <code>&amp;&amp;&amp;</code> arrow operator.
+ * When called with two callbacks, this combinator is equivalent to
+ * the Haskell <code>&amp;&amp;&amp;</code> arrow operator.
  */
 
 push_callback_t *
-push_both_new(const char *name,
-              void *parent,
-              push_parser_t *parser,
-              push_callback_t *first,
-              push_callback_t *second);
+push_all_new(const char *name,
+             void *parent,
+             push_parser_t *parser,
+             size_t tuple_size,
+             push_callback_t **callbacks);
 
 
 #endif  /* PUSH_PAIRS_H */
