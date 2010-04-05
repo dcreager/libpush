@@ -13,8 +13,8 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
-#include <push/pairs.h>
 #include <push/talloc.h>
+#include <push/tuples.h>
 
 
 /**
@@ -215,18 +215,32 @@ dynamic_max_bytes_activate(void *user_data,
                            size_t bytes_remaining)
 {
     max_bytes_t  *max_bytes = (max_bytes_t *) user_data;
+    push_tuple_t  *tuple;
+    size_t  *maximum_bytes;
 
     /*
      * Extract the threshold from the input pair, and pass off to the
      * regular activation function.
      */
 
-    push_pair_t  *pair = (push_pair_t *) result;
-    size_t  *maximum_bytes = (size_t *) pair->first;
+    tuple = (push_tuple_t *) result;
+    if (tuple->size != 2)
+    {
+        PUSH_DEBUG_MSG("%s: Input isn't a pair (actual size = %zu).\n",
+                       push_talloc_get_name(max_bytes),
+                       tuple->size);
+
+        push_continuation_call(max_bytes->callback.error,
+                               PUSH_MEMORY_ERROR,
+                               "Input isn't a pair");
+        return;
+    }
+
+    maximum_bytes = (size_t *) tuple->elements[0];
 
     max_bytes->maximum_bytes = *maximum_bytes;
 
-    max_bytes_activate(user_data, pair->second,
+    max_bytes_activate(user_data, tuple->elements[1],
                        buf, bytes_remaining);
 }
 

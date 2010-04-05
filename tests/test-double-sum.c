@@ -18,8 +18,8 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
-#include <push/pairs.h>
 #include <push/talloc.h>
+#include <push/tuples.h>
 
 #include <test-callbacks.h>
 
@@ -50,7 +50,7 @@ make_double_sum_callback(push_parser_t *parser)
     sum2 = sum_callback_new
         ("sum2", context, parser);
     par = push_par_new
-        ("par", context, parser, sum1, sum2);
+        ("par", context, parser, 2, sum1, sum2);
     fold = push_fold_new
         ("fold", context, parser, par);
 
@@ -68,7 +68,8 @@ make_double_sum_callback(push_parser_t *parser)
  */
 
 uint32_t  INT_0 = 0;
-push_pair_t  PAIR_0 = { &INT_0, &INT_0 };
+push_tuple_t  TUPLE_0 =
+    PUSH_TUPLE_INIT(2, &INT_0, &INT_0);
 
 const uint32_t  DATA_01[] = { 1, 2, 3, 4, 5, 6 };
 const size_t  LENGTH_01 = 6 * sizeof(uint32_t);
@@ -83,7 +84,7 @@ START_TEST(test_double_sum_01)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    push_pair_t  *result;
+    push_tuple_t  *result;
     uint32_t  *sum1;
     uint32_t  *sum2;
 
@@ -99,7 +100,7 @@ START_TEST(test_double_sum_01)
 
     push_parser_set_callback(parser, callback);
 
-    fail_unless(push_parser_activate(parser, &PAIR_0)
+    fail_unless(push_parser_activate(parser, &TUPLE_0)
                 == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
@@ -110,9 +111,9 @@ START_TEST(test_double_sum_01)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = push_parser_result(parser, push_pair_t);
-    sum1 = (uint32_t *) result->first;
-    sum2 = (uint32_t *) result->second;
+    result = push_parser_result(parser, push_tuple_t);
+    sum1 = (uint32_t *) result->elements[0];
+    sum2 = (uint32_t *) result->elements[1];
 
     fail_unless(*sum1 == 9,
                 "Even sum doesn't match (got %"PRIu32
@@ -133,7 +134,7 @@ START_TEST(test_double_sum_02)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    push_pair_t  *result;
+    push_tuple_t  *result;
     uint32_t  *sum1;
     uint32_t  *sum2;
 
@@ -153,7 +154,7 @@ START_TEST(test_double_sum_02)
 
     push_parser_set_callback(parser, callback);
 
-    fail_unless(push_parser_activate(parser, &PAIR_0)
+    fail_unless(push_parser_activate(parser, &TUPLE_0)
                 == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
@@ -168,9 +169,9 @@ START_TEST(test_double_sum_02)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = push_parser_result(parser, push_pair_t);
-    sum1 = (uint32_t *) result->first;
-    sum2 = (uint32_t *) result->second;
+    result = push_parser_result(parser, push_tuple_t);
+    sum1 = (uint32_t *) result->elements[0];
+    sum2 = (uint32_t *) result->elements[1];
 
     fail_unless(*sum1 == 18,
                 "Even sum doesn't match (got %"PRIu32
@@ -191,7 +192,7 @@ START_TEST(test_double_sum_03)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    push_pair_t  *result;
+    push_tuple_t  *result;
     uint32_t  *sum1;
     uint32_t  *sum2;
 
@@ -213,7 +214,7 @@ START_TEST(test_double_sum_03)
 
     push_parser_set_callback(parser, callback);
 
-    fail_unless(push_parser_activate(parser, &PAIR_0)
+    fail_unless(push_parser_activate(parser, &TUPLE_0)
                 == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
@@ -224,9 +225,9 @@ START_TEST(test_double_sum_03)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = push_parser_result(parser, push_pair_t);
-    sum1 = (uint32_t *) result->first;
-    sum2 = (uint32_t *) result->second;
+    result = push_parser_result(parser, push_tuple_t);
+    sum1 = (uint32_t *) result->elements[0];
+    sum2 = (uint32_t *) result->elements[1];
 
     fail_unless(*sum1 == 9,
                 "Even sum doesn't match (got %"PRIu32
@@ -247,7 +248,7 @@ START_TEST(test_misaligned_data)
 {
     push_parser_t  *parser;
     push_callback_t  *callback;
-    push_pair_t  *result;
+    push_tuple_t  *result;
     uint32_t  *sum1;
     uint32_t  *sum2;
     size_t  FIRST_CHUNK_SIZE = 7; /* something not divisible by 4 */
@@ -270,7 +271,7 @@ START_TEST(test_misaligned_data)
 
     push_parser_set_callback(parser, callback);
 
-    fail_unless(push_parser_activate(parser, &PAIR_0)
+    fail_unless(push_parser_activate(parser, &TUPLE_0)
                 == PUSH_INCOMPLETE,
                 "Could not activate parser");
 
@@ -287,9 +288,9 @@ START_TEST(test_misaligned_data)
     fail_unless(push_parser_eof(parser) == PUSH_SUCCESS,
                 "Shouldn't get parse error at EOF");
 
-    result = push_parser_result(parser, push_pair_t);
-    sum1 = (uint32_t *) result->first;
-    sum2 = (uint32_t *) result->second;
+    result = push_parser_result(parser, push_tuple_t);
+    sum1 = (uint32_t *) result->elements[0];
+    sum2 = (uint32_t *) result->elements[1];
 
     fail_unless(*sum1 == 9,
                 "Even sum doesn't match (got %"PRIu32

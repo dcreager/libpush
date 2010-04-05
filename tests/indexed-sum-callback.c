@@ -13,10 +13,10 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
-#include <push/pairs.h>
 #include <push/pure.h>
 #include <push/primitives.h>
 #include <push/talloc.h>
+#include <push/tuples.h>
 #include <test-callbacks.h>
 
 
@@ -38,13 +38,13 @@ typedef struct _inner_sum
 
 static bool
 inner_sum_func(uint32_t *num_sums,
-               push_pair_t *input,
+               push_tuple_t *input,
                uint32_t **output)
 {
-    push_pair_t  *input_ints = (push_pair_t *) input->first;
-    uint32_t  *input_index = (uint32_t *) input_ints->first;
-    uint32_t  *input_int = (uint32_t *) input_ints->second;
-    uint32_t  *input_sums = (uint32_t *) input->second;
+    push_tuple_t  *input_ints = (push_tuple_t *) input->elements[0];
+    uint32_t  *input_index = (uint32_t *) input_ints->elements[0];
+    uint32_t  *input_int = (uint32_t *) input_ints->elements[1];
+    uint32_t  *input_sums = (uint32_t *) input->elements[1];
 
     PUSH_DEBUG_MSG("inner-sum: Activating callback.  "
                    "Received value %"PRIu32" for index "
@@ -75,7 +75,7 @@ inner_sum_func(uint32_t *num_sums,
 
 push_define_pure_data_callback(inner_sum_new, inner_sum_func,
                                "inner-sum",
-                               push_pair_t, uint32_t, uint32_t);
+                               push_tuple_t, uint32_t, uint32_t);
 
 
 static push_callback_t *
@@ -106,7 +106,7 @@ indexed_sum_callback_new(const char *name,
     push_callback_t  *dup;
     push_callback_t  *integer;
     push_callback_t  *index;
-    push_callback_t  *both;
+    push_callback_t  *all;
     push_callback_t  *first;
     push_callback_t  *inner_sum;
     push_callback_t  *compose1;
@@ -127,19 +127,19 @@ indexed_sum_callback_new(const char *name,
 
     dup = push_dup_new
         (push_talloc_asprintf(context, "%s.dup", name),
-         context, parser);
+         context, parser, 2);
     index = integer_callback_new
         (push_talloc_asprintf(context, "%s.index", name),
          context, parser);
     integer = integer_callback_new
         (push_talloc_asprintf(context, "%s.integer", name),
          context, parser);
-    both = push_both_new
-        (push_talloc_asprintf(context, "%s.both", name),
-         context, parser, index, integer);
+    all = push_all_new
+        (push_talloc_asprintf(context, "%s.all", name),
+         context, parser, 2, index, integer);
     first = push_first_new
         (push_talloc_asprintf(context, "%s.first", name),
-         context, parser, both);
+         context, parser, all);
     inner_sum = inner_sum_callback_new
         (push_talloc_asprintf(context, "%s.inner", name),
          context,

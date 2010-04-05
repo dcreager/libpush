@@ -10,9 +10,9 @@
 
 #include <push/basics.h>
 #include <push/combinators.h>
-#include <push/pairs.h>
 #include <push/primitives.h>
 #include <push/talloc.h>
+#include <push/tuples.h>
 
 #include <push/protobuf/primitives.h>
 
@@ -53,7 +53,7 @@ push_protobuf_varint_prefixed_new(const char *name,
 
     dup = push_dup_new
         (push_talloc_asprintf(context, "%s.dup", name),
-         context, parser);
+         context, parser, 2);
     size = push_protobuf_read_varint_size_new
         (push_talloc_asprintf(context, "%s.size", name),
          context, parser);
