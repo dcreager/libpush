@@ -44,43 +44,110 @@
 
 size_t  DATA_01 = 0;
 size_t  LENGTH_01 = 1;
-uint8_t  EXPECTED_01[] = "\x00\x00\x00\x00\x00";
+uint8_t  EXPECTED_01[] =
+    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
 
 size_t  DATA_02 = 1;
 size_t  LENGTH_02 = 1;
-uint8_t  EXPECTED_02[] = "\x01\x00\x00\x00\x00";
+uint8_t  EXPECTED_02[] =
+    "\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00";
 
 size_t  DATA_03 = 300;
 size_t  LENGTH_03 = 2;
-uint8_t  EXPECTED_03[] = "\xac\x02\x00\x00\x00";
+uint8_t  EXPECTED_03[] =
+    "\xac\x02\x00\x00\x00\x00\x00\x00\x00\x00";
 
 /* 5,000,000,000 truncated to 32 bits */
 size_t  DATA_04 = SIZE_C(705032704, 5000000000);
 size_t  LENGTH_04 = 5;
-uint8_t  EXPECTED_04[] = "\x80\xe4\x97\xd0\x02";
+
+#if SIZE_MAX == UINT32_MAX
+uint8_t  EXPECTED_04[] =
+    "\x80\xe4\x97\xd0\x02\x00\x00\x00\x00\x00";
+#else
+uint8_t  EXPECTED_04[] =
+    "\x80\xe4\x97\xd0\x12\x00\x00\x00\x00\x00";
+#endif
 
 size_t  DATA_05 = -500;
 size_t  LENGTH_05 = 5;
+
+#if SIZE_MAX == UINT32_MAX
 uint8_t  EXPECTED_05[] =
-    "\x8c\xfc\xff\xff\x0f";
+    "\x8c\xfc\xff\xff\x0f\x00\x00\x00\x00\x00";
+#else
+uint8_t  EXPECTED_05[] =
+    "\x8c\xfc\xff\xff\xff\xff\xff\xff\xff\x01";
+#endif
 
 /* -5,000,000,000 truncated to 32 bits */
 size_t  DATA_06 = SIZE_C(-705032704, -5000000000);
 size_t  LENGTH_06 = 5;
+
+#if SIZE_MAX == UINT32_MAX
 uint8_t  EXPECTED_06[] =
-    "\x80\x9c\xe8\xaf\x0d";
+    "\x80\x9c\xe8\xaf\x0d\x00\x00\x00\x00\x00";
+#else
+uint8_t  EXPECTED_06[] =
+    "\x80\x9c\xe8\xaf\xed\xff\xff\xff\xff\x01";
+#endif
 
 
 /*-----------------------------------------------------------------------
  * Helper functions
  */
 
+#if SIZE_MAX == UINT32_MAX
+
+#define PR_BUF                                  \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8""
+
+#define VAL_BUF(buf)                            \
+    buf[0],                                     \
+    buf[1],                                     \
+    buf[2],                                     \
+    buf[3],                                     \
+    buf[4]
+
+#else
+
+#define PR_BUF                                  \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8""
+
+#define VAL_BUF(buf)                            \
+    buf[0],                                     \
+    buf[1],                                     \
+    buf[2],                                     \
+    buf[3],                                     \
+    buf[4],                                     \
+    buf[5],                                     \
+    buf[6],                                     \
+    buf[7],                                     \
+    buf[8],                                     \
+    buf[9]
+
+#endif
+
+
 #define WRITE_TEST(test_name)                                       \
     START_TEST(test_write_##test_name)                              \
     {                                                               \
         push_parser_t  *parser;                                     \
         push_callback_t  *callback;                                 \
-        uint8_t  output[PUSH_PROTOBUF_MAX_VARINT32_LENGTH];         \
+        uint8_t  output[PUSH_PROTOBUF_MAX_VARINT_LENGTH];           \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
                        "test_write_"                                \
@@ -102,38 +169,23 @@ uint8_t  EXPECTED_06[] =
                     == PUSH_INCOMPLETE,                             \
                     "Could not activate parser");                   \
                                                                     \
-        memset(output, 0, PUSH_PROTOBUF_MAX_VARINT32_LENGTH);       \
+        memset(output, 0, PUSH_PROTOBUF_MAX_VARINT_LENGTH);         \
                                                                     \
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
-                     output, PUSH_PROTOBUF_MAX_VARINT32_LENGTH)     \
+                     output, PUSH_PROTOBUF_MAX_VARINT_LENGTH)       \
                     == PUSH_SUCCESS,                                \
                     "Could not serialize data");                    \
                                                                     \
         fail_unless(memcmp(output, EXPECTED_##test_name,            \
-                           PUSH_PROTOBUF_MAX_VARINT32_LENGTH) == 0, \
+                           PUSH_PROTOBUF_MAX_VARINT_LENGTH) == 0,   \
                     "Value doesn't match (got "                     \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8""                                    \
+                    PR_BUF                                          \
                     ", expected "                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8").",                                 \
-                    output[0],                                      \
-                    output[1],                                      \
-                    output[2],                                      \
-                    output[3],                                      \
-                    output[4],                                      \
-                    EXPECTED_##test_name[0],                        \
-                    EXPECTED_##test_name[1],                        \
-                    EXPECTED_##test_name[2],                        \
-                    EXPECTED_##test_name[3],                        \
-                    EXPECTED_##test_name[4]);                       \
+                    PR_BUF                                          \
+                    ").",                                           \
+                    VAL_BUF(output),                                \
+                    VAL_BUF(EXPECTED_##test_name));                 \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \
@@ -151,7 +203,7 @@ uint8_t  EXPECTED_06[] =
     {                                                               \
         push_parser_t  *parser;                                     \
         push_callback_t  *callback;                                 \
-        uint8_t  output[PUSH_PROTOBUF_MAX_VARINT32_LENGTH];         \
+        uint8_t  output[PUSH_PROTOBUF_MAX_VARINT_LENGTH];           \
         size_t  first_chunk_size;                                   \
                                                                     \
         PUSH_DEBUG_MSG("---\nStarting test case "                   \
@@ -174,7 +226,7 @@ uint8_t  EXPECTED_06[] =
                     == PUSH_INCOMPLETE,                             \
                     "Could not activate parser");                   \
                                                                     \
-        memset(output, 0, PUSH_PROTOBUF_MAX_VARINT32_LENGTH);       \
+        memset(output, 0, PUSH_PROTOBUF_MAX_VARINT_LENGTH);         \
                                                                     \
         first_chunk_size = LENGTH_##test_name / 2;                  \
                                                                     \
@@ -186,35 +238,25 @@ uint8_t  EXPECTED_06[] =
         fail_unless(push_parser_submit_data                         \
                     (parser,                                        \
                      output + first_chunk_size,                     \
-                     PUSH_PROTOBUF_MAX_VARINT32_LENGTH -            \
+                     PUSH_PROTOBUF_MAX_VARINT_LENGTH -              \
                      first_chunk_size)                              \
                     == PUSH_SUCCESS,                                \
                     "Could not parse data");                        \
                                                                     \
         fail_unless(memcmp(output, EXPECTED_##test_name,            \
-                           PUSH_PROTOBUF_MAX_VARINT32_LENGTH) == 0, \
+                           PUSH_PROTOBUF_MAX_VARINT_LENGTH) == 0,   \
                     "Value doesn't match (got "                     \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8""                                    \
+                    PR_BUF                                          \
                     ", expected "                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8").",                                 \
+                    PR_BUF                                          \
+                    ").",                                           \
                     output[0],                                      \
                     output[1],                                      \
                     output[2],                                      \
                     output[3],                                      \
                     output[4],                                      \
-                    EXPECTED_##test_name[0],                        \
-                    EXPECTED_##test_name[1],                        \
-                    EXPECTED_##test_name[2],                        \
-                    EXPECTED_##test_name[3],                        \
-                    EXPECTED_##test_name[4]);                       \
+                    VAL_BUF(output),                                \
+                    VAL_BUF(EXPECTED_##test_name));                 \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \

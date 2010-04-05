@@ -57,6 +57,30 @@ uint8_t  EXPECTED_06[] =
  * Helper functions
  */
 
+#define PR_BUF                                  \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8":"                               \
+    "%02"PRIx8""
+
+#define VAL_BUF(buf)                            \
+    buf[0],                                     \
+    buf[1],                                     \
+    buf[2],                                     \
+    buf[3],                                     \
+    buf[4],                                     \
+    buf[5],                                     \
+    buf[6],                                     \
+    buf[7],                                     \
+    buf[8],                                     \
+    buf[9]
+
 #define WRITE_TEST(test_name)                                       \
     START_TEST(test_write_##test_name)                              \
     {                                                               \
@@ -95,47 +119,12 @@ uint8_t  EXPECTED_06[] =
         fail_unless(memcmp(output, EXPECTED_##test_name,            \
                            PUSH_PROTOBUF_MAX_VARINT_LENGTH) == 0,   \
                     "Value doesn't match (got "                     \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8""                                    \
+                    PR_BUF                                          \
                     ", expected "                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8").",                                 \
-                    output[0],                                      \
-                    output[1],                                      \
-                    output[2],                                      \
-                    output[3],                                      \
-                    output[4],                                      \
-                    output[5],                                      \
-                    output[6],                                      \
-                    output[7],                                      \
-                    output[8],                                      \
-                    output[9],                                      \
-                    EXPECTED_##test_name[0],                        \
-                    EXPECTED_##test_name[1],                        \
-                    EXPECTED_##test_name[2],                        \
-                    EXPECTED_##test_name[3],                        \
-                    EXPECTED_##test_name[4],                        \
-                    EXPECTED_##test_name[5],                        \
-                    EXPECTED_##test_name[6],                        \
-                    EXPECTED_##test_name[7],                        \
-                    EXPECTED_##test_name[8],                        \
-                    EXPECTED_##test_name[9]);                       \
+                    PR_BUF                                          \
+                    ").",                                           \
+                    VAL_BUF(output),                                \
+                    VAL_BUF(EXPECTED_##test_name));                 \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \
@@ -196,47 +185,12 @@ uint8_t  EXPECTED_06[] =
         fail_unless(memcmp(output, EXPECTED_##test_name,            \
                            PUSH_PROTOBUF_MAX_VARINT_LENGTH) == 0,   \
                     "Value doesn't match (got "                     \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8""                                    \
+                    PR_BUF                                          \
                     ", expected "                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8":"                                   \
-                    "%02"PRIx8").",                                 \
-                    output[0],                                      \
-                    output[1],                                      \
-                    output[2],                                      \
-                    output[3],                                      \
-                    output[4],                                      \
-                    output[5],                                      \
-                    output[6],                                      \
-                    output[7],                                      \
-                    output[8],                                      \
-                    output[9],                                      \
-                    EXPECTED_##test_name[0],                        \
-                    EXPECTED_##test_name[1],                        \
-                    EXPECTED_##test_name[2],                        \
-                    EXPECTED_##test_name[3],                        \
-                    EXPECTED_##test_name[4],                        \
-                    EXPECTED_##test_name[5],                        \
-                    EXPECTED_##test_name[6],                        \
-                    EXPECTED_##test_name[7],                        \
-                    EXPECTED_##test_name[8],                        \
-                    EXPECTED_##test_name[9]);                       \
+                    PR_BUF                                          \
+                    ").",                                           \
+                    VAL_BUF(output),                                \
+                    VAL_BUF(EXPECTED_##test_name));                 \
                                                                     \
         push_parser_free(parser);                                   \
     }                                                               \
