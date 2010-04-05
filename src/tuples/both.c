@@ -66,6 +66,7 @@ push_both_new(const char *name,
 {
     void  *context;
     push_callback_t  *dup;
+    push_callback_t  *par_args[2];
     push_callback_t  *par;
     push_callback_t  *callback;
 
@@ -92,9 +93,11 @@ push_both_new(const char *name,
     dup = push_dup_new
         (push_talloc_asprintf(context, "%s.dup", name),
          context, parser, 2);
+    par_args[0] = a;
+    par_args[1] = b;
     par = push_par_new
         (push_talloc_asprintf(context, "%s.par", name),
-         context, parser, a, b);
+         context, parser, 2, par_args);
     callback = push_compose_new
         (push_talloc_asprintf(context, "%s.compose", name),
          context, parser, dup, par);

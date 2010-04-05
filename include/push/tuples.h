@@ -119,20 +119,19 @@ push_dup_new(const char *name,
 
 
 /**
- * Create a new callback that takes a pair as input, and applies one
- * callback to the first element of the pair, and a different callback
- * to the second element.
+ * Create a new callback that takes a tuple as input, and applies a
+ * different callback to the each element of the tuple.
  *
- * This combinator is equivalent to the Haskell <code>***</code> arrow
- * operator.
+ * When applied to a 2-tuple, this combinator is equivalent to the
+ * Haskell <code>***</code> arrow operator.
  */
 
 push_callback_t *
 push_par_new(const char *name,
              void *parent,
              push_parser_t *parser,
-             push_callback_t *first,
-             push_callback_t *second);
+             size_t tuple_size,
+             push_callback_t **callbacks);
 
 
 /**

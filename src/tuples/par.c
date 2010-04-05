@@ -18,27 +18,22 @@ push_callback_t *
 push_par_new(const char *name,
              void *parent,
              push_parser_t *parser,
-             push_callback_t *a,
-             push_callback_t *b)
+             size_t tuple_size,
+             push_callback_t **callbacks)
 {
     /*
      * For now, we just implement this using the definition from
      * Hughes's paper:
      *
      *   a *** b = first a >>> second b
+     *
+     * When there are more than two callbacks, we add additional calls
+     * to nth to the end of the composition chain.
      */
 
+    size_t  i;
     void  *context;
-    push_callback_t  *first;
-    push_callback_t  *second;
     push_callback_t  *callback;
-
-    /*
-     * If either wrapped callback is NULL, return NULL ourselves.
-     */
-
-    if ((a == NULL) || (b == NULL))
-        return NULL;
 
     /*
      * Create a memory context for the objects we're about to create.
@@ -48,20 +43,34 @@ push_par_new(const char *name,
     if (context == NULL) return NULL;
 
     /*
-     * Create the callbacks.
+     * Create the callbacks.  We start with “first a”; then we
+     * repeatedly compose in “second b”, “third c”, etc., until we've
+     * exhausted all of the callbacks.  If any of the wrapped
+     * callbacks is NULL, we return NULL ourselves.
      */
 
     if (name == NULL) name = "par";
 
-    first = push_first_new
-        (push_talloc_asprintf(context, "%s.first", name),
-         context, parser, a);
-    second = push_second_new
-        (push_talloc_asprintf(context, "%s.second", name),
-         context, parser, b);
-    callback = push_compose_new
-        (push_talloc_asprintf(context, "%s.compose", name),
-         context, parser, first, second);
+    if (callbacks[0] == NULL) goto error;
+
+    callback = push_nth_new
+        (push_talloc_asprintf(context, "%s.0", name),
+         context, parser, callbacks[0], 0, tuple_size);
+
+    for (i = 1; i < tuple_size; i++)
+    {
+        push_callback_t  *nth;
+
+        if (callbacks[i] == NULL) goto error;
+
+        nth = push_nth_new
+            (push_talloc_asprintf(context, "%s.%zu", name, i),
+             context, parser, callbacks[i], i, tuple_size);
+
+        callback = push_compose_new
+            (push_talloc_asprintf(context, "%s.compose%zu", name, i),
+             context, parser, callback, nth);
+    }
 
     /*
      * Because of NULL propagation, we only have to check the last
