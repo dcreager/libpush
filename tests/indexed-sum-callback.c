@@ -106,7 +106,6 @@ indexed_sum_callback_new(const char *name,
     push_callback_t  *dup;
     push_callback_t  *integer;
     push_callback_t  *index;
-    push_callback_t  *all_args[2];
     push_callback_t  *all;
     push_callback_t  *first;
     push_callback_t  *inner_sum;
@@ -135,11 +134,9 @@ indexed_sum_callback_new(const char *name,
     integer = integer_callback_new
         (push_talloc_asprintf(context, "%s.integer", name),
          context, parser);
-    all_args[0] = index;
-    all_args[1] = integer;
     all = push_all_new
         (push_talloc_asprintf(context, "%s.all", name),
-         context, parser, 2, all_args);
+         context, parser, 2, index, integer);
     first = push_first_new
         (push_talloc_asprintf(context, "%s.first", name),
          context, parser, all);

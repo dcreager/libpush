@@ -244,7 +244,6 @@ int_tuple_eq(push_tuple_t *tuple1, push_tuple_t *tuple2)
         push_parser_t  *parser;                                     \
         push_callback_t  *inc1;                                     \
         push_callback_t  *inc2;                                     \
-        push_callback_t  *par_args[2];                              \
         push_callback_t  *callback;                                 \
         push_tuple_t  *result;                                      \
                                                                     \
@@ -265,9 +264,7 @@ int_tuple_eq(push_tuple_t *tuple1, push_tuple_t *tuple2)
         fail_if(inc2 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        par_args[0] = inc1;                                         \
-        par_args[1] = inc2;                                         \
-        callback = push_par_new(NULL, NULL, parser, 2, par_args);   \
+        callback = push_par_new(NULL, NULL, parser, 2, inc1, inc2); \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new par callback");           \
                                                                     \
@@ -302,7 +299,6 @@ int_tuple_eq(push_tuple_t *tuple1, push_tuple_t *tuple2)
         push_parser_t  *parser;                                     \
         push_callback_t  *inc1;                                     \
         push_callback_t  *inc2;                                     \
-        push_callback_t  *all_args[2];                              \
         push_callback_t  *callback;                                 \
         push_tuple_t  *result;                                      \
                                                                     \
@@ -323,9 +319,7 @@ int_tuple_eq(push_tuple_t *tuple1, push_tuple_t *tuple2)
         fail_if(inc2 == NULL,                                       \
                 "Could not allocate a new increment callback");     \
                                                                     \
-        all_args[0] = inc1;                                         \
-        all_args[1] = inc2;                                         \
-        callback = push_all_new(NULL, NULL, parser, 2, all_args);   \
+        callback = push_all_new(NULL, NULL, parser, 2, inc1, inc2); \
         fail_if(callback == NULL,                                   \
                 "Could not allocate a new all callback");           \
                                                                     \

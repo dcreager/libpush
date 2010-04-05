@@ -347,7 +347,6 @@ START_TEST(test_max_02)
     push_callback_t  *sum2;
     push_callback_t  *max1;
     push_callback_t  *max2;
-    push_callback_t  *all_args[2];
     push_callback_t  *callback;
     push_tuple_t  *tuple;
     uint32_t  *result1;
@@ -381,9 +380,7 @@ START_TEST(test_max_02)
     fail_if(max2 == NULL,
             "Could not allocate a new max-bytes callback");
 
-    all_args[0] = max1;
-    all_args[1] = max2;
-    callback = push_all_new("all", NULL, parser, 2, all_args);
+    callback = push_all_new("all", NULL, parser, 2, max1, max2);
     fail_if(callback == NULL,
             "Could not allocate a new all callback");
 
@@ -644,7 +641,6 @@ START_TEST(test_dynamic_max_02)
     push_callback_t  *sum2;
     push_callback_t  *max1;
     push_callback_t  *max2;
-    push_callback_t  *all_args[2];
     push_callback_t  *callback;
     push_tuple_t  *tuple;
     uint32_t  *result1;
@@ -678,9 +674,7 @@ START_TEST(test_dynamic_max_02)
     fail_if(max2 == NULL,
             "Could not allocate a new max-bytes callback");
 
-    all_args[0] = max1;
-    all_args[1] = max2;
-    callback = push_all_new("all", NULL, parser, 2, all_args);
+    callback = push_all_new("all", NULL, parser, 2, max1, max2);
     fail_if(callback == NULL,
             "Could not allocate a new all callback");
 

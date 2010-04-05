@@ -39,7 +39,6 @@ make_double_sum_callback(push_parser_t *parser)
     void  *context;
     push_callback_t  *sum1;
     push_callback_t  *sum2;
-    push_callback_t  *par_args[2];
     push_callback_t  *par;
     push_callback_t  *fold;
 
@@ -50,10 +49,8 @@ make_double_sum_callback(push_parser_t *parser)
         ("sum1", context, parser);
     sum2 = sum_callback_new
         ("sum2", context, parser);
-    par_args[0] = sum1;
-    par_args[1] = sum2;
     par = push_par_new
-        ("par", context, parser, 2, par_args);
+        ("par", context, parser, 2, sum1, sum2);
     fold = push_fold_new
         ("fold", context, parser, par);
 

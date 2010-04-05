@@ -8,6 +8,8 @@
  * ----------------------------------------------------------------------
  */
 
+#include <stdarg.h>
+
 #include <push/basics.h>
 #include <push/combinators.h>
 #include <push/pure.h>
@@ -58,11 +60,11 @@ push_dup_new(const char *name,
  */
 
 push_callback_t *
-push_all_new(const char *name,
-             void *parent,
-             push_parser_t *parser,
-             size_t tuple_size,
-             push_callback_t **callbacks)
+push_all_anew(const char *name,
+              void *parent,
+              push_parser_t *parser,
+              size_t tuple_size,
+              push_callback_t **callbacks)
 {
     void  *context;
     push_callback_t  *dup;
@@ -85,7 +87,7 @@ push_all_new(const char *name,
     dup = push_dup_new
         (push_talloc_asprintf(context, "%s.dup", name),
          context, parser, tuple_size);
-    par = push_par_new
+    par = push_par_anew
         (push_talloc_asprintf(context, "%s.par", name),
          context, parser, tuple_size, callbacks);
     callback = push_compose_new
@@ -107,4 +109,76 @@ push_all_new(const char *name,
 
     push_talloc_free(context);
     return NULL;
+}
+
+
+push_callback_t *
+push_all_vnew(const char *name,
+              void *parent,
+              push_parser_t *parser,
+              size_t tuple_size,
+              va_list callbacks)
+{
+    void  *context;
+    push_callback_t  *dup;
+    push_callback_t  *par;
+    push_callback_t  *callback;
+
+    /*
+     * Create a memory context for the objects we're about to create.
+     */
+
+    context = push_talloc_new(parent);
+    if (context == NULL) return NULL;
+
+    /*
+     * Create the callbacks.
+     */
+
+    if (name == NULL) name = "both";
+
+    dup = push_dup_new
+        (push_talloc_asprintf(context, "%s.dup", name),
+         context, parser, tuple_size);
+    par = push_par_vnew
+        (push_talloc_asprintf(context, "%s.par", name),
+         context, parser, tuple_size, callbacks);
+    callback = push_compose_new
+        (push_talloc_asprintf(context, "%s.compose", name),
+         context, parser, dup, par);
+
+    /*
+     * Because of NULL propagation, we only have to check the last
+     * result to see if everything was created okay.
+     */
+
+    if (callback == NULL) goto error;
+    return callback;
+
+  error:
+    /*
+     * Before returning, free any objects we created before the error.
+     */
+
+    push_talloc_free(context);
+    return NULL;
+}
+
+
+push_callback_t *
+push_all_new(const char *name,
+             void *parent,
+             push_parser_t *parser,
+             size_t tuple_size,
+             ...)
+{
+    va_list  callbacks;
+    push_callback_t  *result;
+
+    va_start(callbacks, tuple_size);
+    result = push_all_vnew(name, parent, parser,
+                           tuple_size, callbacks);
+    va_end(callbacks);
+
+    return result;
 }
